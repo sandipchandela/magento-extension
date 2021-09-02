@@ -18,9 +18,9 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ShippingController
              ->_title(Mage::helper('M2ePro')->__('Shipping Policies'));
 
         $this->getLayout()->getBlock('head')
-            ->addJs('M2ePro/Template/EditHandler.js')
-            ->addJs('M2ePro/Amazon/Template/EditHandler.js')
-            ->addJs('M2ePro/Amazon/Template/ShippingHandler.js');
+            ->addJs('M2ePro/Template/Edit.js')
+            ->addJs('M2ePro/Amazon/Template/Edit.js')
+            ->addJs('M2ePro/Amazon/Template/Shipping.js');
 
         $this->_initPopUp();
 
@@ -81,31 +81,13 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ShippingController
 
         $id = $this->getRequest()->getParam('id');
 
-        // Base prepare
-        // ---------------------------------------
-        $data = array();
-
-        $keys = array(
-            'title',
-
-            'template_name_mode',
-            'template_name_value',
-            'template_name_attribute',
-        );
-
-        foreach ($keys as $key) {
-            if (isset($post[$key])) {
-                $data[$key] = $post[$key];
-            }
-        }
-
         $model = Mage::getModel('M2ePro/Amazon_Template_Shipping')->load($id);
 
         $snapshotBuilder = Mage::getModel('M2ePro/Amazon_Template_Shipping_SnapshotBuilder');
         $snapshotBuilder->setModel($model);
         $oldData = $snapshotBuilder->getSnapshot();
 
-        $model->addData($data)->save();
+        Mage::getModel('M2ePro/Amazon_Template_Shipping_Builder')->build($model, $post);
 
         $snapshotBuilder = Mage::getModel('M2ePro/Amazon_Template_Shipping_SnapshotBuilder');
         $snapshotBuilder->setModel($model);
@@ -123,7 +105,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ShippingController
             $diff, $affectedListingsProducts->getData(array('id', 'status'), array('only_physical_units' => true))
         );
 
-        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Policy was successfully saved'));
+        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Policy was saved'));
         $this->_redirectUrl(
             Mage::helper('M2ePro')->getBackUrl(
                 '*/adminhtml_amazon_template/index', array(), array(
@@ -158,7 +140,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ShippingController
             }
         }
 
-        $tempString = Mage::helper('M2ePro')->__('%amount% record(s) were successfully deleted.', $deleted);
+        $tempString = Mage::helper('M2ePro')->__('%amount% record(s) were deleted.', $deleted);
         $deleted && $this->_getSession()->addSuccess($tempString);
 
         $tempString  = Mage::helper('M2ePro')->__('%amount% record(s) are used in Listing(s).', $locked) . ' ';

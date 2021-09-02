@@ -27,12 +27,14 @@ $formData = array_merge($default, $formData);
 
 foreach (array('local', 'international') as $type) {
     $key = $type . '_shipping_rate_table';
-    foreach ($default[$key] as $id => $data) {
-        if (isset($formData[$key][$id])) {
-            continue;
-        }
+    if (isset($default[$key]) && is_array($default[$key])) {
+        foreach ($default[$key] as $id => $data) {
+            if (isset($formData[$key][$id])) {
+                continue;
+            }
 
-        $formData[$key][$id] = $data;
+            $formData[$key][$id] = $data;
+        }
     }
 }
 
@@ -84,7 +86,10 @@ $missingAttributes = $this->getMissingAttributes();
             'account_id' => $this->getAccountId()
         )),
         'adminhtml_ebay_template_shipping/getRateTableData' => $this->getUrl('*/adminhtml_ebay_template_shipping/getRateTableData'),
-        'adminhtml_ebay_account/edit' => $this->getUrl('*/adminhtml_ebay_account/edit', $this->getRequest()->getParam('wizard') ? array('wizard' => 1) : array()),
+        'adminhtml_ebay_account/edit' => $this->getUrl(
+            '*/adminhtml_ebay_account/edit',
+            $this->getRequest()->getParam('wizard') ? array('wizard' => 1, 'close_on_save' => true) : array()
+        ),
     )); ?>);
 </script>
 
@@ -97,20 +102,20 @@ $missingAttributes = $this->getMissingAttributes();
             M2ePro.formData.shippingMethods[i].locations = shipping.locations.evalJSON();
         });
 
-        AttributeHandlerObj = new AttributeHandler();
-        AttributeHandlerObj.attrData = '<?php echo $this->getAttributesJsHtml() ?>';
+        AttributeObj = new Attribute();
+        AttributeObj.attrData = '<?php echo $this->getAttributesJsHtml() ?>';
 
-        EbayTemplateShippingHandlerObj = new EbayTemplateShippingHandler();
+        EbayTemplateShippingObj = new EbayTemplateShipping();
 
-        if (typeof EbayTemplateShippingExcludedLocationsHandlerObj === 'undefined') {
-            EbayTemplateShippingExcludedLocationsHandlerObj = new EbayTemplateShippingExcludedLocationsHandler;
+        if (typeof EbayTemplateShippingExcludedLocationsObj === 'undefined') {
+            EbayTemplateShippingExcludedLocationsObj = new EbayTemplateShippingExcludedLocations;
         }
-        EbayTemplateShippingExcludedLocationsHandlerObj.clear();
+        EbayTemplateShippingExcludedLocationsObj.clear();
 
         var rateTablesIds =[];
         <?php if ($this->getAccountId() !== null): ?>
             <?php if ($isLocalRateTableEnabled): ?>
-                EbayTemplateShippingHandlerObj.renderRateTables({
+                EbayTemplateShippingObj.renderRateTables({
                     accountId: <?php echo $this->getAccountId(); ?>,
                     marketplaceId: <?php echo $this->getMarketplace()->getId(); ?>,
                     elementId: "local_shipping_rate_table_value_<?php echo $this->getAccountId();?>",
@@ -122,7 +127,7 @@ $missingAttributes = $this->getMissingAttributes();
             <?php endif;?>
 
             <?php if($isInternationalRateTableEnabled): ?>
-                EbayTemplateShippingHandlerObj.renderRateTables({
+                EbayTemplateShippingObj.renderRateTables({
                     accountId: <?php echo $this->getAccountId(); ?>,
                     marketplaceId: <?php echo $this->getMarketplace()->getId(); ?>,
                     elementId: "international_shipping_rate_table_value_<?php echo $this->getAccountId();?>",
@@ -137,7 +142,7 @@ $missingAttributes = $this->getMissingAttributes();
                 <?php foreach ($this->getAccounts() as $account) : ?>
 
                     <?php if ($isLocalRateTableEnabled): ?>
-                        EbayTemplateShippingHandlerObj.renderRateTables({
+                        EbayTemplateShippingObj.renderRateTables({
                             accountId: <?php echo $account->getId(); ?>,
                             marketplaceId: <?php echo $this->getMarketplace()->getId(); ?>,
                             elementId: "local_shipping_rate_table_value_<?php echo $account->getId();?>",
@@ -149,7 +154,7 @@ $missingAttributes = $this->getMissingAttributes();
                     <?php endif;?>
 
                     <?php if($isInternationalRateTableEnabled): ?>
-                        EbayTemplateShippingHandlerObj.renderRateTables({
+                        EbayTemplateShippingObj.renderRateTables({
                             accountId: <?php echo $account->getId(); ?>,
                             marketplaceId: <?php echo $this->getMarketplace()->getId(); ?>,
                             elementId: "international_shipping_rate_table_value_<?php echo $account->getId();?>",
@@ -163,83 +168,63 @@ $missingAttributes = $this->getMissingAttributes();
             <?php endif;?>
         <?php endif;?>
 
-        EbayTemplateShippingHandlerObj.counter = {
+        EbayTemplateShippingObj.counter = {
             local: 0,
             international: 0,
             total: 0
         };
 
-        EbayTemplateShippingHandlerObj.missingAttributes = <?php echo json_encode($missingAttributes); ?>;
-        EbayTemplateShippingHandlerObj.shippingServices = <?php echo json_encode($marketplaceData['services']) ?>;
-        EbayTemplateShippingHandlerObj.shippingLocations = <?php echo json_encode($marketplaceData['locations']) ?>;
-        EbayTemplateShippingHandlerObj.discountProfiles = <?php echo json_encode($this->getDiscountProfiles()) ?>;
-        EbayTemplateShippingHandlerObj.originCountry = "<?php echo $marketplaceData['origin_country']; ?>";
-
-        if (EbayTemplateShippingHandlerObj.isSimpleViewMode) {
-            $$('.local-shipping-tr').each(function(element) {
-                if (!element.hasClassName('local-shipping-always-visible-tr')) {
-                    element.hide();
-                }
-            });
-            $$('.international-shipping-tr').each(function(element) {
-                if (!element.hasClassName('international-shipping-always-visible-tr')) {
-                    element.hide();
-                }
-            });
-            EbayTemplateShippingHandlerObj.simple_mode_disallowed_hide();
-        }
+        EbayTemplateShippingObj.missingAttributes = <?php echo json_encode($missingAttributes); ?>;
+        EbayTemplateShippingObj.shippingServices = <?php echo json_encode($marketplaceData['services']) ?>;
+        EbayTemplateShippingObj.shippingLocations = <?php echo json_encode($marketplaceData['locations']) ?>;
+        EbayTemplateShippingObj.discountProfiles = <?php echo json_encode($this->getDiscountProfiles()) ?>;
+        EbayTemplateShippingObj.originCountry = "<?php echo $marketplaceData['origin_country']; ?>";
 
         $('country_mode')
-            .observe('change', EbayTemplateShippingHandlerObj.countryModeChange)
+            .observe('change', EbayTemplateShippingObj.countryModeChange)
             .simulate('change');
 
         $('postal_code_mode')
-            .observe('change', EbayTemplateShippingHandlerObj.postalCodeModeChange)
+            .observe('change', EbayTemplateShippingObj.postalCodeModeChange)
             .simulate('change');
 
         $('address_mode')
-            .observe('change', EbayTemplateShippingHandlerObj.addressModeChange)
+            .observe('change', EbayTemplateShippingObj.addressModeChange)
             .simulate('change');
 
         $('local_shipping_mode')
-            .observe('change', EbayTemplateShippingHandlerObj.localShippingModeChange)
+            .observe('change', EbayTemplateShippingObj.localShippingModeChange)
             .simulate('change');
 
-        EbayTemplateShippingHandlerObj.prepareMeasurementObservers('local');
+        EbayTemplateShippingObj.prepareMeasurementObservers('local');
 
         $('dispatch_time_mode')
-            .observe('change', EbayTemplateShippingHandlerObj.dispatchTimeChange)
+            .observe('change', EbayTemplateShippingObj.dispatchTimeChange)
             .simulate('change');
-
-        if ($('click_and_collect_mode')) {
-            $('click_and_collect_mode')
-                .observe('change', EbayTemplateShippingHandlerObj.clickAndCollectModeChange)
-                .simulate('change');
-        }
 
         if ($('cross_border_trade')) {
             $('cross_border_trade')
-                .observe('change', EbayTemplateShippingHandlerObj.crossBorderTradeChange)
+                .observe('change', EbayTemplateShippingObj.crossBorderTradeChange)
                 .simulate('change');
         }
 
         $('international_shipping_mode')
-            .observe('change', EbayTemplateShippingHandlerObj.internationalShippingModeChange)
+            .observe('change', EbayTemplateShippingObj.internationalShippingModeChange)
             .simulate('change');
 
         rateTablesIds.forEach(function(id) {
-            $(id).observe('change', EbayTemplateShippingHandlerObj.rateTableModeChange)
+            $(id).observe('change', EbayTemplateShippingObj.rateTableModeChange)
                  .simulate('change')
         });
 
         // Excluded locations
         // ---------------------------------------
-        EbayTemplateShippingExcludedLocationsHandlerObj.setSelectedLocations(<?php echo json_encode($formData['excluded_locations']); ?>);
+        EbayTemplateShippingExcludedLocationsObj.setSelectedLocations(<?php echo json_encode($formData['excluded_locations']); ?>);
 
         $$('.excluded_location_region_title_container').each(function(element){
             element
                 .observe(
-                    'click', EbayTemplateShippingExcludedLocationsHandlerObj.regionClick
+                    'click', EbayTemplateShippingExcludedLocationsObj.regionClick
                 )
                 .observe('mouseover', function(event) {
                     this.down('label').style.textDecoration = 'underline';
@@ -250,19 +235,19 @@ $missingAttributes = $this->getMissingAttributes();
         });
 
         $$('.excluded_location_region').each(function(element) {
-            element.observe('change', EbayTemplateShippingExcludedLocationsHandlerObj.regionOnchange);
+            element.observe('change', EbayTemplateShippingExcludedLocationsObj.regionOnchange);
         });
 
         $$('.excluded_location').each(function(element) {
-            element.observe('change', EbayTemplateShippingExcludedLocationsHandlerObj.countryOnchange);
+            element.observe('change', EbayTemplateShippingExcludedLocationsObj.countryOnchange);
         });
 
         // ---------------------------------------
 
-        EbayTemplateShippingHandlerObj.renderShippingMethods(M2ePro.formData.shippingMethods);
+        EbayTemplateShippingObj.renderShippingMethods(M2ePro.formData.shippingMethods);
 
-        EbayTemplateShippingHandlerObj.checkMessages('local');
-        EbayTemplateShippingHandlerObj.checkMessages('international');
+        EbayTemplateShippingObj.checkMessages('local');
+        EbayTemplateShippingObj.checkMessages('international');
     };
 
     <?php if ($this->getRequest()->isXmlHttpRequest()): ?>
@@ -278,20 +263,13 @@ $missingAttributes = $this->getMissingAttributes();
         width: 89%;
     }
 
-    .form-list td.value .shipping-cost-surcharge-ca select {
-        width: 200px;
-    }
-
     .shipping-priority {
         text-align: right;
     }
-    .shipping-cost-additional, .shipping-cost-surcharge {
+    .shipping-cost-additional {
         text-align: right;
     }
 
-    #weight_cv input {
-        width: 130px !important;
-    }
     #dimensions_ca_tr select {
         width: 86px !important;
     }
@@ -411,9 +389,9 @@ $missingAttributes = $this->getMissingAttributes();
                                 <?php endforeach; ?>
                             </optgroup>
 
-                            <optgroup class="simple_mode_disallowed M2ePro-custom-attribute-optgroup" label="Magento Attribute">
+                            <optgroup class="M2ePro-custom-attribute-optgroup" label="Magento Attribute">
                                 <?php foreach ($this->attributes as $attribute) : ?>
-                                    <option class="simple_mode_disallowed" attribute_code="<?php echo $attribute['code']; ?>" value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::COUNTRY_MODE_CUSTOM_ATTRIBUTE; ?>" <?php if ($formData['country_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::COUNTRY_MODE_CUSTOM_ATTRIBUTE && $attribute['code'] == $formData['country_custom_attribute']): ?>selected="selected"<?php endif; ?>>
+                                    <option attribute_code="<?php echo $attribute['code']; ?>" value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::COUNTRY_MODE_CUSTOM_ATTRIBUTE; ?>" <?php if ($formData['country_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::COUNTRY_MODE_CUSTOM_ATTRIBUTE && $attribute['code'] == $formData['country_custom_attribute']): ?>selected="selected"<?php endif; ?>>
                                         <?php echo Mage::helper('M2ePro')->escapeHtml($attribute['label']); ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -437,9 +415,9 @@ $missingAttributes = $this->getMissingAttributes();
                             <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::POSTAL_CODE_MODE_NONE; ?>" <?php if ($formData['postal_code_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::POSTAL_CODE_MODE_NONE): ?>selected="selected"<?php endif; ?>><?php echo Mage::helper('M2ePro')->__('None'); ?></option>
                             <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::POSTAL_CODE_MODE_CUSTOM_VALUE; ?>" <?php if ($formData['postal_code_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::POSTAL_CODE_MODE_CUSTOM_VALUE): ?>selected="selected"<?php endif; ?>><?php echo Mage::helper('M2ePro')->__('Custom Value'); ?></option>
 
-                            <optgroup class="simple_mode_disallowed M2ePro-custom-attribute-optgroup" label="Magento Attribute">
+                            <optgroup class="M2ePro-custom-attribute-optgroup" label="Magento Attribute">
                                 <?php foreach ($this->attributes as $attribute) : ?>
-                                    <option class="simple_mode_disallowed" attribute_code="<?php echo $attribute['code']; ?>" value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::POSTAL_CODE_MODE_CUSTOM_ATTRIBUTE; ?>" <?php if ($formData['postal_code_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::POSTAL_CODE_MODE_CUSTOM_ATTRIBUTE && $attribute['code'] == $formData['postal_code_custom_attribute']): ?>selected="selected"<?php endif; ?>>
+                                    <option attribute_code="<?php echo $attribute['code']; ?>" value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::POSTAL_CODE_MODE_CUSTOM_ATTRIBUTE; ?>" <?php if ($formData['postal_code_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::POSTAL_CODE_MODE_CUSTOM_ATTRIBUTE && $attribute['code'] == $formData['postal_code_custom_attribute']): ?>selected="selected"<?php endif; ?>>
                                         <?php echo Mage::helper('M2ePro')->escapeHtml($attribute['label']); ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -472,9 +450,9 @@ $missingAttributes = $this->getMissingAttributes();
                             <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::ADDRESS_MODE_NONE; ?>" <?php if ($formData['address_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::ADDRESS_MODE_NONE) :?>selected="selected"<?php endif; ?>><?php echo Mage::helper('M2ePro')->__('None'); ?></option>
                             <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::ADDRESS_MODE_CUSTOM_VALUE; ?>" <?php if ($formData['address_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::ADDRESS_MODE_CUSTOM_VALUE) :?>selected="selected"<?php endif; ?>><?php echo Mage::helper('M2ePro')->__('Custom Value'); ?></option>
 
-                            <optgroup class="simple_mode_disallowed M2ePro-custom-attribute-optgroup" label="<?php echo Mage::helper('M2ePro')->__('Magento Attributes'); ?>">
+                            <optgroup class="M2ePro-custom-attribute-optgroup" label="<?php echo Mage::helper('M2ePro')->__('Magento Attributes'); ?>">
                                 <?php foreach ($this->attributes as $attribute) : ?>
-                                    <option class="simple_mode_disallowed" attribute_code="<?php echo $attribute['code']; ?>" value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::ADDRESS_MODE_CUSTOM_ATTRIBUTE; ?>" <?php if ($formData['address_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::ADDRESS_MODE_CUSTOM_ATTRIBUTE && $attribute['code'] == $formData['address_custom_attribute']): ?>selected="selected"<?php endif; ?>>
+                                    <option attribute_code="<?php echo $attribute['code']; ?>" value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::ADDRESS_MODE_CUSTOM_ATTRIBUTE; ?>" <?php if ($formData['address_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::ADDRESS_MODE_CUSTOM_ATTRIBUTE && $attribute['code'] == $formData['address_custom_attribute']): ?>selected="selected"<?php endif; ?>>
                                         <?php echo Mage::helper('M2ePro')->escapeHtml($attribute['label']); ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -581,7 +559,7 @@ $missingAttributes = $this->getMissingAttributes();
                                 </p>
                             </td>
                             <td class="value">
-                                <a href="javascript:void(0);" onclick='EbayTemplateShippingHandlerObj.updateRateTablesData({
+                                <a href="javascript:void(0);" onclick='EbayTemplateShippingObj.updateRateTablesData({
                                         accountId: <?php echo $this->getAccountId(); ?>,
                                         marketplaceId: <?php echo $this->getMarketplace()->getId(); ?>,
                                         elementId: "local_shipping_rate_table_value_<?php echo $this->getAccountId();?>",
@@ -641,7 +619,7 @@ $missingAttributes = $this->getMissingAttributes();
                                     </p>
                                 </td>
                                 <td class="value">
-                                    <a href="javascript:void(0);" onclick='EbayTemplateShippingHandlerObj.updateRateTablesData({
+                                    <a href="javascript:void(0);" onclick='EbayTemplateShippingObj.updateRateTablesData({
                                         accountId: <?php echo $account->getId(); ?>,
                                         marketplaceId: <?php echo $this->getMarketplace()->getId(); ?>,
                                         elementId: "local_shipping_rate_table_value_<?php echo $account->getId();?>",
@@ -673,7 +651,7 @@ $missingAttributes = $this->getMissingAttributes();
 
             <table class="form-list" cellspacing="0" cellpadding="0">
 
-                <tr id="local_shipping_methods_tr" class="local-shipping-tr local-shipping-always-visible-tr" style="display: none; margin-top: 10px;">
+                <tr id="local_shipping_methods_tr" class="local-shipping-tr" style="display: none; margin-top: 10px;">
                     <td class="grid" colspan="2">
 
                         <div style="margin: 10px 0"></div>
@@ -695,7 +673,9 @@ $missingAttributes = $this->getMissingAttributes();
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="20" class="a-right"><?php echo $this->getChild('add_local_shipping_method_button')->setData('label', Mage::helper('M2ePro')->__('Add Method'))->toHtml(); ?></td>
+                                    <td id="add_local_shipping_method" colspan="20" class="a-right">
+                                        <?php echo $this->getChild('add_local_shipping_method_button')->setData('label', Mage::helper('M2ePro')->__('Add Method'))->toHtml(); ?>
+                                    </td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -705,7 +685,8 @@ $missingAttributes = $this->getMissingAttributes();
                             <table style="border: none" cellpadding="0" cellspacing="0">
                                 <tfoot>
                                     <tr>
-                                        <td valign="middle" align="center" style="vertical-align: middle; border: 1px solid #cbd3d4; height: 40px">
+                                        <td id="add_local_shipping_method_init" valign="middle" align="center"
+                                            style="vertical-align: middle; border: 1px solid #cbd3d4; height: 40px">
                                             <?php echo $this->getChild('add_local_shipping_method_button')->setData('label', Mage::helper('M2ePro')->__('Add Shipping Method'))->toHtml(); ?>
                                         </td>
                                     </tr>
@@ -739,7 +720,7 @@ $missingAttributes = $this->getMissingAttributes();
 
             <table class="form-list" cellspacing="0" cellpadding="0">
 
-                <tr class="local-shipping-tr local-shipping-always-visible-tr">
+                <tr class="local-shipping-tr">
                     <td class="label">
                         <label for="dispatch_time_mode"><?php echo Mage::helper('M2ePro')->__('Dispatch Time'); ?>:</label>
                     </td>
@@ -768,9 +749,9 @@ $missingAttributes = $this->getMissingAttributes();
 
                             <?php endforeach; ?>
 
-                            <optgroup class="simple_mode_disallowed M2ePro-custom-attribute-optgroup" label="Magento Attribute">
+                            <optgroup class="M2ePro-custom-attribute-optgroup" label="Magento Attribute">
                                 <?php foreach ($this->attributes as $attribute) : ?>
-                                    <option class="simple_mode_disallowed" attribute_code="<?php echo $attribute['code']; ?>" value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::DISPATCH_TIME_MODE_ATTRIBUTE; ?>" <?php if ($formData['dispatch_time_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::DISPATCH_TIME_MODE_ATTRIBUTE && $attribute['code'] == $formData['dispatch_time_attribute']): ?>selected="selected"<?php endif; ?>>
+                                    <option attribute_code="<?php echo $attribute['code']; ?>" value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::DISPATCH_TIME_MODE_ATTRIBUTE; ?>" <?php if ($formData['dispatch_time_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping::DISPATCH_TIME_MODE_ATTRIBUTE && $attribute['code'] == $formData['dispatch_time_attribute']): ?>selected="selected"<?php endif; ?>>
                                         <?php echo Mage::helper('M2ePro')->escapeHtml($attribute['label']); ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -787,32 +768,6 @@ $missingAttributes = $this->getMissingAttributes();
                     </td>
                 </tr>
 
-                <?php if ($this->canDisplayClickAndCollectOption()): ?>
-                    <tr id="click_and_collect_mode_tr" class="local-shipping-tr">
-                        <td class="label">
-                            <label><?php echo Mage::helper('M2ePro')->__('Click And Collect Opt-out'); ?>:</label>
-                        </td>
-                        <td class="value" style="width: auto;">
-                            <select id="click_and_collect_mode" name="shipping[click_and_collect_mode]">
-                                <option value="0" <?php if (!$formData['click_and_collect_mode']): ?>selected="selected"<?php endif; ?> ><?php echo Mage::helper('M2ePro')->__('Yes'); ?></option>
-                                <option value="1" <?php if ($formData['click_and_collect_mode']): ?>selected="selected"<?php endif; ?> ><?php echo Mage::helper('M2ePro')->__('No'); ?></option>
-                            </select>
-                            <p class="note">
-                                <span>
-                                    <?php echo Mage::helper('M2ePro')->__(
-                                        'Select "No" to enable the Click & Collect option for your Products in M2E Pro Listing.
-                                         Details about the Click & Collect delivery option can be found on
-                                         <a href="%url_uk%" target="_blank">eBay UK</a>,
-                                         <a href="%url_au%" target="_blank">eBay Australia</a> sites.',
-                                        'http://pages.ebay.co.uk/sell/click-and-collect/',
-                                        'http://sellercentre.ebay.com.au/click-and-collect/'
-                                    ) ;?>
-                                </span>
-                            </p>
-                        </td>
-                    </tr>
-                <?php endif; ?>
-
                 <tr id="local_handling_cost_cv_tr" class="local-shipping-tr">
                     <td class="label">
                         <label for="local_handling_cost"><?php echo Mage::helper('M2ePro')->__('Handling Cost'); ?>:</label>
@@ -826,7 +781,7 @@ $missingAttributes = $this->getMissingAttributes();
                 </tr>
             </table>
 
-            <table class="form-list simple_mode_disallowed" cellspacing="0" cellpadding="0">
+            <table class="form-list" cellspacing="0" cellpadding="0">
                 <?php if ($this->getAccountId() !== null) : ?>
                     <tr class="local-shipping-tr">
                         <td class="label local-discount-profile-account-tr" account_id="<?php echo $this->getAccountId(); ?>">
@@ -842,7 +797,7 @@ $missingAttributes = $this->getMissingAttributes();
                             </p>
                         </td>
                         <td class="value">
-                            <a href="javascript:void(0);" onclick="EbayTemplateShippingHandlerObj.updateDiscountProfiles(<?php echo $this->getAccountId(); ?>);"><?php echo Mage::helper('M2ePro')->__('Refresh Profiles'); ?></a>
+                            <a href="javascript:void(0);" onclick="EbayTemplateShippingObj.updateDiscountProfiles(<?php echo $this->getAccountId(); ?>);"><?php echo Mage::helper('M2ePro')->__('Refresh Profiles'); ?></a>
                         </td>
                     </tr>
                 <?php else: ?>
@@ -879,7 +834,7 @@ $missingAttributes = $this->getMissingAttributes();
                                                     </p>
                                                 </td>
                                                 <td class="value">
-                                                    <a href="javascript:void(0);" onclick="EbayTemplateShippingHandlerObj.updateDiscountProfiles(<?php echo $accountId; ?>);"><?php echo Mage::helper('M2ePro')->__('Refresh Profiles'); ?></a>
+                                                    <a href="javascript:void(0);" onclick="EbayTemplateShippingObj.updateDiscountProfiles(<?php echo $accountId; ?>);"><?php echo Mage::helper('M2ePro')->__('Refresh Profiles'); ?></a>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -942,60 +897,6 @@ $missingAttributes = $this->getMissingAttributes();
 
 </div>
 
-<?php if ($this->canDisplayNorthAmericaCrossBorderTradeOption() || $this->canDisplayUnitedKingdomCrossBorderTradeOption()): ?>
-
-<div class="entry-edit" id="magento_block_ebay_template_shipping_form_data_cross_border_trade" style="display: none;">
-
-    <div class="entry-edit-head">
-        <h4 class="icon-head head-edit-form fieldset-legend"><?php echo Mage::helper('M2ePro')->__('Cross Border Trade'); ?></h4>
-    </div>
-
-    <div class="fieldset">
-        <div class="hor-scroll">
-
-            <div id="block_notice_ebay_template_general_general_cross_border_trade" class="block_notices_module" title="<?php echo Mage::helper('M2ePro')->__('Cross Border Trade'); ?>">
-                <?php echo Mage::helper('M2ePro')->__('The international Site visibility feature allows qualifying Listings to be posted on international Sites.
-<br/>Buyers on these Sites will see the Listings exactly as you originally post them.
-<br/><br/><b>Note:</b> There may be additional eBay charges for this option.'); ?>
-            </div>
-
-            <table class="form-list" cellspacing="0" cellpadding="0">
-
-                <tr id="cross_border_trade_container">
-                    <td class="label">
-                        <label for="cross_border_trade"><?php echo Mage::helper('M2ePro')->__('eBay Site Visibility'); ?>:</label>
-                    </td>
-                    <td class="value">
-                        <select id="cross_border_trade" name="shipping[cross_border_trade]">
-                            <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_NONE ?>"
-                                <?php if ($formData['cross_border_trade'] == Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_NONE): ?>selected="selected"<?php endif; ?> >
-                                <?php echo Mage::helper('M2ePro')->__('None') ?>
-                            </option>
-                            <?php if ($this->canDisplayNorthAmericaCrossBorderTradeOption()): ?>
-                                <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_NORTH_AMERICA ?>"
-                                    <?php if ($formData['cross_border_trade'] == Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_NORTH_AMERICA): ?>selected="selected"<?php endif; ?> >
-                                    <?php echo Mage::helper('M2ePro')->__('USA / Canada') ?>
-                                </option>
-                            <?php endif; ?>
-                            <?php if ($this->canDisplayUnitedKingdomCrossBorderTradeOption()): ?>
-                                <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_UNITED_KINGDOM ?>"
-                                    <?php if ($formData['cross_border_trade'] == Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_UNITED_KINGDOM): ?>selected="selected"<?php endif; ?> >
-                                    <?php echo Mage::helper('M2ePro')->__('United Kingdom') ?>
-                                </option>
-                            <?php endif; ?>
-                        </select>
-                    </td>
-                </tr>
-
-            </table>
-
-        </div>
-    </div>
-
-</div>
-
-<?php endif; ?>
-
 <div class="entry-edit" id="magento_block_ebay_template_shipping_form_data_international">
 
     <div class="entry-edit-head">
@@ -1006,6 +907,43 @@ $missingAttributes = $this->getMissingAttributes();
         <div class="hor-scroll">
 
             <table class="form-list" cellspacing="0" cellpadding="0">
+
+                <?php if ($this->canDisplayNorthAmericaCrossBorderTradeOption() || $this->canDisplayUnitedKingdomCrossBorderTradeOption()): ?>
+
+                    <tr id="cross_border_trade_container">
+                        <td class="label">
+                            <label for="cross_border_trade"><?php echo Mage::helper('M2ePro')->__('Cross Border Trade'); ?>:</label>
+                        </td>
+                        <td class="value">
+                            <select id="cross_border_trade" name="shipping[cross_border_trade]">
+                                <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_NONE ?>"
+                                        <?php if ($formData['cross_border_trade'] == Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_NONE): ?>selected="selected"<?php endif; ?> >
+                                    <?php echo Mage::helper('M2ePro')->__('None') ?>
+                                </option>
+                                <?php if ($this->canDisplayNorthAmericaCrossBorderTradeOption()): ?>
+                                    <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_NORTH_AMERICA ?>"
+                                            <?php if ($formData['cross_border_trade'] == Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_NORTH_AMERICA): ?>selected="selected"<?php endif; ?> >
+                                        <?php echo Mage::helper('M2ePro')->__('USA / Canada') ?>
+                                    </option>
+                                <?php endif; ?>
+                                <?php if ($this->canDisplayUnitedKingdomCrossBorderTradeOption()): ?>
+                                    <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_UNITED_KINGDOM ?>"
+                                            <?php if ($formData['cross_border_trade'] == Ess_M2ePro_Model_Ebay_Template_Shipping::CROSS_BORDER_TRADE_UNITED_KINGDOM): ?>selected="selected"<?php endif; ?> >
+                                        <?php echo Mage::helper('M2ePro')->__('United Kingdom') ?>
+                                    </option>
+                                <?php endif; ?>
+                            </select>
+                            <p class="note">
+                                <span><?php echo Mage::helper('M2ePro')->__(
+                                        'The international Site visibility feature allows qualifying Listings to be posted on international Marketplaces.
+                                        <br/>Buyers on these Marketplaces will see the Listings exactly as you originally post them.
+                                        <br/><br/><b>Note:</b> There may be additional eBay charges for this option.'
+                                ); ?></span>
+                            </p>
+                        </td>
+                    </tr>
+
+                <?php endif; ?>
 
                 <?php if ($this->canDisplayGlobalShippingProgram()): ?>
 
@@ -1089,7 +1027,7 @@ $missingAttributes = $this->getMissingAttributes();
                                     </p>
                                 </td>
                                 <td class="value">
-                                    <a href="javascript:void(0);" onclick='EbayTemplateShippingHandlerObj.updateRateTablesData({
+                                    <a href="javascript:void(0);" onclick='EbayTemplateShippingObj.updateRateTablesData({
                                         accountId: <?php echo $this->getAccountId(); ?>,
                                         marketplaceId: <?php echo $this->getMarketplace()->getId(); ?>,
                                         elementId: "international_shipping_rate_table_value_<?php echo $this->getAccountId();?>",
@@ -1150,7 +1088,7 @@ $missingAttributes = $this->getMissingAttributes();
                                             </p>
                                         </td>
                                         <td class="value">
-                                            <a href="javascript:void(0);" onclick='EbayTemplateShippingHandlerObj.updateRateTablesData({
+                                            <a href="javascript:void(0);" onclick='EbayTemplateShippingObj.updateRateTablesData({
                                                 accountId: <?php echo $account->getId(); ?>,
                                                 marketplaceId: <?php echo $this->getMarketplace()->getId(); ?>,
                                                 elementId: "international_shipping_rate_table_value_<?php echo $account->getId();?>",
@@ -1186,7 +1124,7 @@ $missingAttributes = $this->getMissingAttributes();
 
             <table class="form-list" cellspacing="0" cellpadding="0">
 
-                <tr class="international-shipping-tr international-shipping-always-visible-tr">
+                <tr class="international-shipping-tr">
                     <td class="grid" colspan="2">
 
                         <div style="margin: 10px 0"></div>
@@ -1249,7 +1187,7 @@ $missingAttributes = $this->getMissingAttributes();
                 </tr>
             </table>
 
-            <table class="form-list simple_mode_disallowed" cellspacing="0" cellpadding="0">
+            <table class="form-list" cellspacing="0" cellpadding="0">
                 <?php if ($this->getAccountId() !== null) : ?>
                     <tr class="international-shipping-tr">
                         <td class="label international-discount-profile-account-tr" account_id="<?php echo $this->getAccountId(); ?>">
@@ -1263,7 +1201,7 @@ $missingAttributes = $this->getMissingAttributes();
                             </p>
                         </td>
                         <td class="value">
-                            <a href="javascript:void(0);" onclick="EbayTemplateShippingHandlerObj.updateDiscountProfiles(<?php echo $this->getAccountId(); ?>);"><?php echo Mage::helper('M2ePro')->__('Refresh Profiles'); ?></a>
+                            <a href="javascript:void(0);" onclick="EbayTemplateShippingObj.updateDiscountProfiles(<?php echo $this->getAccountId(); ?>);"><?php echo Mage::helper('M2ePro')->__('Refresh Profiles'); ?></a>
                         </td>
                     </tr>
                 <?php else: ?>
@@ -1298,7 +1236,7 @@ $missingAttributes = $this->getMissingAttributes();
                                                 </p>
                                             </td>
                                             <td class="value">
-                                                <a href="javascript:void(0);" onclick="EbayTemplateShippingHandlerObj.updateDiscountProfiles(<?php echo $accountId; ?>);"><?php echo Mage::helper('M2ePro')->__('Refresh Profiles'); ?></a>
+                                                <a href="javascript:void(0);" onclick="EbayTemplateShippingObj.updateDiscountProfiles(<?php echo $accountId; ?>);"><?php echo Mage::helper('M2ePro')->__('Refresh Profiles'); ?></a>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -1342,7 +1280,7 @@ $missingAttributes = $this->getMissingAttributes();
 
 </div>
 
-<div class="entry-edit" id="magento_block_ebay_template_shipping_form_data_calculated" style="display:none">
+<div class="entry-edit" id="magento_block_ebay_template_shipping_form_data_calculated">
 
     <div class="entry-edit-head">
         <h4 class="icon-head head-edit-form fieldset-legend"><?php echo Mage::helper('M2ePro')->__('Package details'); ?></h4>
@@ -1384,12 +1322,16 @@ $missingAttributes = $this->getMissingAttributes();
                         </td>
                     </tr>
 
-                    <tr id="package_size_tr" class="visible-for-calculated-by-default">
+                    <tr id="package_size_tr" class="visible-for-flat-by-default visible-for-calculated-by-default">
                         <td class="label">
                             <label for="package_size"><?php echo Mage::helper('M2ePro')->__('Package Size Source'); ?>:</label>
                         </td>
                         <td class="value">
                             <select id="package_size" class="select M2ePro-custom-attribute-can-be-created" allowed_attribute_types="text,select">
+                                <option id="package_size_none" value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping_Calculated::PACKAGE_SIZE_NONE; ?>" attribute_code=""
+                                        <?php if ($formData['package_size_mode'] == Ess_M2ePro_Model_Ebay_Template_Shipping_Calculated::PACKAGE_SIZE_NONE): ?>selected="selected"<?php endif; ?> >
+                                    <?php echo Mage::helper('M2ePro')->__('None'); ?>
+                                </option>
                                 <optgroup label="<?php echo Mage::helper('M2ePro')->__('eBay Values'); ?>">
                                     <?php foreach ($marketplaceData['packages'] as $package): ?>
                                         <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping_Calculated::PACKAGE_SIZE_CUSTOM_VALUE; ?>" attribute_code="<?php echo Mage::helper('M2ePro')->escapeHtml($package['ebay_id']) ?>"
@@ -1554,7 +1496,8 @@ $missingAttributes = $this->getMissingAttributes();
                         </td>
                         <td class="value">
                             <input name="shipping[weight_major]" value="<?php echo $this->escapeHtml($formData['weight_major']); ?>" type="text" class="M2ePro-required-when-visible M2ePro-validation-float input-text" />
-                            &nbsp;
+                        </td>
+                        <td class="value">
                             <input name="shipping[weight_minor]" value="<?php echo $this->escapeHtml($formData['weight_minor']); ?>" type="text" class="M2ePro-required-when-visible M2ePro-validation-float input-text" />
                         </td>
                         <td class="note">
@@ -1569,7 +1512,7 @@ $missingAttributes = $this->getMissingAttributes();
     </div>
 </div>
 
-<div class="entry-edit simple_mode_disallowed" id="magento_block_ebay_template_shipping_form_data_excluded_locations">
+<div class="entry-edit" id="magento_block_ebay_template_shipping_form_data_excluded_locations">
 
     <div class="entry-edit-head">
         <h4 class="icon-head head-edit-form fieldset-legend"><?php echo Mage::helper('M2ePro')->__('Excluded Locations'); ?></h4>
@@ -1593,7 +1536,7 @@ $missingAttributes = $this->getMissingAttributes();
                         <p>
                             <span id="excluded_locations_titles">
                         </p>
-                        <a href="javascript:void(0)" onclick="EbayTemplateShippingExcludedLocationsHandlerObj.showPopup();"><?php echo Mage::helper('M2ePro')->__('Edit Exclusion List'); ?></a>
+                        <a href="javascript:void(0)" onclick="EbayTemplateShippingExcludedLocationsObj.showPopup();"><?php echo Mage::helper('M2ePro')->__('Edit Exclusion List'); ?></a>
                     </td>
                 </tr>
 
@@ -1610,11 +1553,11 @@ $missingAttributes = $this->getMissingAttributes();
 
         <tr id="shipping_variant_%type%_%i%_tr" class="shipping-variant">
             <td style="text-align: center;">
-                <select style="width: 250px" name="shipping[shipping_service][%i%]" class="shipping-service M2ePro-validate-shipping-service" onchange="EbayTemplateShippingHandlerObj.serviceChange.call(this)"></select>
+                <select style="width: 250px" name="shipping[shipping_service][%i%]" class="shipping-service M2ePro-validate-shipping-service" onchange="EbayTemplateShippingObj.serviceChange.call(this)"></select>
             </td>
             <td style="text-align: center;">
                 <input name="shipping[shipping_type][%i%]" value="%type%" type="hidden" />
-                <select name="shipping[cost_mode][%i%]" class="cost-mode" onchange="EbayTemplateShippingHandlerObj.serviceCostModeChange.call(this)">
+                <select name="shipping[cost_mode][%i%]" class="cost-mode" onchange="EbayTemplateShippingObj.serviceCostModeChange.call(this)">
                     <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping_Service::COST_MODE_FREE ?>" class="shipping-mode-option-free"><?php echo Mage::helper('M2ePro')->__('Free'); ?></option>
                     <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping_Service::COST_MODE_CUSTOM_VALUE ?>" class="shipping-mode-option-notcalc"><?php echo Mage::helper('M2ePro')->__('Custom Value'); ?></option>
                     <option value="<?php echo Ess_M2ePro_Model_Ebay_Template_Shipping_Service::COST_MODE_CUSTOM_ATTRIBUTE ?>" class="shipping-mode-option-notcalc"><?php echo Mage::helper('M2ePro')->__('Custom Attribute'); ?></option>
@@ -1655,35 +1598,6 @@ $missingAttributes = $this->getMissingAttributes();
         <tr id="shipping_variant_locations_%i%_tr" class="shipping-variant">
             <td colspan="5">
                 <!-- locations will be rendered here -->
-            </td>
-        </tr>
-
-    </tbody>
-
-</table>
-
-<table id="block_shipping_table_cost_surcharge_row_template_table" style="display: none;">
-
-    <tbody>
-
-        <tr id="shipping_variant_cost_surcharge_%i%_tr" class="shipping-variant" style="display: none;">
-            <td colspan="5">
-
-                <table class="form-list" cellspacing="0" cellpadding="0" style="width: auto; margin:5px 0;">
-
-                    <tr class="local-shipping-tr">
-                        <td class="label" style="width: auto;">
-                            <label style="width: auto;" for="shipping_cost_surcharge_value"><?php echo Mage::helper('M2ePro')->__('Add a surcharge for Alaska, Hawaii, and Puerto Rico'); ?>:</label>
-                        </td>
-                        <td class="value" style="width: auto;">
-                            <input style="width: 80px;" name="shipping[shipping_cost_surcharge_value][%i%]" type="text" style="display: none;" class="shipping-cost-surcharge input-text M2ePro-validation-float" />
-                            <span style="width: auto;" class="shipping-cost-surcharge-ca">
-                                <!-- shipping_cost_surcharge_attribute[%i%] -->
-                            </span>
-                        </td>
-                    </tr>
-                </table>
-
             </td>
         </tr>
 
@@ -1768,7 +1682,7 @@ $missingAttributes = $this->getMissingAttributes();
                 <div style="margin: 0;">
                     <span id="excluded_locations_popup_titles"></span>
                     <span id="excluded_locations_reset_link" style="display: none; float:right; padding-left: 10px;">
-                        <a href="javascript:void(0);" onclick="EbayTemplateShippingExcludedLocationsHandlerObj.resetPopup();"><?php echo Mage::helper('M2ePro')->__('[Reset]'); ?></a>
+                        <a href="javascript:void(0);" onclick="EbayTemplateShippingExcludedLocationsObj.resetPopup();"><?php echo Mage::helper('M2ePro')->__('[Reset]'); ?></a>
                     </span>
                     <span style="display: block; clear: both;"></span>
                 </div>
@@ -1776,7 +1690,7 @@ $missingAttributes = $this->getMissingAttributes();
         </div>
 
         <div id="excluded_locations_popup_controls" style="float: right;">
-            <a href="javascript:void(0);" onclick="EbayTemplateShippingExcludedLocationsHandlerObj.closePopup()"><?php echo Mage::helper('M2ePro')->__('Cancel'); ?></a>
+            <a href="javascript:void(0);" onclick="EbayTemplateShippingExcludedLocationsObj.closePopup()"><?php echo Mage::helper('M2ePro')->__('Cancel'); ?></a>
             &nbsp;&nbsp;&nbsp;&nbsp;
             <?php echo $this->getChildHtml('save_popup_button'); ?>
         </div>

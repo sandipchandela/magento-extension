@@ -38,7 +38,7 @@ class Ess_M2ePro_Model_Resource_Amazon_Listing_Other
 
         $listingOtherCollection->getSelect()->reset(Zend_Db_Select::COLUMNS);
         $listingOtherCollection->getSelect()->columns(
-            array('sku'  => 'second_table.sku')
+            array('sku' => 'second_table.sku')
         );
 
         return $listingOtherCollection->getColumnValues('sku');
@@ -54,9 +54,10 @@ class Ess_M2ePro_Model_Resource_Amazon_Listing_Other
 
         if (!empty($skus)) {
             $skus = array_map(
-                function($el){
-                return (string)$el; 
-                }, $skus
+                function ($el) {
+                    return (string)$el;
+                },
+                $skus
             );
             $listingOtherCollection->addFieldToFilter('sku', array('in' => array_unique($skus)));
         }
@@ -73,6 +74,45 @@ class Ess_M2ePro_Model_Resource_Amazon_Listing_Other
         }
 
         return $listingOtherCollection->getData();
+    }
+
+    //########################################
+
+    public function resetEntities()
+    {
+        $listingOther = Mage::getModel('M2ePro/Listing_Other');
+        $amazonListingOther = Mage::getModel('M2ePro/Amazon_Listing_Other');
+
+        $stmt = Mage::helper('M2ePro/Component_Amazon')->getCollection('Listing_Other')->getSelect()->query();
+
+        $SKUs = array();
+        foreach ($stmt as $row) {
+            $listingOther->setData($row);
+            $amazonListingOther->setData($row);
+
+            $listingOther->setChildObject($amazonListingOther);
+            $amazonListingOther->setParentObject($listingOther);
+            $SKUs[] = $amazonListingOther->getSku();
+
+            $listingOther->deleteInstance();
+        }
+
+        $tableName = Mage::helper('M2ePro/Module_Database_Structure')->getTableNameWithPrefix('m2epro_amazon_item');
+        $writeConnection = Mage::getSingleton('core/resource')->getConnection('core_write');
+        foreach (array_chunk($SKUs, 1000) as $chunkSKUs) {
+            $writeConnection->delete($tableName, array('sku IN (?)' => $chunkSKUs));
+        }
+
+        $accountsCollection = Mage::helper('M2ePro/Component_Amazon')->getCollection('Account');
+        $accountsCollection->addFieldToFilter('other_listings_synchronization', 1);
+
+        foreach ($accountsCollection->getItems() as $account) {
+            $additionalData = (array)Mage::helper('M2ePro')->jsonDecode($account->getAdditionalData());
+            unset($additionalData['is_amazon_other_listings_full_items_data_already_received']);
+
+            $account->setSettings('additional_data', $additionalData)->save();
+            $account->getChildObject()->setData('inventory_last_synchronization', null)->save();
+        }
     }
 
     //########################################

@@ -51,11 +51,36 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Order_View_Form extends Ess_M2ePro_Block
                 'label'   => Mage::helper('M2ePro')->__('Resend Shipping Information'),
                 'onclick' => 'setLocation(\''.$url.'\');',
             );
-            $buttonBlock = $this->getLayout()->createBlock('adminhtml/widget_button')->setData($data);
+            $buttonBlock = $this->getLayout()->createBlock('adminhtml/widget_button');
+            $buttonBlock->setData($data);
             $this->setChild('resubmit_shipping_info', $buttonBlock);
         }
 
         // ---------------------------------------
+
+        if ($this->order->getChildObject()->canSendMagentoCreditmemo()) {
+            $orderId = $this->order->getId();
+            $documentType = Ess_M2ePro_Model_Amazon_Order_Invoice::DOCUMENT_TYPE_CREDIT_NOTE;
+            $data = array(
+                'class'   => '',
+                'label'   => Mage::helper('M2ePro')->__('Resend Credit Memo'),
+                'onclick' => "AmazonOrderObj.resendInvoice({$orderId}, '{$documentType}');",
+            );
+            $buttonBlock = $this->getLayout()->createBlock('adminhtml/widget_button');
+            $buttonBlock->setData($data);
+            $this->setChild('resend_document', $buttonBlock);
+        } elseif ($this->order->getChildObject()->canSendMagentoInvoice()) {
+            $orderId = $this->order->getId();
+            $documentType = Ess_M2ePro_Model_Amazon_Order_Invoice::DOCUMENT_TYPE_INVOICE;
+            $data = array(
+                'class'   => '',
+                'label'   => Mage::helper('M2ePro')->__('Resend Invoice'),
+                'onclick' => "AmazonOrderObj.resendInvoice({$orderId}, '{$documentType}');",
+            );
+            $buttonBlock = $this->getLayout()->createBlock('adminhtml/widget_button');
+            $buttonBlock->setData($data);
+            $this->setChild('resend_document', $buttonBlock);
+        }
 
         // Shipping data
         // ---------------------------------------
@@ -77,7 +102,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Order_View_Form extends Ess_M2ePro_Block
             $data = array(
                 'class'   => '',
                 'label'   => Mage::helper('M2ePro')->__('Use Amazon\'s Shipping Services'),
-                'onclick' => "OrderMerchantFulfillmentHandlerObj.getPopupAction({$orderId});",
+                'onclick' => "AmazonOrderMerchantFulfillmentObj.getPopupAction({$orderId});",
                 'style'   => 'margin-top: 3px; margin-left: 6px;'
             );
             $buttonBlock = $this->getLayout()->createBlock('adminhtml/widget_button')->setData($data);
@@ -90,7 +115,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Order_View_Form extends Ess_M2ePro_Block
             ->setData(
                 array(
                 'label'   => Mage::helper('M2ePro')->__('Add Note'),
-                'onclick' => "OrderNoteHandlerObj.openAddNotePopup({$this->order->getId()})",
+                'onclick' => "OrderNoteObj.openAddNotePopup({$this->order->getId()})",
                 'class'   => 'order_note_btn',
                 )
             );

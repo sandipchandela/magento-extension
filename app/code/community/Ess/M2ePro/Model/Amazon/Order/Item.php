@@ -109,6 +109,14 @@ class Ess_M2ePro_Model_Amazon_Order_Item extends Ess_M2ePro_Model_Component_Chil
     }
 
     /**
+     * @return float
+     */
+    public function getShippingPrice()
+    {
+        return (float)$this->getData('shipping_price');
+    }
+
+    /**
      * @return mixed
      */
     public function getCurrency()
@@ -146,15 +154,43 @@ class Ess_M2ePro_Model_Amazon_Order_Item extends Ess_M2ePro_Model_Component_Chil
 
     // ---------------------------------------
 
+    /**
+     * @return array
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     public function getTaxDetails()
     {
         return $this->getSettings('tax_details');
     }
 
+    /**
+     * @return float
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     public function getTaxAmount()
     {
         $taxDetails = $this->getTaxDetails();
         return isset($taxDetails['product']['value']) ? (float)$taxDetails['product']['value'] : 0.0;
+    }
+
+    /**
+     * @return float
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function getShippingTaxAmount()
+    {
+        $taxDetails = $this->getTaxDetails();
+        return isset($taxDetails['shipping']['value']) ? (float)$taxDetails['shipping']['value'] : 0.0;
+    }
+
+    // ---------------------------------------
+
+    /**
+     * @return string|null
+     */
+    public function getFulfillmentCenterId()
+    {
+        return $this->getData('fulfillment_center_id');
     }
 
     // ---------------------------------------
@@ -273,7 +309,7 @@ class Ess_M2ePro_Model_Amazon_Order_Item extends Ess_M2ePro_Model_Component_Chil
 
         // ---------------------------------------
 
-        // 3rd party Item
+        // Unmanaged Item
         // ---------------------------------------
         $sku = $this->getSku();
         if ($sku != '' && strlen($sku) <= Ess_M2ePro_Helper_Magento_Product::SKU_MAX_LENGTH) {
@@ -317,7 +353,9 @@ class Ess_M2ePro_Model_Amazon_Order_Item extends Ess_M2ePro_Model_Component_Chil
     protected function createProduct()
     {
         if (!$this->getAmazonAccount()->isMagentoOrdersListingsOtherProductImportEnabled()) {
-            throw new Ess_M2ePro_Model_Exception('Product Import is disabled in Amazon Account Settings.');
+            throw new Ess_M2ePro_Model_Exception(Mage::helper('M2ePro')->__(
+                'Product creation is disabled in "Account > Orders > Product Not Found".'
+            ));
         }
 
         $storeId = $this->getAmazonAccount()->getMagentoOrdersListingsOtherStoreId();

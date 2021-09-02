@@ -55,6 +55,7 @@ class Ess_M2ePro_Model_Servicing_Task_Analytics extends Ess_M2ePro_Model_Servici
 
     protected function collectAnalytics()
     {
+        /** @var Ess_M2ePro_Model_Servicing_Task_Analytics_Registry $registry */
         $registry   = Mage::getSingleton('M2ePro/Servicing_Task_Analytics_Registry');
         $serializer = Mage::getSingleton('M2ePro/Servicing_Task_Analytics_EntityManager_Serializer');
 
@@ -98,8 +99,6 @@ class Ess_M2ePro_Model_Servicing_Task_Analytics extends Ess_M2ePro_Model_Servici
             }
         }
 
-        $registry->save();
-
         if (!in_array(false, $progress)) {
             $registry->markFinished();
         }
@@ -134,7 +133,7 @@ class Ess_M2ePro_Model_Servicing_Task_Analytics extends Ess_M2ePro_Model_Servici
                 'Template_Synchronization',
                 'Template_Description',
                 'Template_SellingFormat',
-                'Ebay_Template_Return',
+                'Ebay_Template_ReturnPolicy',
                 'Ebay_Template_Payment',
                 'Ebay_Template_Shipping',
                 'Ebay_Template_Category',

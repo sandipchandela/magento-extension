@@ -9,10 +9,14 @@
 class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Receive_Details_Responser
     extends Ess_M2ePro_Model_Amazon_Connector_Orders_Get_Details_ItemsResponser
 {
+    /** @var Ess_M2ePro_Model_Synchronization_Log $_synchronizationLog */
     protected $_synchronizationLog = null;
 
     //########################################
 
+    /**
+     * @param array $messages
+     */
     protected function processResponseMessages(array $messages = array())
     {
         parent::processResponseMessages();
@@ -27,12 +31,14 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Receive_Details_Responser
 
             $this->getSynchronizationLog()->addMessage(
                 Mage::helper('M2ePro')->__($message->getText()),
-                $logType,
-                Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
+                $logType
             );
         }
     }
 
+    /**
+     * @return bool
+     */
     protected function isNeedProcessResponse()
     {
         if (!parent::isNeedProcessResponse()) {
@@ -48,29 +54,30 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Receive_Details_Responser
 
     //########################################
 
+    /**
+     * @param string $messageText
+     */
     public function failDetected($messageText)
     {
         parent::failDetected($messageText);
 
         $this->getSynchronizationLog()->addMessage(
             Mage::helper('M2ePro')->__($messageText),
-            Ess_M2ePro_Model_Log_Abstract::TYPE_ERROR,
-            Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
+            Ess_M2ePro_Model_Log_Abstract::TYPE_ERROR
         );
     }
 
     //########################################
 
+    /**
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     protected function processResponseData()
     {
         $responseData = $this->getPreparedResponseData();
+        $responseData = $responseData['data'];
 
-        $amazonOrdersIds = array();
-        foreach ($responseData['data'] as $details) {
-            $amazonOrdersIds[] = $details['amazon_order_id'];
-        }
-
-        $amazonOrdersIds = array_unique($amazonOrdersIds);
+        $amazonOrdersIds = array_keys($responseData);
         if (empty($amazonOrdersIds)) {
             return;
         }
@@ -79,30 +86,38 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Receive_Details_Responser
         $ordersCollection = Mage::helper('M2ePro/Component_Amazon')->getCollection('Order');
         $ordersCollection->addFieldToFilter('amazon_order_id', array('in' => $amazonOrdersIds));
 
-        foreach ($responseData['data'] as $details) {
+        foreach ($responseData as $amazonOrderId => $details) {
             /** @var Ess_M2ePro_Model_Order $order */
-            $order = $ordersCollection->getItemByColumnValue('amazon_order_id', $details['amazon_order_id']);
+            $order = $ordersCollection->getItemByColumnValue('amazon_order_id', $amazonOrderId);
             if ($order === null) {
                 continue;
             }
 
-            unset($details['amazon_order_id']);
+            /** @var Ess_M2ePro_Model_Order_Item $item */
+            foreach ($order->getItemsCollection() as $item) {
+                $amazonOrderItemId = $item->getChildObject()->getAmazonOrderItemId();
+                if (empty($details[$amazonOrderItemId])) {
+                    continue;
+                }
 
-            $additionalData = $order->getAdditionalData();
-            $additionalData['fulfillment_details'] = $details;
-            $order->setSettings('additional_data', $additionalData)->save();
+                $item->getChildObject()->setData('fulfillment_center_id', $details[$amazonOrderItemId]);
+                $item->getChildObject()->save();
+            }
+
+            $magentoOrderId = $order->getMagentoOrderId();
+            if (empty($magentoOrderId)) {
+                continue;
+            }
+
+            /** @var Ess_M2ePro_Model_Magento_Order_Updater $orderUpdater */
+            $orderUpdater = Mage::getModel('M2ePro/Magento_Order_Updater');
+            $orderUpdater->setMagentoOrder($order->getMagentoOrder());
+            $orderUpdater->updateComments($order->getChildObject()->getProxy()->getAFNWarehouseComments());
+            $orderUpdater->finishUpdate();
         }
     }
 
     //########################################
-
-    /**
-     * @return Ess_M2ePro_Model_Account
-     */
-    protected function getAccount()
-    {
-        return $this->getObjectByParam('Account', 'account_id');
-    }
 
     /**
      * @return Ess_M2ePro_Model_Synchronization_Log

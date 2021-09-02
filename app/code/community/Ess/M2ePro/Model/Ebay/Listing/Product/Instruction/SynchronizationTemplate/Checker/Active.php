@@ -23,6 +23,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
             ChangeProcessorAbstract::INSTRUCTION_TYPE_PRODUCT_STATUS_DATA_POTENTIALLY_CHANGED,
             Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_OTHER,
             Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_LISTING,
+            Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_REMAP_FROM_LISTING,
             Ess_M2ePro_Model_Ebay_Listing_Product::INSTRUCTION_TYPE_CHANNEL_QTY_CHANGED,
             Ess_M2ePro_Model_Ebay_Listing_Product::INSTRUCTION_TYPE_CHANNEL_STATUS_CHANGED,
             Ess_M2ePro_Model_Ebay_Template_ChangeProcessor_Abstract::INSTRUCTION_TYPE_QTY_DATA_CHANGED,
@@ -362,48 +363,11 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
             }
         }
 
-        if ($ebaySynchronizationTemplate->isStopWhenQtyMagentoHasValue()) {
-            $productQty = (int)$listingProduct->getMagentoProduct()->getQty(true);
-
-            $typeQty = (int)$ebaySynchronizationTemplate->getStopWhenQtyMagentoHasValueType();
-            $minQty = (int)$ebaySynchronizationTemplate->getStopWhenQtyMagentoHasValueMin();
-            $maxQty = (int)$ebaySynchronizationTemplate->getStopWhenQtyMagentoHasValueMax();
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_LESS &&
-                $productQty <= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_MORE &&
-                $productQty >= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_BETWEEN &&
-                $productQty >= $minQty && $productQty <= $maxQty) {
-                return true;
-            }
-        }
-
         if ($ebaySynchronizationTemplate->isStopWhenQtyCalculatedHasValue()) {
             $productQty = (int)$ebayListingProduct->getQty();
+            $minQty = (int)$ebaySynchronizationTemplate->getStopWhenQtyCalculatedHasValue();
 
-            $typeQty = (int)$ebaySynchronizationTemplate->getStopWhenQtyCalculatedHasValueType();
-            $minQty = (int)$ebaySynchronizationTemplate->getStopWhenQtyCalculatedHasValueMin();
-            $maxQty = (int)$ebaySynchronizationTemplate->getStopWhenQtyCalculatedHasValueMax();
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_LESS &&
-                $productQty <= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_MORE &&
-                $productQty >= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_BETWEEN &&
-                $productQty >= $minQty && $productQty <= $maxQty) {
+            if ($productQty <= $minQty) {
                 return true;
             }
         }
@@ -441,12 +405,6 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
 
         if (!$ebaySynchronizationTemplate->isReviseUpdateQty()) {
             return false;
-        }
-
-        $ebaySellingFormatTemplate = $ebayListingProduct->getEbaySellingFormatTemplate();
-
-        if (!$ebayListingProduct->getOutOfStockControl() && $ebaySellingFormatTemplate->getOutOfStockControl()) {
-            return true;
         }
 
         $isMaxAppliedValueModeOn = $ebaySynchronizationTemplate->isReviseUpdateQtyMaxAppliedValueModeOn();
@@ -505,41 +463,21 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
 
         if (!$ebayListingProduct->isVariationsReady()) {
             if ($ebayListingProduct->isListingTypeFixed()) {
-                $needRevise = $ebaySynchronizationTemplate->isPriceChangedOverAllowedDeviation(
-                    $ebayListingProduct->getOnlineCurrentPrice(),
-                    $ebayListingProduct->getFixedPrice()
-                );
-
-                if ($needRevise) {
+                if ($ebayListingProduct->getOnlineCurrentPrice() != $ebayListingProduct->getFixedPrice()) {
                     return true;
                 }
             }
 
             if ($ebayListingProduct->isListingTypeAuction()) {
-                $needRevise = $ebaySynchronizationTemplate->isPriceChangedOverAllowedDeviation(
-                    $ebayListingProduct->getOnlineStartPrice(),
-                    $ebayListingProduct->getStartPrice()
-                );
-
-                if ($needRevise) {
+                if ($ebayListingProduct->getOnlineStartPrice() != $ebayListingProduct->getStartPrice()) {
                     return true;
                 }
 
-                $needRevise = $ebaySynchronizationTemplate->isPriceChangedOverAllowedDeviation(
-                    $ebayListingProduct->getOnlineReservePrice(),
-                    $ebayListingProduct->getReservePrice()
-                );
-
-                if ($needRevise) {
+                if ($ebayListingProduct->getOnlineReservePrice() != $ebayListingProduct->getReservePrice()) {
                     return true;
                 }
 
-                $needRevise = $ebaySynchronizationTemplate->isPriceChangedOverAllowedDeviation(
-                    $ebayListingProduct->getOnlineBuyItNowPrice(),
-                    $ebayListingProduct->getBuyItNowPrice()
-                );
-
-                if ($needRevise) {
+                if ($ebayListingProduct->getOnlineBuyItNowPrice() != $ebayListingProduct->getBuyItNowPrice()) {
                     return true;
                 }
             }
@@ -551,12 +489,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
                 /** @var Ess_M2ePro_Model_Ebay_Listing_Product_Variation $ebayVariation */
                 $ebayVariation = $variation->getChildObject();
 
-                $needRevise = $ebaySynchronizationTemplate->isPriceChangedOverAllowedDeviation(
-                    $ebayVariation->getOnlinePrice(),
-                    $ebayVariation->getPrice()
-                );
-
-                if ($needRevise) {
+                if ($ebayVariation->getOnlinePrice() != $ebayVariation->getPrice()) {
                     return true;
                 }
             }
@@ -639,7 +572,8 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
 
         $actionData = $actionDataBuilder->getData();
 
-        if ($actionData['description'] == $ebayListingProduct->getOnlineDescription()) {
+        $hashDescription = Mage::helper('M2ePro')->hashString($actionData['description'], 'md5');
+        if ($hashDescription == $ebayListingProduct->getOnlineDescription()) {
             return false;
         }
 
@@ -665,7 +599,11 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
         $actionDataBuilder->setListingProduct($listingProduct);
         $actionDataBuilder->setIsVariationItem($ebayListingProduct->isVariationsReady());
 
-        if ($actionDataBuilder->getData() == $ebayListingProduct->getOnlineImages()) {
+        $hashImagesData = Mage::helper('M2ePro')->hashString(
+            Mage::helper('M2ePro')->jsonEncode($actionDataBuilder->getData()),
+            'md5'
+        );
+        if ($hashImagesData == $ebayListingProduct->getOnlineImages()) {
             return false;
         }
 
@@ -715,7 +653,11 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
         $actionDataBuilder = Mage::getModel('M2ePro/Ebay_Listing_Product_Action_DataBuilder_Payment');
         $actionDataBuilder->setListingProduct($listingProduct);
 
-        if ($actionDataBuilder->getData() == $ebayListingProduct->getOnlinePaymentData()) {
+        $hashPaymentData = Mage::helper('M2ePro')->hashString(
+            Mage::helper('M2ePro')->jsonEncode($actionDataBuilder->getData()),
+            'md5'
+        );
+        if ($hashPaymentData == $ebayListingProduct->getOnlinePaymentData()) {
             return false;
         }
 
@@ -740,7 +682,11 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
         $actionDataBuilder = Mage::getModel('M2ePro/Ebay_Listing_Product_Action_DataBuilder_Shipping');
         $actionDataBuilder->setListingProduct($listingProduct);
 
-        if ($actionDataBuilder->getData() == $ebayListingProduct->getOnlineShippingData()) {
+        $hashShippingData = Mage::helper('M2ePro')->hashString(
+            Mage::helper('M2ePro')->jsonEncode($actionDataBuilder->getData()),
+            'md5'
+        );
+        if ($hashShippingData == $ebayListingProduct->getOnlineShippingData()) {
             return false;
         }
 
@@ -765,7 +711,11 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
         $actionDataBuilder = Mage::getModel('M2ePro/Ebay_Listing_Product_Action_DataBuilder_Return');
         $actionDataBuilder->setListingProduct($listingProduct);
 
-        if ($actionDataBuilder->getData() == $ebayListingProduct->getOnlineReturnData()) {
+        $hashReturnData = Mage::helper('M2ePro')->hashString(
+            Mage::helper('M2ePro')->jsonEncode($actionDataBuilder->getData()),
+            'md5'
+        );
+        if ($hashReturnData == $ebayListingProduct->getOnlineReturnData()) {
             return false;
         }
 
@@ -790,7 +740,11 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Instruction_SynchronizationTemplate_
         $actionDataBuilder = Mage::getModel('M2ePro/Ebay_Listing_Product_Action_DataBuilder_Other');
         $actionDataBuilder->setListingProduct($listingProduct);
 
-        if ($actionDataBuilder->getData() == $ebayListingProduct->getOnlineOtherData()) {
+        $hashOtherData = Mage::helper('M2ePro')->hashString(
+            Mage::helper('M2ePro')->jsonEncode($actionDataBuilder->getData()),
+            'md5'
+        );
+        if ($hashOtherData == $ebayListingProduct->getOnlineOtherData()) {
             return false;
         }
 

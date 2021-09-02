@@ -42,7 +42,7 @@ class Ess_M2ePro_Model_Order_Item_OptionsFinder
      */
     public function setChannelOptions(array $options = array())
     {
-        $this->_channelOptions = $options;
+        $this->_channelOptions = Mage::helper('M2ePro')->toLowerCaseRecursive($options);
         return $this;
     }
 
@@ -52,7 +52,8 @@ class Ess_M2ePro_Model_Order_Item_OptionsFinder
      */
     public function addChannelOptions(array $options = array())
     {
-        $this->_channelOptions = array_merge_recursive($this->_channelOptions, $options);
+        // $options keys may contain numeric values of option labels, so we need use "+" instead of array_merge
+        $this->_channelOptions = $this->_channelOptions + Mage::helper('M2ePro')->toLowerCaseRecursive($options);
         return $this;
     }
 
@@ -90,8 +91,6 @@ class Ess_M2ePro_Model_Order_Item_OptionsFinder
             $this->_optionsData['associated_products'] = array($associatedProduct->getId());
             return;
         }
-
-        $this->_channelOptions = Mage::helper('M2ePro')->toLowerCaseRecursive($this->_channelOptions);
 
         if (empty($this->_channelOptions)) {
             $this->isNeedToReturnFirstOptionValues() && $this->matchFirstOptions();
@@ -335,22 +334,15 @@ class Ess_M2ePro_Model_Order_Item_OptionsFinder
             return $this->_isNeedToReturnFirstOptionValues;
         }
 
-        $configGroup = '/order/magento/settings/';
-        $configKey   = 'create_with_first_product_options_when_variation_unavailable';
-        $configValue = (bool)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue($configGroup, $configKey);
+        $configValue = (bool)Mage::helper('M2ePro/Module_Configuration')
+            ->getCreateWithFirstProductOptionsWhenVariationUnavailable();
 
         return $this->_isNeedToReturnFirstOptionValues = $configValue;
     }
 
     protected function getAllowedProductTypes()
     {
-        return array(
-            Ess_M2ePro_Model_Magento_Product::TYPE_SIMPLE,
-            Ess_M2ePro_Model_Magento_Product::TYPE_CONFIGURABLE,
-            Ess_M2ePro_Model_Magento_Product::TYPE_BUNDLE,
-            Ess_M2ePro_Model_Magento_Product::TYPE_GROUPED,
-            Ess_M2ePro_Model_Magento_Product::TYPE_DOWNLOADABLE,
-        );
+        return Mage::helper('M2ePro/Magento_Product')->getOriginKnownTypes();
     }
 
     //########################################

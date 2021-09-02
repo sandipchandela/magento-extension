@@ -6,17 +6,14 @@
  * @license    Commercial use is forbidden
  */
 
+use Ess_M2ePro_Helper_Component_Ebay as EbayHelper;
+
 /**
  * @method Ess_M2ePro_Model_Order getParentObject()
  * @method Ess_M2ePro_Model_Resource_Ebay_Order getResource()
  */
 class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_Abstract
 {
-    const ORDER_STATUS_ACTIVE     = 0;
-    const ORDER_STATUS_COMPLETED  = 1;
-    const ORDER_STATUS_CANCELLED  = 2;
-    const ORDER_STATUS_INACTIVE   = 3;
-
     const CHECKOUT_STATUS_INCOMPLETE = 0;
     const CHECKOUT_STATUS_COMPLETED  = 1;
 
@@ -28,6 +25,16 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
     const SHIPPING_STATUS_NOT_SELECTED = 0;
     const SHIPPING_STATUS_PROCESSING   = 1;
     const SHIPPING_STATUS_COMPLETED    = 2;
+
+    const STATUS_PENDING   = 0;
+    const STATUS_UNSHIPPED = 1;
+    const STATUS_SHIPPED   = 2;
+    const STATUS_CANCELED  = 3;
+    const STATUS_PENDING_RESERVED = 4;
+
+    /** All reasons: https://developer.ebay.com/Devzone/post-order/types/CancelReasonEnum.html */
+    const CANCEL_REASON_DEFAULT   = 'OTHER';
+    const CANCEL_REASON_BUYER_ASK = 'BUYER_ASKED_CANCEL';
 
     /** @var $_externalTransactionsCollection Ess_M2ePro_Model_Resource_Ebay_Order_ExternalTransaction_Collection */
     protected $_externalTransactionsCollection = null;
@@ -158,6 +165,22 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
     }
 
     // ---------------------------------------
+
+    /**
+     * @return string
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function getMagentoOrdersNumberMarketplacePrefix()
+    {
+        return strtoupper($this->getParentObject()->getMarketplace()->getChildObject()->getOriginCountry());
+    }
+
+    // ---------------------------------------
+
+    public function getTaxReference()
+    {
+        return $this->getData('tax_reference');
+    }
 
     public function getTaxDetails()
     {
@@ -296,6 +319,11 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
     {
         $shippingDetails = $this->getShippingDetails();
         return isset($shippingDetails['date']) ? $shippingDetails['date'] : '';
+    }
+
+    public function getShippingDateTo()
+    {
+        return $this->getData('shipping_date_to');
     }
 
     /**
@@ -557,6 +585,14 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
                !$this->isShippingInProcess();
     }
 
+    /**
+     * @return bool
+     */
+    public function isCanceled()
+    {
+        return (bool)$this->getData('cancellation_status');
+    }
+
     // ---------------------------------------
 
     /**
@@ -617,7 +653,7 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
         $channelItems = $this->getParentObject()->getChannelItems();
 
         if (empty($channelItems)) {
-            // 3rd party order
+            // Unmanaged order
             // ---------------------------------------
             $storeId = $this->getEbayAccount()->getMagentoOrdersListingsOtherStoreId();
             // ---------------------------------------
@@ -650,17 +686,14 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
     {
         $ebayAccount = $this->getEbayAccount();
 
-        if (!$this->isCheckoutCompleted()
-            && ($ebayAccount->shouldCreateMagentoOrderWhenCheckedOut()
-                || $ebayAccount->shouldCreateMagentoOrderWhenCheckedOutAndPaid())
+        if (!$this->isCheckoutCompleted() &&
+            ($ebayAccount->shouldCreateMagentoOrderWhenCheckedOut() ||
+             $ebayAccount->shouldCreateMagentoOrderWhenCheckedOutAndPaid())
         ) {
             return false;
         }
 
-        if (!$this->isPaymentCompleted()
-            && ($ebayAccount->shouldCreateMagentoOrderWhenPaid()
-                || $ebayAccount->shouldCreateMagentoOrderWhenCheckedOutAndPaid())
-        ) {
+        if (!$this->isPaymentCompleted() && $ebayAccount->shouldCreateMagentoOrderWhenCheckedOutAndPaid()) {
             return false;
         }
 
@@ -689,7 +722,9 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
         $shippingDetails = $this->getShippingDetails();
         $shippingDetails['address'] = $buyerInfo['address'];
 
-        $this->getParentObject()->setData('buyer_name', $buyerInfo['name']);
+        $buyerName = trim($buyerInfo['first_name']) . ' ' . trim($buyerInfo['last_name']);
+
+        $this->getParentObject()->setData('buyer_name', $buyerName);
         $this->getParentObject()->setSettings('shipping_details', $shippingDetails);
 
         $this->getParentObject()->save();
@@ -929,6 +964,7 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
     /**
      * @param array $params
      * @return bool
+     * @throws Ess_M2ePro_Model_Exception_Logic
      */
     public function updatePaymentStatus(array $params = array())
     {
@@ -936,11 +972,13 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
             return false;
         }
 
-        $action    = Ess_M2ePro_Model_Order_Change::ACTION_UPDATE_PAYMENT;
-        $creator   = $this->getParentObject()->getLog()->getInitiator();
-        $component = Ess_M2ePro_Helper_Component_Ebay::NICK;
-
-        Mage::getModel('M2ePro/Order_Change')->create($this->getId(), $action, $creator, $component, $params);
+        Mage::getModel('M2ePro/Order_Change')->create(
+            $this->getId(),
+            Ess_M2ePro_Model_Order_Change::ACTION_UPDATE_PAYMENT,
+            $this->getParentObject()->getLog()->getInitiator(),
+            Ess_M2ePro_Helper_Component_Ebay::NICK,
+            $params
+        );
 
         return true;
     }
@@ -971,15 +1009,16 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
 
     /**
      * @param array $trackingDetails
+     * @param array $items
+     *
      * @return bool
+     * @throws Ess_M2ePro_Model_Exception_Logic
      */
-    public function updateShippingStatus(array $trackingDetails = array())
+    public function updateShippingStatus(array $trackingDetails = array(), array $items = array())
     {
         if (!$this->canUpdateShippingStatus($trackingDetails)) {
             return false;
         }
-
-        $params = array();
 
         if (!empty($trackingDetails['carrier_code'])) {
             $trackingDetails['carrier_title'] = Mage::helper('M2ePro/Component_Ebay')->getCarrierTitle(
@@ -990,8 +1029,7 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
 
         if (!empty($trackingDetails['carrier_title'])) {
             if ($trackingDetails['carrier_title'] == Ess_M2ePro_Model_Order_Shipment_Handler::CUSTOM_CARRIER_CODE &&
-                !empty($trackingDetails['shipping_method']))
-            {
+                !empty($trackingDetails['shipping_method'])) {
                 $trackingDetails['carrier_title'] = $trackingDetails['shipping_method'];
             }
 
@@ -1001,13 +1039,56 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
             );
         }
 
-        $params = array_merge($params, $trackingDetails);
+        $params = $trackingDetails;
+        foreach ($items as $item) {
+            /** @var Ess_M2ePro_Model_Order_Item $item */
+            $params['items'][] = array(
+                'item_id' => $item->getId()
+            );
+        }
 
-        $action    = Ess_M2ePro_Model_Order_Change::ACTION_UPDATE_SHIPPING;
-        $creator   = $this->getParentObject()->getLog()->getInitiator();
-        $component = Ess_M2ePro_Helper_Component_Ebay::NICK;
+        /** @var Ess_M2ePro_Model_Order_Change $change */
+        $change = Mage::getModel('M2ePro/Order_Change')->getCollection()
+            ->addFieldToFilter('order_id', $this->getParentObject()->getId())
+            ->addFieldToFilter('action', Ess_M2ePro_Model_Order_Change::ACTION_UPDATE_SHIPPING)
+            ->addFieldToFilter('processing_attempt_count', 0)
+            ->getFirstItem();
 
-        Mage::getModel('M2ePro/Order_Change')->create($this->getId(), $action, $creator, $component, $params);
+        $existingParams = $change->getParams();
+
+        $newTrackingNumber = !empty($trackingDetails['tracking_number']) ? $trackingDetails['tracking_number'] : '';
+        $oldTrackingNumber = !empty($existingParams['tracking_number']) ? $existingParams['tracking_number'] : '';
+
+        if (!$change->getId() || $newTrackingNumber !== $oldTrackingNumber) {
+            $change::create(
+                $this->getParentObject()->getId(),
+                Ess_M2ePro_Model_Order_Change::ACTION_UPDATE_SHIPPING,
+                $this->getParentObject()->getLog()->getInitiator(),
+                Ess_M2ePro_Helper_Component_Ebay::NICK,
+                $params
+            );
+            return true;
+        }
+
+        $existingItems = array();
+        if (isset($existingParams['items'])) {
+            $existingItems = $existingParams['items'];
+        }
+
+        foreach ($params['items'] as $newItem) {
+            foreach ($existingItems as $existingItem) {
+                if ($newItem['item_id'] === $existingItem['item_id']) {
+                    continue 2;
+                }
+            }
+
+            $existingItems[] = $newItem;
+        }
+
+        $existingParams['items'] = $existingItems;
+
+        $change->setData('params', Mage::helper('M2ePro')->jsonEncode($existingParams));
+        $change->save();
 
         return true;
     }
@@ -1035,6 +1116,88 @@ class Ess_M2ePro_Model_Ebay_Order extends Ess_M2ePro_Model_Component_Child_Ebay_
         $buyerInfo = $connectorObj->getResponseData();
 
         return $buyerInfo;
+    }
+
+    //########################################
+
+    /**
+     * @return bool
+     */
+    public function canRefund()
+    {
+        if ($this->isCanceled()) {
+            return false;
+        }
+
+        if (!$this->getEbayAccount()->isRefundEnabled()) {
+            return false;
+        }
+
+        $supportedMarketplaces = array(
+            EbayHelper::MARKETPLACE_US,
+            EbayHelper::MARKETPLACE_CA,
+            EbayHelper::MARKETPLACE_UK,
+            EbayHelper::MARKETPLACE_AU,
+            EbayHelper::MARKETPLACE_DE
+        );
+
+        if (!in_array($this->getParentObject()->getMarketplaceId(), $supportedMarketplaces)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return bool
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function cancel()
+    {
+        if (!$this->canRefund()) {
+            return false;
+        }
+
+        $params = array(
+            'channel_order_id' => $this->getEbayOrderId(),
+            'reason'           => self::CANCEL_REASON_BUYER_ASK,
+        );
+
+        Mage::getModel('M2ePro/Order_Change')->create(
+            $this->getParentObject()->getId(),
+            Ess_M2ePro_Model_Order_Change::ACTION_CANCEL,
+            $this->getParentObject()->getLog()->getInitiator(),
+            Ess_M2ePro_Helper_Component_Ebay::NICK,
+            $params
+        );
+
+        return true;
+    }
+
+    /**
+     * @return bool
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function refund()
+    {
+        if (!$this->canRefund()) {
+            return false;
+        }
+
+        $params = array(
+            'channel_order_id' => $this->getEbayOrderId(),
+            'reason'           => self::CANCEL_REASON_BUYER_ASK,
+        );
+
+        Mage::getModel('M2ePro/Order_Change')->create(
+            $this->getParentObject()->getId(),
+            Ess_M2ePro_Model_Order_Change::ACTION_REFUND,
+            $this->getParentObject()->getLog()->getInitiator(),
+            Ess_M2ePro_Helper_Component_Ebay::NICK,
+            $params
+        );
+
+        return true;
     }
 
     //########################################

@@ -72,7 +72,8 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
         // Init sale data
         // ---------------------------------------
         $this->setData('paid_amount', (float)$data['paid_amount']);
-        $this->setData('tax_details', Mage::helper('M2ePro')->jsonEncode($data['tax_details']));
+        $this->setData('tax_details', Mage::helper('M2ePro')->jsonEncode($this->prepareTaxDetails($data)));
+        $this->setData('ioss_number', $data['items'][0]['ioss_number']);
         $this->setData('discount_details', Mage::helper('M2ePro')->jsonEncode($data['discount_details']));
         $this->setData('currency', $data['currency']);
         $this->setData('qty_shipped', $data['qty_shipped']);
@@ -86,7 +87,8 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
         $this->setData('shipping_service', $data['shipping_service']);
         $this->setData('shipping_address', $data['shipping_address']);
         $this->setData('shipping_price', (float)$data['shipping_price']);
-        $this->setData('shipping_dates', Mage::helper('M2ePro')->jsonEncode($data['shipping_dates']));
+        $this->setData('shipping_date_to', $data['shipping_date_to']);
+        $this->setData('delivery_date_to', $data['delivery_date_to']);
         // ---------------------------------------
 
         $this->_items = $data['items'];
@@ -137,7 +139,7 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
         // ---------------------------------------
         if ($existOrdersNumber == 0) {
             $this->_status = self::STATUS_NEW;
-            $this->_order  = Mage::helper('M2ePro/Component_Amazon')->getModel('Order');
+            $this->_order = Mage::helper('M2ePro/Component_Amazon')->getModel('Order');
             $this->_order->setStatusUpdateRequired(true);
 
             return;
@@ -147,7 +149,7 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
 
         // Already exist order
         // ---------------------------------------
-        $this->_order  = reset($existOrders);
+        $this->_order = reset($existOrders);
         $this->_status = self::STATUS_UPDATED;
 
         if ($this->_order->getMagentoOrderId() === null) {
@@ -159,8 +161,105 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
 
     //########################################
 
+    protected function prepareTaxDetails($data)
+    {
+        if ($this->isNeedSkipTax($data)) {
+            $data['tax_details']['product'] = 0;
+            $data['tax_details']['shipping'] = 0;
+            $data['tax_details']['gift'] = 0;
+        }
+
+        return $data['tax_details'];
+    }
+
+    protected function isNeedSkipTax($data)
+    {
+        if ($this->isSkipTaxForUS($data)) {
+            return true;
+        }
+
+        if ($this->isSkipTaxForUkShipment($data)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function isSkipTaxForUkShipment(array $data)
+    {
+        $countryCode = strtoupper($data['shipping_address']['country_code']);
+        if (!in_array($countryCode, array('GB', 'UK'))) {
+            return false;
+        }
+
+        if ($this->_account->getChildObject()->isAmazonCollectsTaxForUKShipmentAvailable()) {
+            return true;
+        }
+
+        if ($this->_account->getChildObject()->isAmazonCollectsTaxForUKShipmentWithCertainPrice()
+            && $this->isSumOfItemPriceLessThan135GBP(
+                $data['items']
+            )) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function isSkipTaxForUS(array $data)
+    {
+        if (!$this->_account->getChildObject()->isAmazonCollectsEnabled()) {
+            return false;
+        }
+
+        $statesList = Mage::helper('M2ePro/Component_Amazon')->getStatesList();
+        $excludedStates = $this->_account->getChildObject()->getExcludedStates();
+
+        if (empty($excludedStates) || !isset($data['shipping_address']['state'])) {
+            return false;
+        }
+
+        $state = strtoupper($data['shipping_address']['state']);
+
+        foreach ($statesList as $code => $title) {
+            if (!in_array($code, $excludedStates)) {
+                continue;
+            }
+
+            if ($state == $code || $state == strtoupper($title)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function calculateItemPrice(array $items)
+    {
+        $result = 0.0;
+
+        foreach ($items as $item) {
+            $result += $this->convertPricetoGBP($item['price'], trim($item['currency']));
+        }
+
+        return $result;
+    }
+
+    protected function convertPriceToGBP($price, $currency)
+    {
+        return Mage::getSingleton('M2ePro/Currency')->convertPriceToCurrency($price, $currency, 'GBP');
+    }
+
+    protected function isSumOfItemPriceLessThan135GBP($items)
+    {
+        return $this->calculateItemPrice($items) < 135;
+    }
+
+    //########################################
+
     /**
      * @return Ess_M2ePro_Model_Order
+     * @throws Ess_M2ePro_Model_Exception_Logic
      */
     public function process()
     {
@@ -226,22 +325,31 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
     //########################################
 
     /**
-     * @return Ess_M2ePro_Model_Order
+     * @throws Ess_M2ePro_Model_Exception_Logic
      */
     protected function createOrUpdateOrder()
     {
         if (!$this->isNew() && $this->getData('status') == Ess_M2ePro_Model_Amazon_Order::STATUS_CANCELED) {
             $this->_order->setData('status', Ess_M2ePro_Model_Amazon_Order::STATUS_CANCELED);
             $this->_order->setData('purchase_update_date', $this->getData('purchase_update_date'));
+            $this->_order->save();
         } else {
             $this->setData(
                 'shipping_address',
                 Mage::helper('M2ePro')->jsonEncode($this->getData('shipping_address'))
             );
-            $this->_order->addData($this->getData());
+
+            foreach ($this->getData() as $key => $value) {
+                if (!$this->_order->getId() ||
+                    ($this->_order->hasData($key) && $this->_order->getData($key) != $value)
+                ) {
+                    $this->_order->addData($this->getData());
+                    $this->_order->save();
+                    break;
+                }
+            }
         }
 
-        $this->_order->save();
         $this->_order->setAccount($this->_account);
 
         if ($this->_order->getChildObject()->isCanceled() && $this->_order->getReserve()->isPlaced()) {
@@ -307,6 +415,7 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
 
         if ($this->hasUpdate(self::UPDATE_STATUS) && $this->_order->getChildObject()->isCanceled()) {
             $this->cancelMagentoOrder();
+
             return;
         }
 
@@ -321,7 +430,7 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
 
             $shippingData = $this->_order->getProxy()->getShippingData();
             $magentoOrderUpdater->updateShippingDescription(
-                $shippingData['carrier_title'].' - '.$shippingData['shipping_method']
+                $shippingData['carrier_title'] . ' - ' . $shippingData['shipping_method']
             );
         }
 
@@ -411,12 +520,12 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
                 $instruction = Mage::getModel('M2ePro/Listing_Product_Instruction');
                 $instruction->setData(
                     array(
-                    'listing_product_id' => $listingProduct->getId(),
-                    'component'          => Ess_M2ePro_Helper_Component_Amazon::NICK,
-                    'type'               =>
-                        Ess_M2ePro_Model_Amazon_Listing_Product::INSTRUCTION_TYPE_CHANNEL_QTY_CHANGED,
-                    'initiator'          => self::INSTRUCTION_INITIATOR,
-                    'priority'           => 80,
+                        'listing_product_id' => $listingProduct->getId(),
+                        'component'          => Ess_M2ePro_Helper_Component_Amazon::NICK,
+                        'type'               =>
+                            Ess_M2ePro_Model_Amazon_Listing_Product::INSTRUCTION_TYPE_CHANNEL_QTY_CHANGED,
+                        'initiator'          => self::INSTRUCTION_INITIATOR,
+                        'priority'           => 80,
                     )
                 );
                 $instruction->save();
@@ -425,7 +534,7 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
                     $listingProduct->setData('online_qty', $currentOnlineQty - $orderItem['qty_purchased']);
 
                     $tempLogMessage = Mage::helper('M2ePro')->__(
-                        'Item QTY was successfully changed from %from% to %to% .',
+                        'Item QTY was changed from %from% to %to% .',
                         $currentOnlineQty,
                         ($currentOnlineQty - $orderItem['qty_purchased'])
                     );
@@ -438,8 +547,7 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
                         $logsActionId,
                         Ess_M2ePro_Model_Listing_Log::ACTION_CHANNEL_CHANGE,
                         $tempLogMessage,
-                        Ess_M2ePro_Model_Log_Abstract::TYPE_SUCCESS,
-                        Ess_M2ePro_Model_Log_Abstract::PRIORITY_LOW
+                        Ess_M2ePro_Model_Log_Abstract::TYPE_SUCCESS
                     );
 
                     $listingProduct->save();
@@ -449,10 +557,13 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
 
                 $listingProduct->setData('online_qty', 0);
 
-                $tempLogMessages = array(Mage::helper('M2ePro')->__(
-                    'Item QTY was successfully changed from %from% to %to% .',
-                    $currentOnlineQty, 0
-                ));
+                $tempLogMessages = array(
+                    Mage::helper('M2ePro')->__(
+                        'Item QTY was changed from %from% to %to% .',
+                        $currentOnlineQty,
+                        0
+                    )
+                );
 
                 if (!$listingProduct->isStopped()) {
                     $statusChangedFrom = Mage::helper('M2ePro/Component_Amazon')
@@ -462,14 +573,15 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
 
                     if (!empty($statusChangedFrom) && !empty($statusChangedTo)) {
                         $tempLogMessages[] = Mage::helper('M2ePro')->__(
-                            'Item Status was successfully changed from "%from%" to "%to%" .',
+                            'Item Status was changed from "%from%" to "%to%" .',
                             $statusChangedFrom,
                             $statusChangedTo
                         );
                     }
 
                     $listingProduct->setData(
-                        'status_changer', Ess_M2ePro_Model_Listing_Product::STATUS_CHANGER_COMPONENT
+                        'status_changer',
+                        Ess_M2ePro_Model_Listing_Product::STATUS_CHANGER_COMPONENT
                     );
                     $listingProduct->setData('status', Ess_M2ePro_Model_Listing_Product::STATUS_STOPPED);
                 }
@@ -483,8 +595,7 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
                         $logsActionId,
                         Ess_M2ePro_Model_Listing_Log::ACTION_CHANNEL_CHANGE,
                         $tempLogMessage,
-                        Ess_M2ePro_Model_Log_Abstract::TYPE_SUCCESS,
-                        Ess_M2ePro_Model_Log_Abstract::PRIORITY_LOW
+                        Ess_M2ePro_Model_Log_Abstract::TYPE_SUCCESS
                     );
                 }
 
@@ -540,7 +651,8 @@ class Ess_M2ePro_Model_Amazon_Order_Builder extends Mage_Core_Model_Abstract
 
                 if (!$otherListing->isStopped()) {
                     $otherListing->setData(
-                        'status_changer', Ess_M2ePro_Model_Listing_Product::STATUS_CHANGER_COMPONENT
+                        'status_changer',
+                        Ess_M2ePro_Model_Listing_Product::STATUS_CHANGER_COMPONENT
                     );
                     $otherListing->setData('status', Ess_M2ePro_Model_Listing_Product::STATUS_STOPPED);
                 }

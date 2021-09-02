@@ -30,7 +30,7 @@
 
         <div id="order_item_product_options_mapping_pop_up_help" class="block_notices_module" title="<?php echo Mage::helper('M2ePro')->__('Order Item Options Setting'); ?>">
             <?php
-                echo Mage::helper('M2ePro')->__('As M2E Pro was not able to find appropriate Option in Magento Product you are supposed find and Map it manualy.
+                echo Mage::helper('M2ePro')->__('As M2E Pro was not able to find appropriate Option in Magento Product you are supposed find and Link it manualy.
                 <br/>If you want to use the same Settings for the similar subsequent Orders, select appropriate check-box at the bottom.
                 <br/><br/><b>Note:</b> Magento Order can be only created when all Products of Order are found in Magento Catalog.');
             ?>
@@ -134,7 +134,7 @@
             <img src="<?php echo $this->getSkinUrl('M2ePro/images/warning.png'); ?>" alt="" />&nbsp;<span><?php echo Mage::helper('M2ePro')->__('Selected Product Option is Out of Stock.') ?></span>
         </div>
         <div>
-            <a href="javascript: void(0);" onclick="OrderEditItemHandlerObj.closePopUp();"><?php echo Mage::helper('M2ePro')->__('Cancel') ?></a>
+            <a href="javascript: void(0);" onclick="OrderEditItemObj.closePopUp();"><?php echo Mage::helper('M2ePro')->__('Cancel') ?></a>
             &nbsp;
             &nbsp;
             &nbsp;
@@ -150,7 +150,7 @@
     $$('.form-element').each(function (element) {
         element.observe('change', function() {
             if (element.selectedIndex != 0) {
-                CommonHandlerObj.hideEmptyOption(element);
+                CommonObj.hideEmptyOption(element);
             }
 
             var hasEmptyOptions = $$('.form-element').any(function(element) { return element.value == '' });
@@ -189,8 +189,8 @@
         element.simulate('change');
     });
 
-    if (OrderEditItemHandlerObj && OrderEditItemHandlerObj.popUp) {
-        setTimeout(function() { OrderEditItemHandlerObj.popUp.updateHeight(); }, 50);
+    if (OrderEditItemObj && OrderEditItemObj.popUp) {
+        setTimeout(function() { OrderEditItemObj.popUp.updateHeight(); }, 50);
     }
 
 </script>

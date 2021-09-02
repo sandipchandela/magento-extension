@@ -13,6 +13,9 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Variation_Product_Manage_Tabs
 
     protected $_errorsCount;
 
+    /** @var Ess_M2ePro_Model_Listing_Product $listingProduct */
+    protected $_listingProduct;
+
     //########################################
 
     /**
@@ -41,12 +44,12 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Variation_Product_Manage_Tabs
      */
     public function getListingProduct()
     {
-        if (empty($this->listingProduct)) {
-            $this->listingProduct = Mage::helper('M2ePro/Component_Walmart')
+        if (empty($this->_listingProduct)) {
+            $this->_listingProduct = Mage::helper('M2ePro/Component_Walmart')
                 ->getObject('Listing_Product', $this->getListingProductId());
         }
 
-        return $this->listingProduct;
+        return $this->_listingProduct;
     }
 
     // ---------------------------------------
@@ -55,10 +58,7 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Variation_Product_Manage_Tabs
     {
         parent::__construct();
 
-        // Initialization block
-        // ---------------------------------------
         $this->setId('walmartVariationProductManageTabs');
-        // ---------------------------------------
 
         $this->setTemplate('widget/tabshoriz.phtml');
         $this->setDestElementId('variation_product_manage_tabs_container');
@@ -75,6 +75,7 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Variation_Product_Manage_Tabs
             'content' => $this->getLayout()
                 ->createBlock('M2ePro/adminhtml_walmart_listing_variation_product_manage_tabs_variations')
                 ->setListingProductId($this->getListingProductId())
+                ->setListingProductIdForFilter($this->getRequest()->getParam('listing_product_id_filter'))
                 ->toHtml()
             )
         );
@@ -136,7 +137,7 @@ HTML;
         $data = array(
             'style' => 'float: right; margin-top: 7px; ',
             'label'   => Mage::helper('M2ePro')->__('Close'),
-            'onclick' => 'ListingGridHandlerObj.variationProductManageHandler.closeManageVariationsPopup()'
+            'onclick' => 'ListingGridObj.variationProductManageHandler.closeManageVariationsPopup()'
         );
         $closeBtn = $this->getLayout()->createBlock('adminhtml/widget_button')->setData($data);
 
@@ -144,7 +145,7 @@ HTML;
 <script type="text/javascript">
     walmartVariationProductManageTabsJsTabs.moveTabContentInDest();
 
-    ListingGridHandlerObj.variationProductManageHandler.loadVariationsGrid(true);
+    ListingGridObj.variationProductManageHandler.loadVariationsGrid(true);
 </script>
 HTML;
 

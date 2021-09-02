@@ -23,19 +23,21 @@ class Ess_M2ePro_Helper_Module extends Mage_Core_Helper_Abstract
     //########################################
 
     /**
-     * @return Ess_M2ePro_Model_Config_Module
+     * @return Ess_M2ePro_Model_Config_Manager
      */
     public function getConfig()
     {
-        return Mage::getSingleton('M2ePro/Config_Module');
+        return Mage::getSingleton('M2ePro/Config_Manager');
     }
 
+    //########################################
+
     /**
-     * @return Ess_M2ePro_Model_Config_Cache
+     * @return Ess_M2ePro_Model_Registry_Manager
      */
-    public function getCacheConfig()
+    public function getRegistry()
     {
-        return Mage::getSingleton('M2ePro/Config_Cache');
+        return Mage::getSingleton('M2ePro/Registry_Manager');
     }
 
     //########################################
@@ -45,40 +47,43 @@ class Ess_M2ePro_Helper_Module extends Mage_Core_Helper_Abstract
         return 'm2epro';
     }
 
+    // ---------------------------------------
+
+    /**
+     * Backward compatibility with M2eProUpdater
+     * @deprecated use getPublicVersion()
+     */
     public function getVersion()
+    {
+        return $this->getPublicVersion();
+    }
+
+    public function getPublicVersion()
+    {
+        $composerFile = Mage::getConfig()->getModuleDir(null, self::IDENTIFIER) .DS. 'composer.json';
+        $composerData = Mage::helper('M2ePro/Data')->jsonDecode(file_get_contents($composerFile));
+
+        return isset($composerData['version']) ? $composerData['version'] : '1.0.0';
+    }
+
+    public function getSetupVersion()
     {
         $version = (string)Mage::getConfig()->getNode('modules/Ess_M2ePro/version');
         return strtolower($version);
-    }
-
-    public function getRevision()
-    {
-        return '14620';
-    }
-
-    // ---------------------------------------
-
-    public function getVersionWithRevision()
-    {
-        return $this->getVersion().'r'.$this->getRevision();
     }
 
     //########################################
 
     public function getInstallationKey()
     {
-        return Mage::helper('M2ePro/Primary')->getConfig()->getGroupValue('/server/', 'installation_key');
+        return $this->getConfig()->getGroupValue('/', 'installation_key');
     }
 
     //########################################
 
     public function getServerMessages()
     {
-        $messages = Mage::helper('M2ePro/Primary')->getConfig()->getGroupValue('/server/', 'messages');
-
-        $messages = ($messages !== null && $messages != '') ?
-                    (array)Mage::helper('M2ePro')->jsonDecode((string)$messages) :
-                    array();
+        $messages = $this->getRegistry()->getValueFromJson('/server/messages/');
 
         $messages = array_filter($messages, array($this,'getServerMessagesFilterModuleMessages'));
         !is_array($messages) && $messages = array();
@@ -118,67 +123,6 @@ class Ess_M2ePro_Helper_Module extends Mage_Core_Helper_Abstract
 
     //########################################
 
-    public function getFoldersAndFiles()
-    {
-        $paths = array(
-            'app/code/community/Ess/',
-            'app/code/community/Ess/M2ePro/*',
-
-            'app/locale/*/Ess_M2ePro.csv',
-            'app/etc/modules/Ess_M2ePro.xml',
-            'app/design/adminhtml/default/default/layout/M2ePro.xml',
-
-            'js/M2ePro/*',
-            'skin/adminhtml/default/default/M2ePro/*',
-            'skin/adminhtml/default/enterprise/M2ePro/*',
-            'app/design/adminhtml/default/default/template/M2ePro/*'
-        );
-
-        return $paths;
-    }
-
-    //########################################
-
-    public function getUnWritableDirectories()
-    {
-        $directoriesForCheck = array();
-        foreach ($this->getFoldersAndFiles() as $item) {
-            $fullDirPath = Mage::getBaseDir().DS.$item;
-
-            if (preg_match('/\*.*$/', $item)) {
-                $fullDirPath = preg_replace('/\*.*$/', '', $fullDirPath);
-                $directoriesForCheck = array_merge($directoriesForCheck, $this->getDirectories($fullDirPath));
-            }
-
-            $directoriesForCheck[] = dirname($fullDirPath);
-            is_dir($fullDirPath) && $directoriesForCheck[] = rtrim($fullDirPath, '/\\');
-        }
-
-        $directoriesForCheck = array_unique($directoriesForCheck);
-
-        $unWritableDirs = array();
-        foreach ($directoriesForCheck as $directory) {
-            !is_dir_writeable($directory) && $unWritableDirs[] = $directory;
-        }
-
-        return $unWritableDirs;
-    }
-
-    protected function getDirectories($dirPath)
-    {
-        $directoryIterator = new RecursiveDirectoryIterator($dirPath, FilesystemIterator::SKIP_DOTS);
-        $iterator = new RecursiveIteratorIterator($directoryIterator, RecursiveIteratorIterator::SELF_FIRST);
-
-        $directories = array();
-        foreach ($iterator as $path) {
-            $path->isDir() && $directories[] = rtrim($path->getPathname(), '/\\');
-        }
-
-        return $directories;
-    }
-
-    //########################################
-
     public function getEnvironment()
     {
         return $this->getConfig()->getGroupValue('/', 'environment');
@@ -210,11 +154,6 @@ class Ess_M2ePro_Helper_Module extends Mage_Core_Helper_Abstract
     }
 
     //########################################
-
-    public function clearConfigCache()
-    {
-        $this->getCacheConfig()->clear();
-    }
 
     public function clearCache()
     {

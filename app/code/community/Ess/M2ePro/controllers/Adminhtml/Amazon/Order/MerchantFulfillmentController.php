@@ -23,7 +23,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
         /** @var Ess_M2ePro_Model_Order $order */
         $order = Mage::helper('M2ePro/Component_Amazon')->getObject(
-            'Order', $orderId
+            'Order',
+            $orderId
         );
 
         $orderFulfillmentData = $order->getChildObject()->getMerchantFulfillmentData();
@@ -52,7 +53,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
             $popUp->setData('message', 'fbaError');
             $responseData['status'] = false;
         } elseif ($order->getChildObject()->isCanceled() || $order->getChildObject()->isPending() ||
-                  $order->getChildObject()->isShipped()) {
+            $order->getChildObject()->isShipped()) {
             $popUp = $this->loadLayout()->getLayout()
                 ->createBlock('M2ePro/adminhtml_amazon_order_merchantFulfillment_message');
             $popUp->setData('message', 'statusError');
@@ -68,6 +69,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
         }
 
         $responseData['html'] = $popUp->toHtml();
+
         return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode($responseData));
     }
 
@@ -86,7 +88,17 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
         }
 
         $fulfillmentCachedFields = array(
+            'package_dimension_source',
             'package_dimension_measure',
+            'package_dimension_length',
+            'package_dimension_width',
+            'package_dimension_height',
+            'package_dimension_length_custom_attribute',
+            'package_dimension_width_custom_attribute',
+            'package_dimension_height_custom_attribute',
+            'package_weight_source',
+            'package_weight_custom_value',
+            'package_weight_custom_attribute',
             'package_weight_measure',
             'ship_from_address_name',
             'ship_from_address_email',
@@ -114,7 +126,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
         /** @var Ess_M2ePro_Model_Order $order */
         $order = Mage::helper('M2ePro/Component_Amazon')->getObject(
-            'Order', $orderId
+            'Order',
+            $orderId
         );
 
         $orderItems = $order->getItemsCollection()->getItems();
@@ -130,30 +143,56 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
         $preparedPackageData = array();
         $isVirtualPredefinedPackage = false;
         if (isset($post['package_dimension_predefined']) &&
-            strpos($post['package_dimension_predefined'], MerchantFulfillment::VIRTUAL_PREDEFINED_PACKAGE) !== false)
-        {
+            strpos($post['package_dimension_predefined'], MerchantFulfillment::VIRTUAL_PREDEFINED_PACKAGE) !== false) {
             $isVirtualPredefinedPackage = true;
         }
 
         if ($post['package_dimension_source'] == MerchantFulfillment::DIMENSION_SOURCE_PREDEFINED &&
-            !$isVirtualPredefinedPackage)
-        {
+            !$isVirtualPredefinedPackage) {
             $preparedPackageData['predefined_dimensions'] = $post['package_dimension_predefined'];
         } elseif ($post['package_dimension_source'] == MerchantFulfillment::DIMENSION_SOURCE_CUSTOM ||
-                 ($post['package_dimension_source'] == MerchantFulfillment::DIMENSION_SOURCE_PREDEFINED &&
-                  $isVirtualPredefinedPackage))
-        {
-            $preparedPackageData['dimensions']  = array();
-            $preparedPackageData['dimensions']['length']          = $post['package_dimension_length'];
-            $preparedPackageData['dimensions']['width']           = $post['package_dimension_width'];
-            $preparedPackageData['dimensions']['height']          = $post['package_dimension_height'];
+            ($post['package_dimension_source'] == MerchantFulfillment::DIMENSION_SOURCE_PREDEFINED &&
+                $isVirtualPredefinedPackage)) {
+            $preparedPackageData['dimensions'] = array();
+            $preparedPackageData['dimensions']['length'] = $post['package_dimension_length'];
+            $preparedPackageData['dimensions']['width'] = $post['package_dimension_width'];
+            $preparedPackageData['dimensions']['height'] = $post['package_dimension_height'];
+            $preparedPackageData['dimensions']['unit_of_measure'] = $post['package_dimension_measure'];
+        } elseif ($post['package_dimension_source'] == MerchantFulfillment::DIMENSION_SOURCE_CUSTOM_ATTRIBUTE &&
+            $order->getItemsCollection()->count() === 1) {
+
+            /** @var Ess_M2ePro_Model_Order_Item $item */
+            $item = $order->getItemsCollection()->getFirstItem();
+
+            $preparedPackageData['dimensions'] = array();
+            $preparedPackageData['dimensions']['length'] = $item->getMagentoProduct()->getAttributeValue(
+                $post['package_dimension_length_custom_attribute']
+            );
+            $preparedPackageData['dimensions']['width'] = $item->getMagentoProduct()->getAttributeValue(
+                $post['package_dimension_width_custom_attribute']
+            );
+            $preparedPackageData['dimensions']['height'] = $item->getMagentoProduct()->getAttributeValue(
+                $post['package_dimension_height_custom_attribute']
+            );
             $preparedPackageData['dimensions']['unit_of_measure'] = $post['package_dimension_measure'];
         }
 
-        $preparedPackageData['weight'] = array(
-            'value'           => $post['package_weight'],
-            'unit_of_measure' => $post['package_weight_measure']
-        );
+        if ($post['package_weight_source'] == MerchantFulfillment::WEIGHT_SOURCE_CUSTOM_VALUE) {
+            $preparedPackageData['weight'] = array(
+                'value'           => $post['package_weight_custom_value'],
+                'unit_of_measure' => $post['package_weight_measure']
+            );
+        } elseif ($post['package_weight_source'] == MerchantFulfillment::WEIGHT_SOURCE_CUSTOM_ATTRIBUTE) {
+            /** @var Ess_M2ePro_Model_Order_Item $item */
+            $item = $order->getItemsCollection()->getFirstItem();
+
+            $preparedPackageData['weight'] = array(
+                'value'           => $item->getMagentoProduct()->getAttributeValue(
+                    $post['package_weight_custom_attribute']
+                ),
+                'unit_of_measure' => $post['package_weight_measure']
+            );
+        }
 
         $preparedShipmentData = array();
         $preparedShipmentData['info'] = array(
@@ -162,10 +201,10 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
             'phone' => $post['ship_from_address_phone'],
         );
         $preparedShipmentData['physical'] = array(
-            'country'      => $post['ship_from_address_country'],
-            'city'         => $post['ship_from_address_city'],
-            'postal_code'  => $post['ship_from_address_postal_code'],
-            'address_1'    => $post['ship_from_address_address_line_1'],
+            'country'     => $post['ship_from_address_country'],
+            'city'        => $post['ship_from_address_city'],
+            'postal_code' => $post['ship_from_address_postal_code'],
+            'address_1'   => $post['ship_from_address_address_line_1'],
         );
 
         if ($post['ship_from_address_region_state']) {
@@ -202,8 +241,12 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
         try {
             $dispatcherObject = Mage::getModel('M2ePro/Amazon_Connector_Dispatcher');
             $connectorObj = $dispatcherObject->getVirtualConnector(
-                'shipment', 'get', 'offers',
-                $requestData, null, $order->getAccount()
+                'shipment',
+                'get',
+                'offers',
+                $requestData,
+                null,
+                $order->getAccount()
             );
 
             $dispatcherObject->process($connectorObj);
@@ -240,7 +283,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
             return $this->getResponse()->setBody('You should specify POST data');
         }
 
-        if (!$post['shipping_service_id']){
+        if (!$post['shipping_service_id']) {
             return $this->getResponse()->setBody('You should choose shipping service');
         }
 
@@ -254,7 +297,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
         /** @var Ess_M2ePro_Model_Order $order */
         $order = Mage::helper('M2ePro/Component_Amazon')->getObject(
-            'Order', $orderId
+            'Order',
+            $orderId
         );
 
         $popup = $this->loadLayout()->getLayout()
@@ -263,8 +307,12 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
         try {
             $dispatcherObject = Mage::getModel('M2ePro/Amazon_Connector_Dispatcher');
             $connectorObj = $dispatcherObject->getVirtualConnector(
-                'shipment', 'add', 'entity',
-                $requestData, null, $order->getAccount()
+                'shipment',
+                'add',
+                'entity',
+                $requestData,
+                null,
+                $order->getAccount()
             );
 
             $dispatcherObject->process($connectorObj);
@@ -278,8 +326,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
             $order->addData(
                 array(
-                'merchant_fulfillment_data'  => Mage::helper('M2ePro')->jsonEncode($response),
-                'merchant_fulfillment_label' => $labelContent,
+                    'merchant_fulfillment_data'  => Mage::helper('M2ePro')->jsonEncode($response),
+                    'merchant_fulfillment_label' => $labelContent,
                 )
             )->save();
 
@@ -304,7 +352,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
         /** @var Ess_M2ePro_Model_Order $order */
         $order = Mage::helper('M2ePro/Component_Amazon')->getObject(
-            'Order', $orderId
+            'Order',
+            $orderId
         );
 
         $orderFulfillmentData = $order->getChildObject()->getMerchantFulfillmentData();
@@ -324,8 +373,12 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
         try {
             $dispatcherObject = Mage::getModel('M2ePro/Amazon_Connector_Dispatcher');
             $connectorObj = $dispatcherObject->getVirtualConnector(
-                'shipment', 'get', 'entity',
-                $requestData, null, $order->getAccount()
+                'shipment',
+                'get',
+                'entity',
+                $requestData,
+                null,
+                $order->getAccount()
             );
 
             $dispatcherObject->process($connectorObj);
@@ -356,7 +409,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
         /** @var Ess_M2ePro_Model_Order $order */
         $order = Mage::helper('M2ePro/Component_Amazon')->getObject(
-            'Order', $orderId
+            'Order',
+            $orderId
         );
 
         $orderFulfillmentData = $order->getChildObject()->getMerchantFulfillmentData();
@@ -382,8 +436,12 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
         try {
             $dispatcherObject = Mage::getModel('M2ePro/Amazon_Connector_Dispatcher');
             $connectorObj = $dispatcherObject->getVirtualConnector(
-                'shipment', 'cancel', 'entity',
-                $requestData, null, $order->getAccount()
+                'shipment',
+                'cancel',
+                'entity',
+                $requestData,
+                null,
+                $order->getAccount()
             );
 
             $dispatcherObject->process($connectorObj);
@@ -412,7 +470,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
         /** @var Ess_M2ePro_Model_Order $order */
         $order = Mage::helper('M2ePro/Component_Amazon')->getObject(
-            'Order', $orderId
+            'Order',
+            $orderId
         );
 
         $orderFulfillmentData = $order->getChildObject()->getMerchantFulfillmentData();
@@ -428,8 +487,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
         $order->addData(
             array(
-            'merchant_fulfillment_data'  => null,
-            'merchant_fulfillment_label' => null
+                'merchant_fulfillment_data'  => null,
+                'merchant_fulfillment_label' => null
             )
         )->save();
 
@@ -450,7 +509,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
         /** @var Ess_M2ePro_Model_Order $order */
         $order = Mage::helper('M2ePro/Component_Amazon')->getObject(
-            'Order', $orderId
+            'Order',
+            $orderId
         );
 
         $orderFulfillmentData = $order->getChildObject()->getMerchantFulfillmentData();
@@ -461,6 +521,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
         }
 
         $this->getResponse()->setHeader('Content-type', $orderFulfillmentData['label']['file']['type']);
+
         return $this->getResponse()->setBody($labelContent);
     }
 
@@ -468,17 +529,10 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
     public function discardMagentoNotificationPopupAction()
     {
-        $registry = Mage::getModel('M2ePro/Registry');
-        $registry->load('/amazon/order/merchant_fulfillment/disable_notification_popup/', 'key');
-
-        $registry->setData(
-            array(
-            'key'   => '/amazon/order/merchant_fulfillment/disable_notification_popup/',
-            'value' => 1,
-            )
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue(
+            '/amazon/order/merchant_fulfillment/disable_notification_popup/',
+            1
         );
-
-        $registry->save();
     }
 
     //########################################
@@ -493,7 +547,8 @@ class Ess_M2ePro_Adminhtml_Amazon_Order_MerchantFulfillmentController
 
         /** @var Ess_M2ePro_Model_Order $order */
         $order = Mage::helper('M2ePro/Component_Amazon')->getObject(
-            'Order', $orderId
+            'Order',
+            $orderId
         );
 
         $responseData = array(

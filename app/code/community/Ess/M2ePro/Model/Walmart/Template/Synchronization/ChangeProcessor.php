@@ -7,7 +7,7 @@
  */
 
 class Ess_M2ePro_Model_Walmart_Template_Synchronization_ChangeProcessor
-    extends Ess_M2ePro_Model_Template_Synchronization_ChangeProcessor_Abstract
+    extends Ess_M2ePro_Model_Template_Synchronization_ChangeProcessorAbstract
 {
     const INSTRUCTION_TYPE_REVISE_QTY_ENABLED            = 'template_synchronization_revise_qty_enabled';
     const INSTRUCTION_TYPE_REVISE_QTY_DISABLED           = 'template_synchronization_revise_qty_disabled';
@@ -15,101 +15,76 @@ class Ess_M2ePro_Model_Walmart_Template_Synchronization_ChangeProcessor
 
     const INSTRUCTION_TYPE_REVISE_PRICE_ENABLED          = 'template_synchronization_revise_price_enabled';
     const INSTRUCTION_TYPE_REVISE_PRICE_DISABLED         = 'template_synchronization_revise_price_disabled';
-    const INSTRUCTION_TYPE_REVISE_PRICE_SETTINGS_CHANGED = 'template_synchronization_revise_price_settings_changed';
 
     const INSTRUCTION_TYPE_REVISE_PROMOTIONS_ENABLED     = 'template_synchronization_revise_promotions_enabled';
     const INSTRUCTION_TYPE_REVISE_PROMOTIONS_DISABLED    = 'template_synchronization_revise_promotions_disabled';
 
+    const INSTRUCTION_TYPE_REVISE_DETAILS_ENABLED     = 'template_synchronization_revise_details_enabled';
+    const INSTRUCTION_TYPE_REVISE_DETAILS_DISABLED    = 'template_synchronization_revise_details_disabled';
+
     //########################################
 
-    protected function getInstructionsData(Ess_M2ePro_Model_Template_Diff_Abstract $diff, $status)
+    protected function getInstructionsData(Ess_M2ePro_Model_ActiveRecord_Diff $diff, $status)
     {
         /** @var Ess_M2ePro_Model_Walmart_Template_Synchronization_Diff $diff */
 
         $data = parent::getInstructionsData($diff, $status);
 
         if ($diff->isReviseQtyEnabled()) {
-            $priority = 5;
-
-            if ($status == Ess_M2ePro_Model_Listing_Product::STATUS_LISTED) {
-                $priority = 80;
-            }
-
             $data[] = array(
                 'type'      => self::INSTRUCTION_TYPE_REVISE_QTY_ENABLED,
-                'priority'  => $priority,
+                'priority'  => $status === Ess_M2ePro_Model_Listing_Product::STATUS_LISTED ? 80: 5,
             );
-        }
-
-        if ($diff->isReviseQtyDisabled()) {
+        } elseif ($diff->isReviseQtyDisabled()) {
             $data[] = array(
                 'type'      => self::INSTRUCTION_TYPE_REVISE_QTY_DISABLED,
                 'priority'  => 5,
             );
-        }
-
-        if ($diff->isReviseQtySettingsChanged()) {
-            $priority = 5;
-
-            if ($status == Ess_M2ePro_Model_Listing_Product::STATUS_LISTED) {
-                $priority = 80;
-            }
-
+        } elseif ($diff->isReviseQtySettingsChanged()) {
             $data[] = array(
                 'type'      => self::INSTRUCTION_TYPE_REVISE_QTY_SETTINGS_CHANGED,
-                'priority'  => $priority,
+                'priority'  => $status === Ess_M2ePro_Model_Listing_Product::STATUS_LISTED ? 80: 5,
             );
         }
+
+        //----------------------------------------
 
         if ($diff->isRevisePriceEnabled()) {
-            $priority = 5;
-
-            if ($status == Ess_M2ePro_Model_Listing_Product::STATUS_LISTED) {
-                $priority = 60;
-            }
-
             $data[] = array(
                 'type'      => self::INSTRUCTION_TYPE_REVISE_PRICE_ENABLED,
-                'priority'  => $priority,
+                'priority'  => $status === Ess_M2ePro_Model_Listing_Product::STATUS_LISTED ? 60: 5,
             );
-        }
-
-        if ($diff->isRevisePriceDisabled()) {
+        } elseif ($diff->isRevisePriceDisabled()) {
             $data[] = array(
                 'type'      => self::INSTRUCTION_TYPE_REVISE_PRICE_DISABLED,
                 'priority'  => 5,
             );
         }
 
-        if ($diff->isRevisePriceSettingsChanged()) {
-            $priority = 5;
-
-            if ($status == Ess_M2ePro_Model_Listing_Product::STATUS_LISTED) {
-                $priority = 30;
-            }
-
-            $data[] = array(
-                'type'      => self::INSTRUCTION_TYPE_REVISE_PRICE_SETTINGS_CHANGED,
-                'priority'  => $priority,
-            );
-        }
+        //----------------------------------------
 
         if ($diff->isRevisePromotionsEnabled()) {
-            $priority = 5;
-
-            if ($status == Ess_M2ePro_Model_Listing_Product::STATUS_LISTED) {
-                $priority = 30;
-            }
-
             $data[] = array(
                 'type'      => self::INSTRUCTION_TYPE_REVISE_PROMOTIONS_ENABLED,
-                'priority'  => $priority,
+                'priority'  => $status === Ess_M2ePro_Model_Listing_Product::STATUS_LISTED ? 30: 5,
+            );
+        } elseif ($diff->isRevisePromotionsDisabled()) {
+            $data[] = array(
+                'type'      => self::INSTRUCTION_TYPE_REVISE_PROMOTIONS_DISABLED,
+                'priority'  => 5,
             );
         }
 
-        if ($diff->isRevisePromotionsDisabled()) {
+        //----------------------------------------
+
+        if ($diff->isReviseDetailsEnabled()) {
             $data[] = array(
-                'type'      => self::INSTRUCTION_TYPE_REVISE_PROMOTIONS_DISABLED,
+                'type'      => self::INSTRUCTION_TYPE_REVISE_DETAILS_ENABLED,
+                'priority'  => $status === Ess_M2ePro_Model_Listing_Product::STATUS_LISTED ? 30: 5,
+            );
+        } elseif ($diff->isReviseDetailsDisabled()) {
+            $data[] = array(
+                'type'      => self::INSTRUCTION_TYPE_REVISE_DETAILS_DISABLED,
                 'priority'  => 5,
             );
         }

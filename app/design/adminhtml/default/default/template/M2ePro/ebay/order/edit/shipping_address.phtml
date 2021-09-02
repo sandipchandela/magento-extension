@@ -24,10 +24,10 @@ $address = $this->getData('address');
     M2ePro.formData.region = '<?php echo Mage::helper('M2ePro')->escapeJs($this->getData('region_code')) ?>';
 
     Event.observe(window, 'load', function() {
-        OrderEditShippingAddressHandlerObj = new OrderEditShippingAddressHandler('country_code', 'state_td', 'state');
+        OrderEditShippingAddressObj = new OrderEditShippingAddress('country_code', 'state_td', 'state');
 
         $('country_code')
-            .observe('change', OrderEditShippingAddressHandlerObj.countryCodeChange)
+            .observe('change', OrderEditShippingAddressObj.countryCodeChange)
             .simulate('change');
 
         editForm = new varienForm('edit_form', '<?php echo $this->getValidationUrl(); ?>');
@@ -59,6 +59,11 @@ $address = $this->getData('address');
                         <tr>
                             <td class="label"><?php echo Mage::helper('M2ePro')->__('Buyer Email') ?>: <span class="required">*</span></td>
                             <td class="value"><input type="text" name="buyer_email" class="input-text required-entry" value="<?php echo Mage::helper('M2ePro')->escapeHtml($this->getData('buyer_email')) ?>" /></td>
+                        </tr>
+
+                        <tr>
+                            <td class="label"><?php echo Mage::helper('M2ePro')->__('Recipient Name') ?>: <span class="required">*</span></td>
+                            <td class="value"><input type="text" name="recipient_name" class="input-text required-entry" value="<?php echo isset($address['recipient_name']) ? Mage::helper('M2ePro')->escapeHtml($address['recipient_name']) : '' ?>" /></td>
                         </tr>
 
                         <tr>

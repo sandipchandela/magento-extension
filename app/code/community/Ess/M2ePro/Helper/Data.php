@@ -268,11 +268,6 @@ class Ess_M2ePro_Helper_Data extends Mage_Core_Helper_Abstract
             return $encoded;
         }
 
-        Mage::helper('M2ePro/Module_Logger')->process(
-            array('source' => $this->serialize($data)),
-            'json_encode() failed completely', false
-        );
-
         if (!$throwError) {
             return null;
         }
@@ -316,11 +311,6 @@ class Ess_M2ePro_Helper_Data extends Mage_Core_Helper_Abstract
             return $decoded;
         }
 
-        Mage::helper('M2ePro/Module_Logger')->process(
-            array('source' => $this->serialize($data)),
-            'json_decode() failed completely', false
-        );
-
         if (!$throwError) {
             return null;
         }
@@ -348,7 +338,8 @@ class Ess_M2ePro_Helper_Data extends Mage_Core_Helper_Abstract
 
     public function serialize($data)
     {
-        return Zend_Serializer::serialize($data);
+        // @codingStandardsIgnoreLine
+        return serialize($data);
     }
 
     public function unserialize($data)
@@ -357,7 +348,13 @@ class Ess_M2ePro_Helper_Data extends Mage_Core_Helper_Abstract
             return array();
         }
 
-        return Zend_Serializer::unserialize($data);
+        try {
+            // @codingStandardsIgnoreLine
+            return unserialize($data);
+        } catch (\Exception $e) {
+            Mage::helper('M2ePro/Module_Exception')->process($e);
+            return array();
+        }
     }
 
     //########################################
@@ -604,7 +601,7 @@ class Ess_M2ePro_Helper_Data extends Mage_Core_Helper_Abstract
         $route = explode('_', $route);
 
         foreach ($route as &$part) {
-            $part{0} = strtolower($part{0});
+            $part[0] = strtolower($part[0]);
         }
 
         unset($part);

@@ -29,15 +29,13 @@ class Ess_M2ePro_Model_Servicing_Task_Statistic extends Ess_M2ePro_Model_Servici
      */
     public function isAllowed()
     {
-        $cacheConfig = Mage::helper('M2ePro/Module')->getCacheConfig();
-
-        $lastRun = $cacheConfig->getGroupValue('/servicing/statistic/', 'last_run');
+        $lastRun = Mage::helper('M2ePro/Module')->getRegistry()->getValue('/servicing/statistic/last_run/');
 
         if ($this->getInitiator() === Ess_M2ePro_Helper_Data::INITIATOR_DEVELOPER ||
             $lastRun === null ||
             Mage::helper('M2ePro')->getCurrentGmtDate(true) > strtotime($lastRun) + self::RUN_INTERVAL) {
-            $cacheConfig->setGroupValue(
-                '/servicing/statistic/', 'last_run',
+            Mage::helper('M2ePro/Module')->getRegistry()->setValue(
+                '/servicing/statistic/last_run/',
                 Mage::helper('M2ePro')->getCurrentGmtDate()
             );
 
@@ -352,7 +350,7 @@ class Ess_M2ePro_Model_Servicing_Task_Statistic extends Ess_M2ePro_Model_Servici
 
     protected function appendExtensionSystemInfo(&$data)
     {
-        $data['info']['version'] = Mage::helper('M2ePro/Module')->getVersion();
+        $data['info']['version'] = Mage::helper('M2ePro/Module')->getPublicVersion();
     }
 
     protected function appendExtensionM2eProUpdaterModuleInfo(&$data)
@@ -386,13 +384,14 @@ class Ess_M2ePro_Model_Servicing_Task_Statistic extends Ess_M2ePro_Model_Servici
     {
         $settings = array();
         $conf = Mage::helper('M2ePro/Module')->getConfig();
+        $configHelper = Mage::helper('M2ePro/Module_Configuration');
 
-        $settings['products_show_thumbnails']    = $conf->getGroupValue('/view/', 'show_products_thumbnails');
-        $settings['block_notices_show']          = $conf->getGroupValue('/view/', 'show_block_notices');
-        $settings['manage_stock_backorders']     = $conf->getGroupValue('/product/force_qty/', 'mode');
-        $settings['manage_stock_backorders_qty'] = $conf->getGroupValue('/product/force_qty/', 'value');
-        $settings['price_convert_mode']          = $conf->getGroupValue('/magento/attribute/', 'price_type_converting');
-        $settings['inspector_mode']              = $conf->getGroupValue('/listing/product/inspector/', 'mode');
+        $settings['products_show_thumbnails']    = $configHelper->getViewShowProductsThumbnailsMode();
+        $settings['block_notices_show']          = $configHelper->getViewShowBlockNoticesMode();
+        $settings['manage_stock_backorders']     = $configHelper->getProductForceQtyMode();
+        $settings['manage_stock_backorders_qty'] = $configHelper->getProductForceQtyValue();
+        $settings['price_convert_mode']          = $configHelper->getMagentoAttributePriceTypeConvertingMode();
+        $settings['inspector_mode']              = $configHelper->getListingProductInspectorMode();
 
         $settings['logs_clearing'] = array();
         $settings['channels']      = array();
@@ -413,8 +412,7 @@ class Ess_M2ePro_Model_Servicing_Task_Statistic extends Ess_M2ePro_Model_Servici
             $settings['channels'][$component]['enabled'] = $conf->getGroupValue('/component/'.$component.'/', 'mode');
         }
 
-        $configData = $conf->getCollection()->toArray();
-        $settings['config'] = $configData['items'];
+        $settings['config'] = $conf->getAllConfigData();
 
         $data['settings'] = $settings;
     }
@@ -655,12 +653,12 @@ class Ess_M2ePro_Model_Servicing_Task_Statistic extends Ess_M2ePro_Model_Servici
             ->query();
 
         $productTypes = array(
-            Ess_M2ePro_Model_Magento_Product::TYPE_SIMPLE,
-            Ess_M2ePro_Model_Magento_Product::TYPE_CONFIGURABLE,
-            Ess_M2ePro_Model_Magento_Product::TYPE_BUNDLE,
-            Ess_M2ePro_Model_Magento_Product::TYPE_GROUPED,
-            Ess_M2ePro_Model_Magento_Product::TYPE_DOWNLOADABLE,
-            Ess_M2ePro_Model_Magento_Product::TYPE_VIRTUAL
+            Ess_M2ePro_Model_Magento_Product::TYPE_SIMPLE_ORIGIN,
+            Ess_M2ePro_Model_Magento_Product::TYPE_CONFIGURABLE_ORIGIN,
+            Ess_M2ePro_Model_Magento_Product::TYPE_BUNDLE_ORIGIN,
+            Ess_M2ePro_Model_Magento_Product::TYPE_GROUPED_ORIGIN,
+            Ess_M2ePro_Model_Magento_Product::TYPE_DOWNLOADABLE_ORIGIN,
+            Ess_M2ePro_Model_Magento_Product::TYPE_VIRTUAL_ORIGIN
         );
 
         $data['listings_products']['total'] = 0;
@@ -812,9 +810,9 @@ class Ess_M2ePro_Model_Servicing_Task_Statistic extends Ess_M2ePro_Model_Servici
         $this->_appendComponentPolicyInfo('description', 'ebay', $data);
         $this->_appendComponentPolicyInfo('payment', 'ebay', $data);
         $this->_appendComponentPolicyInfo('shipping', 'ebay', $data);
-        $this->_appendComponentPolicyInfo('return', 'ebay', $data);
+        $this->_appendComponentPolicyInfo('return_policy', 'ebay', $data);
         $this->_appendComponentPolicyInfo('category', 'ebay', $data);
-        $this->_appendComponentPolicyInfo('other_category', 'ebay', $data);
+        $this->_appendComponentPolicyInfo('store_category', 'ebay', $data);
 
         $this->_appendComponentPolicyInfo('selling_format', 'walmart', $data);
         $this->_appendComponentPolicyInfo('synchronization', 'walmart', $data);
@@ -863,7 +861,9 @@ class Ess_M2ePro_Model_Servicing_Task_Statistic extends Ess_M2ePro_Model_Servici
             $data['orders'][$row['component']]['total'] += (int)$row['count'];
 
             $markTitle = $helper->getCachedUnknownObject('Marketplace', $row['marketplace_id'])->getTitle();
-            $accountTitle = $helper->getCachedUnknownObject('Account', $row['account_id'])->getTitle();
+            $account = $helper->getCachedUnknownObject('Account', $row['account_id']);
+
+            $accountTitle = $account === null ? 'account_id_' . $row['account_id'] : $account->getTitle();
 
             if (!isset($data['orders'][$row['component']]['marketplaces'][$markTitle])) {
                 $data['orders'][$row['component']]['marketplaces'][$markTitle] = 0;
@@ -1017,7 +1017,7 @@ class Ess_M2ePro_Model_Servicing_Task_Statistic extends Ess_M2ePro_Model_Servici
         $data['policies'][$component][$template]['count'] = (int)$queryStmt->fetchColumn();
 
         if ($component === Ess_M2ePro_Helper_Component_Ebay::NICK &&
-            !in_array($template, array('category', 'other_category')))
+            !in_array($template, array('category', 'store_category')))
         {
             $queryStmt = Mage::getSingleton('core/resource')->getConnection('core_read')
                 ->select()

@@ -9,8 +9,8 @@
 class Ess_M2ePro_Model_Cron_Task_Amazon_Listing_Product_Channel_SynchronizeData_Defected_Responser
     extends Ess_M2ePro_Model_Amazon_Connector_Inventory_Get_Defected_ItemsResponser
 {
-    protected $_logsActionId       = null;
-    protected $_synchronizationLog = null;
+    /** @var Ess_M2ePro_Model_Synchronization_Log */
+    protected $_synchronizationLog;
 
     //########################################
 
@@ -28,8 +28,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Listing_Product_Channel_SynchronizeData_
 
             $this->getSynchronizationLog()->addMessage(
                 Mage::helper('M2ePro')->__($message->getText()),
-                $logType,
-                Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
+                $logType
             );
         }
     }
@@ -55,8 +54,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Listing_Product_Channel_SynchronizeData_
 
         $this->getSynchronizationLog()->addMessage(
             Mage::helper('M2ePro')->__($messageText),
-            Ess_M2ePro_Model_Log_Abstract::TYPE_ERROR,
-            Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
+            Ess_M2ePro_Model_Log_Abstract::TYPE_ERROR
         );
     }
 
@@ -67,14 +65,9 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Listing_Product_Channel_SynchronizeData_
         try {
             $this->clearAllDefectedMessages();
             $this->updateReceivedDefectedListingsProducts();
-        } catch (Exception $exception) {
-            Mage::helper('M2ePro/Module_Exception')->process($exception);
-
-            $this->getSynchronizationLog()->addMessage(
-                Mage::helper('M2ePro')->__($exception->getMessage()),
-                Ess_M2ePro_Model_Log_Abstract::TYPE_ERROR,
-                Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
-            );
+        } catch (Exception $e) {
+            Mage::helper('M2ePro/Module_Exception')->process($e);
+            $this->getSynchronizationLog()->addMessageFromException($e);
         }
     }
 
@@ -83,7 +76,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Listing_Product_Channel_SynchronizeData_
     protected function clearAllDefectedMessages()
     {
         if (!isset($this->_params['is_first_part']) || !$this->_params['is_first_part']) {
-            return false;
+            return;
         }
 
         /** @var $connWrite Varien_Db_Adapter_Pdo_Mysql */
@@ -110,8 +103,9 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Listing_Product_Channel_SynchronizeData_
 
         $keys = array_map(
             function($el){
-            return (string)$el; 
-            }, array_keys($receivedItems)
+                return (string)$el;
+            },
+            array_keys($receivedItems)
         );
 
         /** @var Ess_M2ePro_Model_Resource_Listing_Product_Collection $listingProductCollection */
@@ -140,24 +134,6 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Listing_Product_Channel_SynchronizeData_
     }
 
     //########################################
-
-    /**
-     * @return Ess_M2ePro_Model_Account
-     */
-    protected function getAccount()
-    {
-        return $this->getObjectByParam('Account', 'account_id');
-    }
-
-    /**
-     * @return Ess_M2ePro_Model_Marketplace
-     */
-    protected function getMarketplace()
-    {
-        return $this->getAccount()->getChildObject()->getMarketplace();
-    }
-
-    //-----------------------------------------
 
     protected function getSynchronizationLog()
     {

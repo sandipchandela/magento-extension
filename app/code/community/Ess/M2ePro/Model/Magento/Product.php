@@ -6,14 +6,16 @@
  * @license    Commercial use is forbidden
  */
 
+use Mage_Catalog_Model_Product_Status as ProductStatus;
+
 class Ess_M2ePro_Model_Magento_Product
 {
-    const TYPE_SIMPLE       = 'simple';
-    const TYPE_CONFIGURABLE = 'configurable';
-    const TYPE_BUNDLE       = 'bundle';
-    const TYPE_GROUPED      = 'grouped';
-    const TYPE_DOWNLOADABLE = 'downloadable';
-    const TYPE_VIRTUAL      = 'virtual';
+    const TYPE_SIMPLE_ORIGIN       = 'simple';
+    const TYPE_CONFIGURABLE_ORIGIN = 'configurable';
+    const TYPE_BUNDLE_ORIGIN       = 'bundle';
+    const TYPE_GROUPED_ORIGIN      = 'grouped';
+    const TYPE_DOWNLOADABLE_ORIGIN = 'downloadable';
+    const TYPE_VIRTUAL_ORIGIN      = 'virtual';
 
     const BUNDLE_PRICE_TYPE_DYNAMIC = 0;
     const BUNDLE_PRICE_TYPE_FIXED   = 1;
@@ -71,6 +73,8 @@ class Ess_M2ePro_Model_Magento_Product
 
     public $notFoundAttributes = array();
 
+    protected $_isGroupedProductMode = Ess_M2ePro_Model_Listing_Product::GROUPED_PRODUCT_MODE_OPTIONS;
+
     //########################################
 
     /**
@@ -119,6 +123,10 @@ class Ess_M2ePro_Model_Magento_Product
                     $storeId
                 )
             );
+        }
+
+        if ($this->_productModel->getId() === null) {
+            throw new Ess_M2ePro_Model_Exception(sprintf('Magento Product with id %s does not exist.', $productId));
         }
 
         $this->setProductId($productId);
@@ -241,6 +249,16 @@ class Ess_M2ePro_Model_Magento_Product
     }
 
     // ---------------------------------------
+
+    /**
+     * @param int $isGroupedProductMode
+     * @return Ess_M2ePro_Model_Magento_Product
+     */
+    public function setGroupedProductMode($isGroupedProductMode)
+    {
+        $this->_isGroupedProductMode = $isGroupedProductMode;
+        return $this;
+    }
 
     /**
      * @return Mage_Catalog_Model_Product_Type_Abstract
@@ -494,7 +512,7 @@ class Ess_M2ePro_Model_Magento_Product
      */
     public function isSimpleType()
     {
-        return $this->getTypeId() == self::TYPE_SIMPLE;
+        return Mage::helper('M2ePro/Magento_Product')->isSimpleType($this->getTypeId());
     }
 
     /**
@@ -536,7 +554,7 @@ class Ess_M2ePro_Model_Magento_Product
      */
     public function isConfigurableType()
     {
-        return $this->getTypeId() == self::TYPE_CONFIGURABLE;
+        return Mage::helper('M2ePro/Magento_Product')->isConfigurableType($this->getTypeId());
     }
 
     /**
@@ -544,7 +562,7 @@ class Ess_M2ePro_Model_Magento_Product
      */
     public function isBundleType()
     {
-        return $this->getTypeId() == self::TYPE_BUNDLE;
+        return Mage::helper('M2ePro/Magento_Product')->isBundleType($this->getTypeId());
     }
 
     /**
@@ -552,7 +570,7 @@ class Ess_M2ePro_Model_Magento_Product
      */
     public function isGroupedType()
     {
-        return $this->getTypeId() == self::TYPE_GROUPED;
+        return Mage::helper('M2ePro/Magento_Product')->isGroupedType($this->getTypeId());
     }
 
     // ---------------------------------------
@@ -562,7 +580,7 @@ class Ess_M2ePro_Model_Magento_Product
      */
     public function isDownloadableType()
     {
-        return $this->getTypeId() == self::TYPE_DOWNLOADABLE;
+        return Mage::helper('M2ePro/Magento_Product')->isDownloadableType($this->getTypeId());
     }
 
     /**
@@ -596,9 +614,9 @@ class Ess_M2ePro_Model_Magento_Product
     /**
      * @return bool
      */
-    public function isVirtualType()
+    public function isVirtualTypeOrigin()
     {
-        return $this->getTypeId() == self::TYPE_VIRTUAL;
+        return $this->getTypeId() == self::TYPE_VIRTUAL_ORIGIN;
     }
 
     //########################################
@@ -687,20 +705,30 @@ class Ess_M2ePro_Model_Magento_Product
      */
     public function isStatusEnabled()
     {
+        if (Ess_M2ePro_Model_Listing_Product::GROUPED_PRODUCT_MODE_SET == $this->_isGroupedProductMode) {
+            foreach ($this->getTypeInstance()->getAssociatedProducts() as $childProduct) {
+                /** @var Mage_Catalog_Model_Product $childProduct */
+                if ($childProduct->getStatus() == ProductStatus::STATUS_ENABLED) {
+                    continue;
+                }
+
+                return false;
+            }
+        }
+
         if (!$this->_productModel && $this->_productId > 0) {
             $status = Mage::getSingleton('M2ePro/Magento_Product_Status')
                             ->getProductStatus($this->_productId, $this->_storeId);
 
             if (is_array($status) && isset($status[$this->_productId])) {
                 $status = (int)$status[$this->_productId];
-                if ($status == Mage_Catalog_Model_Product_Status::STATUS_DISABLED ||
-                    $status == Mage_Catalog_Model_Product_Status::STATUS_ENABLED) {
-                    return $status == Mage_Catalog_Model_Product_Status::STATUS_ENABLED;
+                if ($status == ProductStatus::STATUS_DISABLED || $status == ProductStatus::STATUS_ENABLED) {
+                    return $status == ProductStatus::STATUS_ENABLED;
                 }
             }
         }
 
-        return (int)$this->getProduct()->getStatus() == Mage_Catalog_Model_Product_Status::STATUS_ENABLED;
+        return (int)$this->getProduct()->getStatus() == ProductStatus::STATUS_ENABLED;
     }
 
     /**
@@ -709,6 +737,28 @@ class Ess_M2ePro_Model_Magento_Product
      */
     public function isStockAvailability()
     {
+        if (Ess_M2ePro_Model_Listing_Product::GROUPED_PRODUCT_MODE_SET == $this->_isGroupedProductMode) {
+            foreach ($this->getTypeInstance()->getAssociatedProducts() as $childProduct) {
+                /** @var Mage_Catalog_Model_Product $childProduct */
+
+                $stockItem = Mage::getModel('cataloginventory/stock_item')
+                    ->setStockId(Mage::helper('M2ePro/Magento_Store')->getStockId($this->getStoreId()))
+                    ->loadByProduct($childProduct);
+
+                $isInStock = self::calculateStockAvailability(
+                    $stockItem->getData('is_in_stock'),
+                    $stockItem->getData('manage_stock'),
+                    $stockItem->getData('use_config_manage_stock')
+                );
+
+                if ($isInStock) {
+                    continue;
+                }
+
+                return false;
+            }
+        }
+
         return self::calculateStockAvailability(
             $this->getStockItem()->getData('is_in_stock'),
             $this->getStockItem()->getData('manage_stock'),
@@ -906,18 +956,11 @@ class Ess_M2ePro_Model_Magento_Product
         $backorders,
         $useConfigBackorders
     ) {
-        $forceQtyMode = (int)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(
-            '/product/force_qty/', 'mode'
-        );
-
-        if ($forceQtyMode == 0) {
+        if (!Mage::helper('M2ePro/Module_Configuration')->isEnableProductForceQtyMode()) {
             return $qty;
         }
 
-        $forceQtyValue = (int)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(
-            '/product/force_qty/', 'value'
-        );
-
+        $forceQtyValue = Mage::helper('M2ePro/Module_Configuration')->getProductForceQtyValue();
         $manageStockGlobal = Mage::getStoreConfigFlag('cataloginventory/item_options/manage_stock');
         if (($useConfigManageStock && !$manageStockGlobal) || (!$useConfigManageStock && !$manageStock)) {
             self::$statistics[$this->getStatisticId()]
@@ -969,8 +1012,7 @@ class Ess_M2ePro_Model_Magento_Product
                 $stockItem->getUseConfigBackorders()
             );
 
-            if ($lifeMode &&
-                (!$isInStock || $childProduct->getStatus() != Mage_Catalog_Model_Product_Status::STATUS_ENABLED)) {
+            if ($lifeMode && (!$isInStock || $childProduct->getStatus() != ProductStatus::STATUS_ENABLED)) {
                 continue;
             }
 
@@ -980,11 +1022,19 @@ class Ess_M2ePro_Model_Magento_Product
         return $totalQty;
     }
 
-    protected function getGroupedQty($lifeMode = false)
+    /**
+     * @param bool $lifeMode
+     *
+     * @return int
+     * @throws Ess_M2ePro_Model_Exception
+     */
+    protected function getGroupedQty($lifeMode = false)    
     {
-        $totalQty = 0;
+        $value = 0;
 
         foreach ($this->getTypeInstance()->getAssociatedProducts() as $childProduct) {
+            /** @var Mage_Catalog_Model_Product $childProduct */
+
             $stockItem = Mage::getModel('cataloginventory/stock_item')
                 ->setStockId(Mage::helper('M2ePro/Magento_Store')->getStockId($this->getStoreId()))
                 ->loadByProduct($childProduct);
@@ -995,6 +1045,14 @@ class Ess_M2ePro_Model_Magento_Product
                 $stockItem->getData('use_config_manage_stock')
             );
 
+            if ($lifeMode && (!$isInStock || $childProduct->getStatus() != ProductStatus::STATUS_ENABLED)) {
+                if (Ess_M2ePro_Model_Listing_Product::GROUPED_PRODUCT_MODE_SET == $this->_isGroupedProductMode) {
+                    return 0; // not sellable product if any child "Out Of Stock" or Disable
+                }
+
+                continue;
+            }
+
             $qty = $this->calculateQty(
                 $stockItem->getQty(),
                 $stockItem->getData('manage_stock'),
@@ -1003,15 +1061,29 @@ class Ess_M2ePro_Model_Magento_Product
                 $stockItem->getUseConfigBackorders()
             );
 
-            if ($lifeMode &&
-                (!$isInStock || $childProduct->getStatus() != Mage_Catalog_Model_Product_Status::STATUS_ENABLED)) {
+            if (Ess_M2ePro_Model_Listing_Product::GROUPED_PRODUCT_MODE_OPTIONS == $this->_isGroupedProductMode) {
+                $value += $qty;
                 continue;
             }
 
-            $totalQty += $qty;
+            $defaultQty = $childProduct->getQty();
+            if ($defaultQty <= 0 || $qty <= 0) {
+                continue;
+            }
+
+            $qty = floor($qty / $defaultQty);
+            if ($qty < 1) {
+                return 0; // not sellable product if any child "Out Of Stock" or Disable
+            }
+
+            if ($value < $qty && $value != 0) { // where "0" is default $value
+                continue;
+            }
+
+            $value = $qty;
         }
 
-        return $totalQty;
+        return $value;
     }
 
     protected function getBundleQty($lifeMode = false)
@@ -1054,8 +1126,7 @@ class Ess_M2ePro_Model_Magento_Product
                 $itemInfoAsArray['stock_item']['use_config_backorders']
             );
 
-            if ($lifeMode &&
-                (!$isInStock || $itemInfoAsArray['status'] != Mage_Catalog_Model_Product_Status::STATUS_ENABLED)) {
+            if ($lifeMode && (!$isInStock || $itemInfoAsArray['status'] != ProductStatus::STATUS_ENABLED)) {
                 continue;
             }
 
@@ -1185,7 +1256,7 @@ class Ess_M2ePro_Model_Magento_Product
                     $value = Mage::app()->getStore($this->getStoreId())
                             ->getBaseUrl(
                                 Mage_Core_Model_Store::URL_TYPE_MEDIA,
-                                Mage::helper('M2ePro/Component_Ebay_Images')->shouldBeUrlsSecure()
+                                Mage::helper('M2ePro/Module_Configuration')->getSecureImageUrlInItemDescriptionMode()
                             ) . 'catalog/product/'.ltrim($value, '/');
                 }
             }
@@ -1382,7 +1453,7 @@ class Ess_M2ePro_Model_Magento_Product
             $imageUrl = Mage::app()->getStore($this->getStoreId())
                     ->getBaseUrl(
                         Mage_Core_Model_Store::URL_TYPE_MEDIA,
-                        Mage::helper('M2ePro/Component_Ebay_Images')->shouldBeUrlsSecure()
+                        Mage::helper('M2ePro/Module_Configuration')->getSecureImageUrlInItemDescriptionMode()
                     ) . $imagePath;
 
             $imageUrl  = $this->prepareImageUrl($imageUrl);
@@ -1440,7 +1511,7 @@ class Ess_M2ePro_Model_Magento_Product
         $imageUrl = Mage::app()->getStore($this->getStoreId())
                 ->getBaseUrl(
                     Mage_Core_Model_Store::URL_TYPE_MEDIA,
-                    Mage::helper('M2ePro/Component_Ebay_Images')->shouldBeUrlsSecure()
+                    Mage::helper('M2ePro/Module_Configuration')->getSecureImageUrlInItemDescriptionMode()
                 ) . $imagePath;
 
         $imageUrl = $this->prepareImageUrl($imageUrl);

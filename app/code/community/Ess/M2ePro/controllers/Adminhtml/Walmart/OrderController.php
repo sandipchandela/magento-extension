@@ -19,11 +19,13 @@ class Ess_M2ePro_Adminhtml_Walmart_OrderController
         $this->getLayout()->getBlock('head')
              ->addJs('M2ePro/Plugin/ActionColumn.js')
              ->addJs('M2ePro/Order/Debug.js')
-             ->addJs('M2ePro/Order/Handler.js')
-             ->addJs('M2ePro/Order/Edit/ItemHandler.js')
-             ->addJs('M2ePro/Order/Edit/ShippingAddressHandler.js')
-             ->addJs('M2ePro/GridHandler.js')
-             ->addJs('M2ePro/Order/NoteHandler.js');
+             ->addJs('M2ePro/Order.js')
+             ->addJs('M2ePro/Order/Edit/Item.js')
+             ->addJs('M2ePro/Order/Edit/ShippingAddress.js')
+             ->addJs('M2ePro/Grid.js')
+             ->addJs('M2ePro/Order/Note.js');
+
+        $this->_initPopUp();
 
         $this->setPageHelpLink(null, null, "x/L4taAQ");
 
@@ -134,9 +136,7 @@ class Ess_M2ePro_Adminhtml_Walmart_OrderController
 
             // Create shipment
             // ---------------------------------------
-            if ($order->getChildObject()->canCreateShipment()) {
-                $order->createShipment();
-            }
+            $order->createShipment();
 
             // ---------------------------------------
 
@@ -263,6 +263,8 @@ class Ess_M2ePro_Adminhtml_Walmart_OrderController
         /** @var Ess_M2ePro_Model_Resource_Order_Collection $ordersCollection */
         $ordersCollection = Mage::helper('M2ePro/Component_Walmart')->getCollection('Order')
             ->addFieldToFilter('id', array('in' => $ids));
+        /** @var Ess_M2ePro_Model_Order_Shipment_Handler $handler */
+        $handler = Mage::getModel("M2ePro/Walmart_Order_Shipment_Handler");
 
         $hasFailed = false;
         $hasSucceeded = false;
@@ -287,8 +289,6 @@ class Ess_M2ePro_Adminhtml_Walmart_OrderController
                     continue;
                 }
 
-                /** @var Ess_M2ePro_Model_Order_Shipment_Handler $handler */
-                $handler = Ess_M2ePro_Model_Order_Shipment_Handler::factory($order->getComponentMode());
                 $result  = $handler->handle($order, $shipment);
 
                 $result == Ess_M2ePro_Model_Order_Shipment_Handler::HANDLE_RESULT_SUCCEEDED ? $hasSucceeded = true

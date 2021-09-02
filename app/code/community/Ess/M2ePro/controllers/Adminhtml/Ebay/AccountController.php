@@ -6,7 +6,7 @@
  * @license    Commercial use is forbidden
  */
 
-use Ess_M2ePro_Model_Ebay_Account as Account;
+use Ess_M2ePro_Model_Ebay_Account as EbayAccount;
 
 class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_Adminhtml_Ebay_MainController
 {
@@ -20,10 +20,10 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
         $this->getLayout()->getBlock('head')
              ->setCanLoadExtJs(true)
              ->addJs('M2ePro/Plugin/ActionColumn.js')
-             ->addJs('M2ePro/GridHandler.js')
-             ->addJs('M2ePro/AccountHandler.js')
-             ->addJs('M2ePro/AccountGridHandler.js')
-             ->addJs('M2ePro/Ebay/AccountHandler.js');
+             ->addJs('M2ePro/Grid.js')
+             ->addJs('M2ePro/Account.js')
+             ->addJs('M2ePro/AccountGrid.js')
+             ->addJs('M2ePro/Ebay/Account.js');
 
         $this->_initPopUp();
 
@@ -106,7 +106,7 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
 
             $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
             $connectorObj = $dispatcherObject->getVirtualConnector(
-                'account', 'get', 'authUrl',
+                'account', 'get', 'grandAccessUrl',
                 array('back_url' => $backUrl, 'mode' => $mode),
                 null, null, null, $mode
             );
@@ -134,36 +134,39 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
 
     public function afterGetTokenAction()
     {
-        // Get eBay session id
-        // ---------------------------------------
         $sessionId = Mage::helper('M2ePro/Data_Session')->getValue('get_token_session_id', true);
         $sessionId === null && $this->_redirect('*/*/index');
-        // ---------------------------------------
 
-        // Get account form data
-        // ---------------------------------------
         Mage::helper('M2ePro/Data_Session')->setValue('get_token_account_token_session', $sessionId);
-        // ---------------------------------------
 
-        // Goto account add or edit page
-        // ---------------------------------------
-        $accountId = (int)Mage::helper('M2ePro/Data_Session')->getValue('get_token_account_id', true);
+        $id = (int)Mage::helper('M2ePro/Data_Session')->getValue('get_token_account_id', true);
 
-        if ($accountId == 0) {
-            $this->_redirect('*/*/new', array('_current' => true));
-        } else {
-            $data = array();
-            $data['mode'] = Mage::helper('M2ePro/Data_Session')->getValue('get_token_account_mode');
-            $data['token_session'] = $sessionId;
-
-            $data = $this->sendDataToServer($accountId, $data);
-            $id = $this->updateAccount($accountId, $data);
-
-            $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Token was successfully saved'));
-            $this->_redirect('*/*/edit', array('id' => $id, '_current' => true));
+        if ((int)$id <= 0) {
+            return $this->_redirect('*/*/new', array('_current' => true));
         }
 
-        // ---------------------------------------
+        $data = array(
+            'mode' => Mage::helper('M2ePro/Data_Session')->getValue('get_token_account_mode'),
+            'token_session' => $sessionId
+        );
+
+        try {
+            $this->updateAccount($id, $data);
+        } catch (Exception $exception) {
+            Mage::helper('M2ePro/Module_Exception')->process($exception);
+
+            $this->_getSession()->addError(
+                Mage::helper('M2ePro')->__(
+                    'The Ebay access obtaining is currently unavailable.<br/>Reason: %error_message%',
+                    $exception->getMessage()
+                )
+            );
+
+            return $this->indexAction();
+        }
+
+        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Token was saved'));
+        $this->_redirect('*/*/edit', array('id' => $id, '_current' => true));
     }
 
     public function beforeGetSellApiTokenAction()
@@ -183,7 +186,7 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
 
             $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
             $connectorObj = $dispatcherObject->getVirtualConnector(
-                'account', 'get', 'authUrl',
+                'account', 'get', 'grandAccessUrl',
                 array('back_url' => $backUrl, 'mode' => $mode, 'auth_type' => 'oauth'),
                 null, null, null, $mode
             );
@@ -228,7 +231,7 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
             $this->_redirect('*/*/index');
         }
 
-        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Sell API token was successfully obtained'));
+        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Sell API token was obtained'));
         $this->_redirect('*/*/edit', array('id' => $accountId, '_current' => true));
         // ---------------------------------------
     }
@@ -237,354 +240,32 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
 
     public function saveAction()
     {
-        if (!$post = $this->getRequest()->getPost()) {
+        if (!$data = $this->getRequest()->getPost()) {
             return $this->indexAction();
         }
 
         $id = $this->getRequest()->getParam('id');
 
-        // Base prepare
-        // ---------------------------------------
-        $data = array();
-        // ---------------------------------------
+        try {
+            $account = $id ? $this->updateAccount($id, $data) : $this->addAccount($data);
+        } catch (Exception $exception) {
+            Mage::helper('M2ePro/Module_Exception')->process($exception);
 
-        // tab: general
-        // ---------------------------------------
-        $keys = array(
-            'title',
-            'mode',
-            'token_session',
-            'sell_api_token_session'
-        );
-        foreach ($keys as $key) {
-            if (isset($post[$key])) {
-                $data[$key] = $post[$key];
-            }
+            $this->_getSession()->addError(
+                Mage::helper('M2ePro')->__(
+                    'The Ebay access obtaining is currently unavailable.<br/>Reason: %error_message%',
+                    $exception->getMessage()
+                )
+            );
+
+            return $this->indexAction();
         }
 
-        // ---------------------------------------
-
-        // tab: 3rd party
-        // ---------------------------------------
-        $keys = array(
-            'other_listings_synchronization',
-            'other_listings_mapping_mode'
-        );
-        foreach ($keys as $key) {
-            if (isset($post[$key])) {
-                $data[$key] = $post[$key];
-            }
-        }
-
-        $marketplacesIds = Mage::getModel('M2ePro/Marketplace')->getCollection()
-            ->addFieldToFilter('component_mode', Ess_M2ePro_Helper_Component_Ebay::NICK)
-            ->addFieldToFilter('status', Ess_M2ePro_Model_Marketplace::STATUS_ENABLE)
-            ->getColumnValues('id');
-
-        $marketplacesData = array();
-        foreach ($marketplacesIds as $marketplaceId) {
-            $marketplacesData[$marketplaceId]['related_store_id'] = isset($post['related_store_id_' . $marketplaceId])
-                ? (int)$post['related_store_id_' . $marketplaceId]
-                : Mage_Core_Model_App::ADMIN_STORE_ID;
-        }
-
-        $data['marketplaces_data'] = Mage::helper('M2ePro')->jsonEncode($marketplacesData);
-        // ---------------------------------------
-
-        // Mapping
-        // ---------------------------------------
-        $tempData = array();
-        $keys = array(
-            'mapping_sku_mode',
-            'mapping_sku_priority',
-            'mapping_sku_attribute',
-
-            'mapping_title_mode',
-            'mapping_title_priority',
-            'mapping_title_attribute',
-
-            'mapping_item_id_mode',
-            'mapping_item_id_priority',
-            'mapping_item_id_attribute'
-        );
-        foreach ($keys as $key) {
-            if (isset($post[$key])) {
-                $tempData[$key] = $post[$key];
-            }
-        }
-
-        $mappingSettings = array();
-
-        if (isset($tempData['mapping_sku_mode']) &&
-            ($tempData['mapping_sku_mode'] == Account::OTHER_LISTINGS_MAPPING_SKU_MODE_DEFAULT ||
-             $tempData['mapping_sku_mode'] == Account::OTHER_LISTINGS_MAPPING_SKU_MODE_CUSTOM_ATTRIBUTE ||
-             $tempData['mapping_sku_mode'] == Account::OTHER_LISTINGS_MAPPING_SKU_MODE_PRODUCT_ID)
-        ) {
-            $mappingSettings['sku']['mode'] = (int)$tempData['mapping_sku_mode'];
-            $mappingSettings['sku']['priority'] = (int)$tempData['mapping_sku_priority'];
-
-            if ($tempData['mapping_sku_mode'] == Account::OTHER_LISTINGS_MAPPING_SKU_MODE_CUSTOM_ATTRIBUTE) {
-                $mappingSettings['sku']['attribute'] = (string)$tempData['mapping_sku_attribute'];
-            }
-        }
-
-        if (isset($tempData['mapping_title_mode']) &&
-            ($tempData['mapping_title_mode'] == Account::OTHER_LISTINGS_MAPPING_TITLE_MODE_DEFAULT ||
-                $tempData['mapping_title_mode'] == Account::OTHER_LISTINGS_MAPPING_TITLE_MODE_CUSTOM_ATTRIBUTE)
-        ) {
-            $mappingSettings['title']['mode'] = (int)$tempData['mapping_title_mode'];
-            $mappingSettings['title']['priority'] = (int)$tempData['mapping_title_priority'];
-            $mappingSettings['title']['attribute'] = (string)$tempData['mapping_title_attribute'];
-        }
-
-        if (isset($tempData['mapping_item_id_mode']) &&
-            $tempData['mapping_item_id_mode'] == Account::OTHER_LISTINGS_MAPPING_ITEM_ID_MODE_CUSTOM_ATTRIBUTE
-        ) {
-            $mappingSettings['item_id']['mode'] = (int)$tempData['mapping_item_id_mode'];
-            $mappingSettings['item_id']['priority'] = (int)$tempData['mapping_item_id_priority'];
-            $mappingSettings['item_id']['attribute'] = (string)$tempData['mapping_item_id_attribute'];
-        }
-
-        $data['other_listings_mapping_settings'] = Mage::helper('M2ePro')->jsonEncode($mappingSettings);
-        // ---------------------------------------
-
-        // tab: orders
-        // ---------------------------------------
-        $data['magento_orders_settings'] = array();
-
-        // m2e orders settings
-        // ---------------------------------------
-        $tempKey = 'listing';
-        $tempSettings = !empty($post['magento_orders_settings'][$tempKey])
-            ? $post['magento_orders_settings'][$tempKey] : array();
-
-        $keys = array(
-            'mode',
-            'store_mode',
-            'store_id'
-        );
-        foreach ($keys as $key) {
-            if (isset($tempSettings[$key])) {
-                $data['magento_orders_settings'][$tempKey][$key] = $tempSettings[$key];
-            }
-        }
-
-        // ---------------------------------------
-
-        // 3rd party orders settings
-        // ---------------------------------------
-        $tempKey = 'listing_other';
-        $tempSettings = !empty($post['magento_orders_settings'][$tempKey])
-            ? $post['magento_orders_settings'][$tempKey] : array();
-
-        $keys = array(
-            'mode',
-            'product_mode',
-            'product_tax_class_id',
-            'store_id'
-        );
-        foreach ($keys as $key) {
-            if (isset($tempSettings[$key])) {
-                $data['magento_orders_settings'][$tempKey][$key] = $tempSettings[$key];
-            }
-        }
-
-        // ---------------------------------------
-
-        // order number settings
-        // ---------------------------------------
-        $tempKey = 'number';
-        $tempSettings = !empty($post['magento_orders_settings'][$tempKey])
-            ? $post['magento_orders_settings'][$tempKey] : array();
-
-        if (!empty($tempSettings['source'])) {
-            $data['magento_orders_settings'][$tempKey]['source'] = $tempSettings['source'];
-        }
-
-        $prefixKeys = array(
-            'mode',
-            'prefix',
-        );
-        $tempSettings = !empty($tempSettings['prefix']) ? $tempSettings['prefix'] : array();
-        foreach ($prefixKeys as $key) {
-            if (isset($tempSettings[$key])) {
-                $data['magento_orders_settings'][$tempKey]['prefix'][$key] = $tempSettings[$key];
-            }
-        }
-
-        // ---------------------------------------
-
-        // creation settings
-        // ---------------------------------------
-        $tempKey = 'creation';
-        $tempSettings = !empty($post['magento_orders_settings'][$tempKey])
-            ? $post['magento_orders_settings'][$tempKey] : array();
-
-        $keys = array(
-            'mode',
-            'reservation_days'
-        );
-        foreach ($keys as $key) {
-            if (isset($tempSettings[$key])) {
-                $data['magento_orders_settings'][$tempKey][$key] = $tempSettings[$key];
-            }
-        }
-
-        // ---------------------------------------
-
-        // tax settings
-        // ---------------------------------------
-        $tempKey = 'tax';
-        $tempSettings = !empty($post['magento_orders_settings'][$tempKey])
-            ? $post['magento_orders_settings'][$tempKey] : array();
-
-        $keys = array(
-            'mode'
-        );
-        foreach ($keys as $key) {
-            if (isset($tempSettings[$key])) {
-                $data['magento_orders_settings'][$tempKey][$key] = $tempSettings[$key];
-            }
-        }
-
-        // ---------------------------------------
-
-        // customer settings
-        // ---------------------------------------
-        $tempKey = 'customer';
-        $tempSettings = !empty($post['magento_orders_settings'][$tempKey])
-            ? $post['magento_orders_settings'][$tempKey] : array();
-
-        $keys = array(
-            'mode',
-            'id',
-            'website_id',
-            'group_id',
-//            'subscription_mode'
-        );
-        foreach ($keys as $key) {
-            if (isset($tempSettings[$key])) {
-                $data['magento_orders_settings'][$tempKey][$key] = $tempSettings[$key];
-            }
-        }
-
-        $notificationsKeys = array(
-//            'customer_created',
-            'order_created',
-            'invoice_created'
-        );
-        $tempSettings = !empty($tempSettings['notifications']) ? $tempSettings['notifications'] : array();
-        foreach ($notificationsKeys as $key) {
-            if (in_array($key, $tempSettings)) {
-                $data['magento_orders_settings'][$tempKey]['notifications'][$key] = true;
-            }
-        }
-
-        // ---------------------------------------
-
-        // status mapping settings
-        // ---------------------------------------
-        $tempKey = 'status_mapping';
-        $tempSettings = !empty($post['magento_orders_settings'][$tempKey])
-            ? $post['magento_orders_settings'][$tempKey] : array();
-
-        $keys = array(
-            'mode',
-            'new',
-            'paid',
-            'shipped'
-        );
-        foreach ($keys as $key) {
-            if (isset($tempSettings[$key])) {
-                $data['magento_orders_settings'][$tempKey][$key] = $tempSettings[$key];
-            }
-        }
-
-        // ---------------------------------------
-
-        // qty reservation
-        // ---------------------------------------
-        $tempKey = 'qty_reservation';
-        $tempSettings = !empty($post['magento_orders_settings'][$tempKey])
-            ? $post['magento_orders_settings'][$tempKey] : array();
-
-        $keys = array(
-            'days',
-        );
-        foreach ($keys as $key) {
-            if (isset($tempSettings[$key])) {
-                $data['magento_orders_settings'][$tempKey][$key] = $tempSettings[$key];
-            }
-        }
-
-        // ---------------------------------------
-
-        // In Store Pickup statuses
-        // ---------------------------------------
-        $tempKey = 'in_store_pickup_statuses';
-        $tempSettings = !empty($post['magento_orders_settings'][$tempKey])
-            ? $post['magento_orders_settings'][$tempKey] : array();
-
-        $keys = array(
-            'mode',
-            'ready_for_pickup',
-            'picked_up',
-        );
-        foreach ($keys as $key) {
-            if (isset($tempSettings[$key])) {
-                $data['magento_orders_settings'][$tempKey][$key] = $tempSettings[$key];
-            }
-        }
-
-        // ---------------------------------------
-
-        // invoice/shipment settings
-        // ---------------------------------------
-        $data['magento_orders_settings']['invoice_mode'] = 1;
-        $data['magento_orders_settings']['shipment_mode'] = 1;
-
-        $temp = Ess_M2ePro_Model_Ebay_Account::MAGENTO_ORDERS_STATUS_MAPPING_MODE_CUSTOM;
-        if (!empty($data['magento_orders_settings']['status_mapping']['mode']) &&
-            $data['magento_orders_settings']['status_mapping']['mode'] == $temp) {
-            if (!isset($post['magento_orders_settings']['invoice_mode'])) {
-                $data['magento_orders_settings']['invoice_mode'] = 0;
-            }
-
-            if (!isset($post['magento_orders_settings']['shipment_mode'])) {
-                $data['magento_orders_settings']['shipment_mode'] = 0;
-            }
-        }
-
-        // ---------------------------------------
-
-        // ---------------------------------------
-        $data['magento_orders_settings'] = Mage::helper('M2ePro')->jsonEncode($data['magento_orders_settings']);
-        // ---------------------------------------
-
-        // tab: feedbacks
-        // ---------------------------------------
-        $keys = array(
-            'feedbacks_receive',
-            'feedbacks_auto_response',
-            'feedbacks_auto_response_only_positive'
-        );
-        foreach ($keys as $key) {
-            if (isset($post[$key])) {
-                $data[$key] = $post[$key];
-            }
-        }
-
-        // ---------------------------------------
-
-        $data = $this->sendDataToServer($id, $data);
-
-        $id = $this->updateAccount($id, $data);
-
-        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Account was successfully saved'));
+        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Account was saved'));
 
         $this->_redirectUrl(
             Mage::helper('M2ePro')->getBackUrl(
-                'list', array(), array('edit'=>array('id'=>$id, 'update_ebay_store' => null, '_current'=>true))
+                'list', array(), array('edit' => array('id' => $account->getId()))
             )
         );
     }
@@ -610,21 +291,6 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
                 continue;
             }
 
-            try {
-                $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
-                $connectorObj = $dispatcherObject->getVirtualConnector(
-                    'account', 'delete', 'entity',
-                    array(), null, null, $account->getId()
-                );
-                $dispatcherObject->process($connectorObj);
-            } catch (Exception $e) {
-                $account->deleteProcessings();
-                $account->deleteProcessingLocks();
-                $account->deleteInstance();
-
-                throw $e;
-            }
-
             $account->deleteProcessings();
             $account->deleteProcessingLocks();
             $account->deleteInstance();
@@ -632,7 +298,7 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
             $deleted++;
         }
 
-        $tempString = Mage::helper('M2ePro')->__('%amount% record(s) were successfully deleted.', $deleted);
+        $tempString = Mage::helper('M2ePro')->__('%amount% record(s) were deleted.', $deleted);
         $deleted && $this->_getSession()->addSuccess($tempString);
 
         $tempString  = Mage::helper('M2ePro')->__('%amount% record(s) are used in M2E Pro Listing(s).', $locked) . ' ';
@@ -640,131 +306,6 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
         $locked && $this->_getSession()->addError($tempString);
 
         $this->_redirect('*/*/index');
-    }
-
-    // ---------------------------------------
-
-    protected function sendDataToServer($id, $data)
-    {
-        // Add or update server
-        // ---------------------------------------
-
-        $requestData = array(
-            'mode'          => $data['mode'] == Ess_M2ePro_Model_Ebay_Account::MODE_PRODUCTION ?
-                               'production' : 'sandbox',
-            'token_session' => $data['token_session']
-        );
-
-        if (isset($data['sell_api_token_session'])) {
-            $requestData['sell_api_token_session'] = $data['sell_api_token_session'];
-        }
-
-        $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
-
-        if ((bool)$id) {
-
-            /** @var Ess_M2ePro_Model_Account $model */
-            $model = Mage::helper('M2ePro/Component_Ebay')->getObject('Account', $id);
-            $requestData['title'] = $model->getTitle();
-
-            $connectorObj = $dispatcherObject->getVirtualConnector(
-                'account', 'update', 'entity', $requestData, null, null, $id
-            );
-        } else {
-            $connectorObj = $dispatcherObject->getVirtualConnector(
-                'account', 'add', 'entity', $requestData, null, null, null
-            );
-        }
-
-        try {
-            $dispatcherObject->process($connectorObj);
-            $response = $connectorObj->getResponseData();
-        } catch (Exception $e) {
-            $response = array();
-        }
-
-        // ---------------------------------------
-        if (!isset($response['token_expired_date'])) {
-            throw new Ess_M2ePro_Model_Exception('Account is not added or updated. Try again later.');
-        }
-
-        isset($response['hash']) && $data['server_hash'] = $response['hash'];
-        isset($response['info']['UserID']) && $data['user_id'] = $response['info']['UserID'];
-
-        $data['info'] = Mage::helper('M2ePro')->jsonEncode($response['info']);
-        $data['token_expired_date'] = $response['token_expired_date'];
-        // ---------------------------------------
-
-        // ---------------------------------------
-        if (isset($response['sell_api_token_expired_date'])) {
-            $data['sell_api_token_expired_date'] = $response['sell_api_token_expired_date'];
-        }
-
-        // ---------------------------------------
-
-        return $data;
-    }
-
-    protected function updateAccount($id, $data)
-    {
-        // Change token
-        // ---------------------------------------
-        $isChangeTokenSession = false;
-        if ((bool)$id) {
-            $oldTokenSession = Mage::helper('M2ePro/Component_Ebay')
-                ->getCachedObject('Account', $id)
-                ->getChildObject()
-                ->getTokenSession();
-            $newTokenSession = $data['token_session'];
-            if ($newTokenSession != $oldTokenSession) {
-                $isChangeTokenSession = true;
-            }
-        } else {
-            $isChangeTokenSession = true;
-        }
-
-        // ---------------------------------------
-
-        // Add or update model
-        // ---------------------------------------
-        $model = Mage::helper('M2ePro/Component_Ebay')->getModel('Account');
-        if ($id === null) {
-            $model->setData($data);
-        } else {
-            $model->load($id);
-            $model->addData($data);
-        }
-
-        // ---------------------------------------
-
-        $id = $model->save()->getId();
-
-        // Update eBay store
-        // ---------------------------------------
-        if ($isChangeTokenSession || (int)$this->getRequest()->getParam('update_ebay_store')) {
-            $ebayAccount = $model->getChildObject();
-            $ebayAccount->updateEbayStoreInfo();
-
-            if (Mage::helper('M2ePro/Component_Ebay_Category_Store')->isExistDeletedCategories()) {
-                $url = $this->getUrl('*/adminhtml_ebay_category/index', array('filter' => base64_encode('state=0')));
-
-                $this->_getSession()->addWarning(
-                    Mage::helper('M2ePro')->__(
-                        'Some eBay Store Categories were deleted from eBay. Click '.
-                        '<a target="_blank" href="%url%">here</a> to check.', $url
-                    )
-                );
-            }
-        }
-
-        // ---------------------------------------
-
-        // Update User Preferences
-        // ---------------------------------------
-        $model->getChildObject()->updateUserPreferences();
-        // ---------------------------------------
-
-        return $id;
     }
 
     //########################################
@@ -860,7 +401,7 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
         $note   = $response['info']['note'];
 
         if ($status) {
-            return 'MagentoMessageObj.addNotice(\''.$note.'\');';
+            return 'MessageObj.addNotice(\''.$note.'\');';
         }
 
         $errorMessage = Mage::helper('M2ePro')->__(
@@ -868,7 +409,198 @@ class Ess_M2ePro_Adminhtml_Ebay_AccountController extends Ess_M2ePro_Controller_
             array('error_message' => $note)
         );
 
-        return 'MagentoMessageObj.addError(\''.$errorMessage.'\');';
+        return 'MessageObj.addError(\''.$errorMessage.'\');';
+    }
+
+    //########################################
+
+    protected function addAccount($data)
+    {
+        /** @var Ess_M2ePro_Model_Account $account */
+        $account = Mage::helper('M2ePro/Component_Ebay')->getModel('Account');
+
+        Mage::getModel('M2ePro/Ebay_Account_Builder')->build($account, $data);
+
+        try {
+            $params = $this->getDataForServer($data);
+
+            $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
+
+            $connectorObj = $dispatcherObject->getVirtualConnector(
+                'account',
+                'add',
+                'entity',
+                $params,
+                null,
+                null,
+                null
+            );
+
+            $dispatcherObject->process($connectorObj);
+            $responseData = $connectorObj->getResponseData();
+
+            if (!isset($responseData['token_expired_date'])) {
+                throw new Ess_M2ePro_Model_Exception('Account is not added or updated. Try again later.');
+            }
+
+            if (isset($responseData['info']['UserID'])) {
+                if ($this->isAccountExists($responseData['info']['UserID'], $account->getId())) {
+                    throw new Ess_M2ePro_Model_Exception('An account with the same eBay User ID already exists.');
+                }
+            }
+
+            $dataForUpdate = array(
+                'info' => Mage::helper('M2ePro')->jsonEncode($responseData['info']),
+                'token_expired_date' => $responseData['token_expired_date']
+            );
+
+            isset($responseData['hash']) && $dataForUpdate['server_hash'] = $responseData['hash'];
+            isset($responseData['info']['UserID']) && $dataForUpdate['user_id'] = $responseData['info']['UserID'];
+
+            if (isset($responseData['sell_api_token_expired_date'])) {
+                $dataForUpdate['sell_api_token_expired_date'] = $responseData['sell_api_token_expired_date'];
+            }
+
+            $account->getChildObject()->addData($dataForUpdate);
+            $account->getChildObject()->save();
+        } catch (Exception $exception) {
+            $account->deleteInstance();
+
+            throw $exception;
+        }
+
+        // Update eBay store
+        // ---------------------------------------
+        $account->getChildObject()->updateEbayStoreInfo();
+
+        if (Mage::helper('M2ePro/Component_Ebay_Category_Store')->isExistDeletedCategories()) {
+            $url = $this->getUrl('*/adminhtml_ebay_category/index', array('filter' => base64_encode('state=0')));
+
+            $this->_getSession()->addWarning(
+                Mage::helper('M2ePro')->__(
+                    'Some eBay Store Categories were deleted from eBay. Click '.
+                    '<a target="_blank" href="%url%">here</a> to check.', $url
+                )
+            );
+        }
+
+        // Update User Preferences
+        // ---------------------------------------
+        $account->getChildObject()->updateUserPreferences();
+
+        return $account;
+    }
+
+    protected function updateAccount($id, $data)
+    {
+        /** @var Ess_M2ePro_Model_Account $account */
+        $account = Mage::helper('M2ePro/Component_Ebay')->getObject('Account', $id);
+
+        $isChangeTokenSession = $data['token_session'] != $account->getChildObject()->getTokenSession();
+
+        $oldData = array_merge($account->getOrigData(), $account->getChildObject()->getOrigData());
+
+        Mage::getModel('M2ePro/Ebay_Account_Builder')->build($account, $data);
+
+        try {
+            $params = $this->getDataForServer($data);
+
+            if (!$this->isNeedSendDataToServer($params, $oldData)) {
+                return $account;
+            }
+
+            $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
+
+            $connectorObj = $dispatcherObject->getVirtualConnector(
+                'account',
+                'update',
+                'entity',
+                $params,
+                null,
+                null,
+                $id
+            );
+
+            $dispatcherObject->process($connectorObj);
+            $responseData = $connectorObj->getResponseData();
+
+            if (!isset($responseData['token_expired_date'])) {
+                throw new Ess_M2ePro_Model_Exception('Account is not added or updated. Try again later.');
+            }
+
+            $dataForUpdate = array(
+                'info' => Mage::helper('M2ePro')->jsonEncode($responseData['info']),
+                'token_expired_date' => $responseData['token_expired_date']
+            );
+
+            isset($responseData['info']['UserID']) && $dataForUpdate['user_id'] = $responseData['info']['UserID'];
+
+            if (isset($responseData['sell_api_token_expired_date'])) {
+                $dataForUpdate['sell_api_token_expired_date'] = $responseData['sell_api_token_expired_date'];
+            }
+
+            $account->getChildObject()->addData($dataForUpdate);
+            $account->getChildObject()->save();
+        } catch (Exception $exception) {
+            Mage::getModel('M2ePro/Ebay_Account_Builder')->build($account, $oldData);
+
+            throw $exception;
+        }
+
+        // Update eBay store
+        // ---------------------------------------
+        if ($isChangeTokenSession || (int)$this->getRequest()->getParam('update_ebay_store')) {
+            $account->getChildObject()->updateEbayStoreInfo();
+
+            if (Mage::helper('M2ePro/Component_Ebay_Category_Store')->isExistDeletedCategories()) {
+                $url = $this->getUrl('*/adminhtml_ebay_category/index', array('filter' => base64_encode('state=0')));
+
+                $this->_getSession()->addWarning(
+                    Mage::helper('M2ePro')->__(
+                        'Some eBay Store Categories were deleted from eBay. Click '.
+                        '<a target="_blank" href="%url%">here</a> to check.', $url
+                    )
+                );
+            }
+        }
+
+        // Update User Preferences
+        // ---------------------------------------
+        $account->getChildObject()->updateUserPreferences();
+
+        return $account;
+    }
+
+    protected function getDataForServer($data)
+    {
+        $params = array(
+            'mode' => $data['mode'] == EbayAccount::MODE_PRODUCTION ? 'production' : 'sandbox',
+            'token_session' => $data['token_session']
+        );
+
+        if (isset($data['sell_api_token_session'])) {
+            $params['sell_api_token_session'] = $data['sell_api_token_session'];
+        }
+
+        return $params;
+    }
+
+    protected function isNeedSendDataToServer($newData, $oldData)
+    {
+        $diff = array_diff_assoc($newData, $oldData);
+
+        return !empty($diff);
+    }
+
+    protected function isAccountExists($userId, $newAccountId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Account_Collection $collection */
+        $collection = Mage::helper('M2ePro/Component_Ebay')->getCollection('Account')
+            ->addFieldToSelect('title')
+            ->addFieldToFilter('user_id', $userId)
+            ->addFieldToFilter('id', array('neq' => $newAccountId));
+
+        return $collection->getSize();
     }
 
     //########################################

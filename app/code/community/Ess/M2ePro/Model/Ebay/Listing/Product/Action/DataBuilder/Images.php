@@ -11,10 +11,6 @@ use Ess_M2ePro_Model_Ebay_Template_Description_Source as DescriptionSource;
 class Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Images
     extends Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Abstract
 {
-    const UPLOAD_IMAGES_MODE_AUTO = 1;
-    const UPLOAD_IMAGES_MODE_SELF = 2;
-    const UPLOAD_IMAGES_MODE_EPS  = 3;
-
     //########################################
 
     public function getData()
@@ -67,6 +63,10 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Images
 
         if ($this->getMagentoProduct()->isGroupedType()) {
             $attributeLabels = array(Ess_M2ePro_Model_Magento_Product_Variation::GROUPED_PRODUCT_ATTRIBUTE_LABEL);
+        }
+
+        if ($this->getMagentoProduct()->isBundleType()) {
+            $attributeLabels = $this->getBundleImagesAttributeLabels();
         }
 
         if (empty($attributeLabels)) {
@@ -142,6 +142,16 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Images
         }
 
         return $attributeLabels;
+    }
+
+    protected function getBundleImagesAttributeLabels()
+    {
+        $variations = $this->getMagentoProduct()->getVariationInstance()->getVariationsTypeStandard();
+        if (!empty($variations['set'])) {
+            return array((string)key($variations['set']));
+        }
+
+        return array();
     }
 
     protected function getImagesDataByAttributeLabels(array $attributeLabels)

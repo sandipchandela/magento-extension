@@ -22,33 +22,31 @@ class Ess_M2ePro_Adminhtml_Amazon_Listing_Variation_Product_ManageController
             ->addJs('M2ePro/Plugin/DropDown.js')
             ->addJs('M2ePro/Plugin/ProgressBar.js')
             ->addJs('M2ePro/Plugin/AreaWrapper.js')
-            ->addJs('M2ePro/Listing/ProductGridHandler.js')
+            ->addJs('M2ePro/Listing/ProductGrid.js')
 
-            ->addJs('M2ePro/GridHandler.js')
-            ->addJs('M2ePro/Listing/GridHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/GridHandler.js')
+            ->addJs('M2ePro/Grid.js')
+            ->addJs('M2ePro/Listing/Grid.js')
+            ->addJs('M2ePro/Amazon/Listing/Grid.js')
 
-            ->addJs('M2ePro/ActionHandler.js')
-            ->addJs('M2ePro/Listing/ActionHandler.js')
-            ->addJs('M2ePro/Listing/MovingHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/ActionHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/ProductSearchHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/Template/DescriptionHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/VariationProductManageHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/VariationProductManageVariationsGridHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/FulfillmentHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/RepricingHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/AfnQtyHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/RepricingPriceHandler.js')
+            ->addJs('M2ePro/Action.js')
+            ->addJs('M2ePro/Listing/Action.js')
+            ->addJs('M2ePro/Listing/Moving.js')
+            ->addJs('M2ePro/Amazon/Listing/Action.js')
+            ->addJs('M2ePro/Amazon/Listing/ProductSearch.js')
+            ->addJs('M2ePro/Amazon/Listing/Template/Description.js')
+            ->addJs('M2ePro/Amazon/Listing/VariationProductManage.js')
+            ->addJs('M2ePro/Amazon/Listing/VariationProductManageVariationsGrid.js')
+            ->addJs('M2ePro/Amazon/Listing/Fulfillment.js')
+            ->addJs('M2ePro/Amazon/Listing/Repricing.js')
+            ->addJs('M2ePro/Amazon/Listing/AfnQty.js')
+            ->addJs('M2ePro/Amazon/Listing/RepricingPrice.js')
 
-            ->addJs('M2ePro/TemplateHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/Category/TreeHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/AddListingHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/SettingsHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/ChannelSettingsHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/ProductsFilterHandler.js')
+            ->addJs('M2ePro/TemplateManager.js')
+            ->addJs('M2ePro/Amazon/Listing/Category/Tree.js')
+            ->addJs('M2ePro/Amazon/Listing/Product/Add.js')
+            ->addJs('M2ePro/Amazon/Listing/ProductsFilter.js')
 
-            ->addJs('M2ePro/Amazon/Listing/Product/VariationHandler.js');
+            ->addJs('M2ePro/Amazon/Listing/Product/Variation.js');
 
         return $this;
     }
@@ -107,8 +105,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Listing_Variation_Product_ManageController
             return $this->getResponse()->setBody('You should provide correct parameters.');
         }
 
-        $a = $this->hasChildWithWarning($productId);
-        if ($a) {
+        if ($this->hasChildWithWarning($productId)) {
             $message = Mage::helper('M2ePro')->__(
                 'For one of the Child Amazon Products the accordance of Magento
             Product Variation is not set. Please, specify a Variation for further work with this Child Product.'
@@ -122,6 +119,12 @@ class Ess_M2ePro_Adminhtml_Amazon_Listing_Variation_Product_ManageController
 
         $help = $this->getLayout()
             ->createBlock('M2ePro/adminhtml_amazon_listing_variation_product_manage_tabs_variations_help');
+
+        if ($this->getRequest()->getParam('listing_product_id_filter')) {
+            $this->_getSession()->addNotice(Mage::helper('M2ePro')->__(
+                'This list includes a Product you are searching for.'
+            ));
+        }
 
         $this->_initAction();
 
@@ -322,7 +325,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Listing_Variation_Product_ManageController
         if ($this->isExistInM2eProListings($listingProduct, $sku)) {
             $msg = Mage::helper('M2ePro')->__('This SKU is already being used in M2E Pro Listing.');
         } else if ($this->isExistInOtherListings($listingProduct, $sku)) {
-            $msg = Mage::helper('M2ePro')->__('This SKU is already being used in M2E Pro 3rd Party Listing.');
+            $msg = Mage::helper('M2ePro')->__('This SKU is already being used in M2E Pro Unmanaged Listing.');
         } else {
             $skuInfo = $this->getSkuInfo($listingProduct, $sku);
 
@@ -371,7 +374,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Listing_Variation_Product_ManageController
             ->createBlock('M2ePro/adminhtml_amazon_listing_template_description_grid');
         $grid->setCheckNewAsinAccepted(true);
         $grid->setProductsIds(array($productId));
-        $grid->setMapToTemplateJsFn('ListingGridHandlerObj.variationProductManageHandler.mapToTemplateDescription');
+        $grid->setMapToTemplateJsFn('ListingGridObj.variationProductManageHandler.mapToTemplateDescription');
 
         return $this->getResponse()->setBody($grid->toHtml());
     }
@@ -603,7 +606,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Listing_Variation_Product_ManageController
 
         $result = array(
             'type' => 'success',
-            'msg'  => Mage::helper('M2ePro')->__('New Amazon Child Product was successfully created.')
+            'msg'  => Mage::helper('M2ePro')->__('New Amazon Child Product was created.')
         );
 
         if ($createNewAsin) {

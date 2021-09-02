@@ -27,44 +27,48 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
             ->addJs('M2ePro/Plugin/DropDown.js')
             ->addJs('M2ePro/Plugin/ProgressBar.js')
             ->addJs('M2ePro/Plugin/AreaWrapper.js')
-            ->addJs('M2ePro/Listing/ProductGridHandler.js')
-            ->addJs('M2ePro/Listing/Category/TreeHandler.js')
-            ->addJs('M2ePro/Listing/AutoActionHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/AutoActionHandler.js')
+            ->addJs('M2ePro/Listing/ProductGrid.js')
+            ->addJs('M2ePro/Listing/Category/Tree.js')
+            ->addJs('M2ePro/Listing/AutoAction.js')
+            ->addJs('M2ePro/Amazon/Listing/AutoAction.js')
 
-            ->addJs('M2ePro/GridHandler.js')
+            ->addJs('M2ePro/Grid.js')
             ->addJs('M2ePro/Listing/EditListingTitle.js')
-            ->addJs('M2ePro/Listing/GridHandler.js')
-            ->addJs('M2ePro/Listing/Other/GridHandler.js')
+            ->addJs('M2ePro/Listing/Grid.js')
+            ->addJs('M2ePro/Listing/Other.js')
+            ->addJs('M2ePro/Listing/Other/Grid.js')
 
-            ->addJs('M2ePro/ActionHandler.js')
-            ->addJs('M2ePro/Listing/ActionHandler.js')
-            ->addJs('M2ePro/Listing/MovingHandler.js')
+            ->addJs('M2ePro/Action.js')
+            ->addJs('M2ePro/Listing/Action.js')
+            ->addJs('M2ePro/Listing/Moving.js')
+            ->addJs('M2ePro/Listing/Mapping.js')
             ->addJs('M2ePro/Amazon/Listing.js')
-            ->addJs('M2ePro/Amazon/Listing/GridHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/ActionHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/ProductSearchHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/Template/DescriptionHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/Template/ShippingHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/Template/ProductTaxCodeHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/VariationProductManageHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/FulfillmentHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/RepricingHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/AfnQtyHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/RepricingPriceHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/Other/GridHandler.js')
+            ->addJs('M2ePro/Amazon/Listing/Grid.js')
+            ->addJs('M2ePro/Amazon/Listing/Action.js')
+            ->addJs('M2ePro/Amazon/Listing/ProductSearch.js')
+            ->addJs('M2ePro/Amazon/Listing/Template/Description.js')
+            ->addJs('M2ePro/Amazon/Listing/Template/Shipping.js')
+            ->addJs('M2ePro/Amazon/Listing/Template/ProductTaxCode.js')
+            ->addJs('M2ePro/Amazon/Listing/VariationProductManage.js')
+            ->addJs('M2ePro/Amazon/Listing/Fulfillment.js')
+            ->addJs('M2ePro/Amazon/Listing/Repricing.js')
+            ->addJs('M2ePro/Amazon/Listing/AfnQty.js')
+            ->addJs('M2ePro/Amazon/Listing/RepricingPrice.js')
+            ->addJs('M2ePro/Amazon/Listing/Other/Grid.js')
 
-            ->addJs('M2ePro/TemplateHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/SettingsHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/ChannelSettingsHandler.js')
-            ->addJs('M2ePro/Amazon/Listing/ProductsFilterHandler.js')
+            ->addJs('M2ePro/TemplateManager.js')
+            ->addJs('M2ePro/Amazon/Listing/Create/Selling.js')
+            ->addJs('M2ePro/Amazon/Listing/Create/Search.js')
+            ->addJs('M2ePro/Amazon/Listing/Settings.js')
+            ->addJs('M2ePro/Amazon/Listing/ProductsFilter.js')
 
-            ->addJs('M2ePro/Amazon/Listing/Product/VariationHandler.js')
+            ->addJs('M2ePro/Amazon/Listing/Product/Variation.js')
 
-            ->addJs('M2ePro/Listing/Other/AutoMappingHandler.js')
-            ->addJs('M2ePro/Listing/Other/MappingHandler.js')
-            ->addJs('M2ePro/Listing/Other/RemovingHandler.js')
-            ->addJs('M2ePro/Listing/Other/UnmappingHandler.js');
+            ->addJs('M2ePro/Listing/Other/AutoMapping.js')
+            ->addJs('M2ePro/Listing/Other/Removing.js')
+            ->addJs('M2ePro/Listing/Other/Unmapping.js')
+
+            ->addJs('M2ePro/Amazon/Listing/Transferring.js');
 
         $this->_initPopUp();
 
@@ -211,8 +215,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
 
         // ---------------------------------------
 
-        Mage::helper('M2ePro/Data_Global')->setValue('temp_data', $model->getData());
-        Mage::helper('M2ePro/Data_Global')->setValue('marketplace_id', $model->getMarketplaceId());
+        Mage::helper('M2ePro/Data_Global')->setValue('temp_data', $model);
 
         // Set rule model
         // ---------------------------------------
@@ -231,8 +234,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
         $id = $this->getRequest()->getParam('id');
         $model = Mage::helper('M2ePro/Component_Amazon')->getCachedObject('Listing', $id);
 
-        Mage::helper('M2ePro/Data_Global')->setValue('temp_data', $model->getData());
-        Mage::helper('M2ePro/Data_Global')->setValue('marketplace_id', $model->getMarketplaceId());
+        Mage::helper('M2ePro/Data_Global')->setValue('temp_data', $model);
 
         // Set rule model
         // ---------------------------------------
@@ -255,8 +257,6 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
             $this->_getSession()->addError(Mage::helper('M2ePro')->__('Listing does not exist.'));
             return $this->_redirect('*/adminhtml_amazon_listing/index');
         }
-
-        Mage::helper('M2ePro/Data_Global')->setValue('temp_data', $listing->getData());
 
         $this->_initAction();
         $this->_addContent($this->getLayout()->createBlock('M2ePro/adminhtml_amazon_listing_edit'));
@@ -292,10 +292,11 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
         $keys = array(
             'template_selling_format_id',
             'template_synchronization_id',
+            'template_shipping_id'
         );
         foreach ($keys as $key) {
             if (isset($post[$key])) {
-                $data[$key] = $post[$key];
+                $data[$key] = (!empty($post[$key])) ? $post[$key] : null;
             }
         }
 
@@ -391,7 +392,13 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
         $this->processSellingFormatTemplateChange($oldData, $newData, $affectedListingsProductsData);
         $this->processSynchronizationTemplateChange($oldData, $newData, $affectedListingsProductsData);
 
-        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('The Listing was successfully saved.'));
+        $affectedListingsProductsData = $affectedListingsProducts->getData(
+            array('id', 'status'),
+            array('only_physical_units' => true, 'template_shipping_id' => true)
+        );
+        $this->processShippingTemplateChange($oldData, $newData, $affectedListingsProductsData);
+
+        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('The Listing was saved.'));
 
         $this->_redirectUrl(Mage::helper('M2ePro')->getBackUrl('list', array(), array('edit'=>array('id'=>$id))));
     }
@@ -417,7 +424,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
             }
         }
 
-        $tempString = Mage::helper('M2ePro')->__('%amount% Listing(s) were successfully deleted', $deleted);
+        $tempString = Mage::helper('M2ePro')->__('%amount% Listing(s) were deleted', $deleted);
         $deleted && $this->_getSession()->addSuccess($tempString);
 
         $tempString = Mage::helper('M2ePro')->__(
@@ -433,34 +440,19 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
     protected function scheduleAction($action, array $params = array())
     {
         if (!$listingsProductsIds = $this->getRequest()->getParam('selected_products')) {
-            return 'You should select Products';
+            return Mage::helper('M2ePro')->__('You should select Products');
         }
 
-        $params['status_changer'] = Ess_M2ePro_Model_Listing_Product::STATUS_CHANGER_USER;
-
-        $listingsProductsIds = explode(',', $listingsProductsIds);
-
-        /** @var Ess_M2ePro_Model_Resource_Listing_Product_Collection $listingsProductsCollection */
-        $listingsProductsCollection = Mage::helper('M2ePro/Component_Amazon')->getCollection('Listing_Product');
-        $listingsProductsCollection->addFieldToFilter('id', $listingsProductsIds);
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_Collection $productsCollection */
+        $productsCollection = Mage::helper('M2ePro/Component_Amazon')->getCollection('Listing_Product');
+        $productsCollection->addFieldToFilter('id', explode(',', $listingsProductsIds));
 
         /** @var Ess_M2ePro_Model_Listing_Product[] $listingsProducts */
-        $listingsProducts = $listingsProductsCollection->getItems();
+        $listingsProducts = $productsCollection->getItems();
 
         $childListingsProducts = array();
 
         foreach ($listingsProducts as $index => $listingProduct) {
-            if (in_array(
-                $action, array(
-                Ess_M2ePro_Model_Listing_Product::ACTION_STOP,
-                Ess_M2ePro_Model_Listing_Product::ACTION_DELETE
-                )
-            ) &&
-                !empty($params['remove'])
-            ) {
-                continue;
-            }
-
             /** @var Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
             $amazonListingProduct = $listingProduct->getChildObject();
 
@@ -476,15 +468,49 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
                 continue;
             }
 
-            unset($listingsProducts[$index]);
+            if ($action != Ess_M2ePro_Model_Listing_Product::ACTION_REVISE) {
+                unset($listingsProducts[$index]);
+            }
 
             $childListingsProducts = array_merge($childListingsProducts, $tempChildListingsProducts);
         }
 
         $listingsProducts = array_merge($listingsProducts, $childListingsProducts);
-
         $logsActionId = Mage::getModel('M2ePro/Listing_Log')->getResource()->getNextActionId();
 
+        $this->checkLocking($listingsProducts, $logsActionId, $action);
+        if (empty($listingsProducts)) {
+            return Mage::helper('M2ePro')->jsonEncode(array('result' => 'error', 'action_id' => $logsActionId));
+        }
+
+        $this->createUpdateScheduledActions(
+            $listingsProducts,
+            $action,
+            $params
+        );
+
+        if (isset($params['switch_to'])) {
+            return $this->getResponse()->setBody(
+                Mage::helper('M2ePro')->jsonEncode(
+                    array(
+                        'messages' => array(array(
+                            'type' => 'success',
+                            'text' => Mage::helper('M2ePro')->__(
+                                'Fulfillment switching is in progress now. Please wait.'
+                            )
+                        ))
+                    )
+                )
+            );
+        }
+
+        return Mage::helper('M2ePro')->jsonEncode(array('result' => 'success', 'action_id' => $logsActionId));
+    }
+
+    //########################################
+
+    protected function checkLocking(&$listingsProducts, $logsActionId, $action)
+    {
         foreach ($listingsProducts as $index => $listingProduct) {
             $lockManager = Mage::getModel(
                 'M2ePro/Listing_Product_LockManager', array('listing_product' => $listingProduct)
@@ -497,110 +523,81 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
                 unset($listingsProducts[$index]);
             }
         }
+    }
 
-        if (empty($listingsProducts)) {
-            return Mage::helper('M2ePro')->jsonEncode(array('result'=>'error', 'action_id' => $logsActionId));
-        }
-
-        if (in_array(
-            $action, array(
-                Ess_M2ePro_Model_Listing_Product::ACTION_STOP,
-                Ess_M2ePro_Model_Listing_Product::ACTION_DELETE
-            )
-        ) &&
-            !empty($params['remove'])
-        ) {
-            foreach ($listingsProducts as $index => $listingProduct) {
-                if ($action == Ess_M2ePro_Model_Listing_Product::ACTION_DELETE && !$listingProduct->isNotListed()) {
-                    continue;
-                }
-
-                if ($action == Ess_M2ePro_Model_Listing_Product::ACTION_STOP && $listingProduct->isStoppable()) {
-                    continue;
-                }
-
-                $removeHandler = Mage::getModel(
-                    'M2ePro/Amazon_Listing_Product_RemoveHandler', array('listing_product' => $listingProduct)
-                );
-                $removeHandler->process();
-
-                unset($listingsProducts[$index]);
-            }
-        }
-
-        if (empty($listingsProducts)) {
-            return Mage::helper('M2ePro')->jsonEncode(array('result'=>'success'));
-        }
-
+    /**
+     * @param Ess_M2ePro_Model_Listing_Product[] $listingsProducts
+     * @param $action
+     * @param array $params
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function createUpdateScheduledActions(&$listingsProducts, $action, array $params)
+    {
         $listingsProductsIds = array();
-
         foreach ($listingsProducts as $listingProduct) {
             $listingsProductsIds[] = $listingProduct->getId();
         }
 
-        $existedScheduledActionsCollection = Mage::getResourceModel(
-            'M2ePro/Listing_Product_ScheduledAction_Collection'
-        );
-        $existedScheduledActionsCollection->addFieldToFilter('listing_product_id', $listingsProductsIds);
-
-        $additionalData = array(
-            'params' => $params,
-        );
-        $tag = null;
-
-        if ($action == Ess_M2ePro_Model_Listing_Product::ACTION_REVISE) {
-            $configurator = Mage::getModel('M2ePro/Amazon_Listing_Product_Action_Configurator');
-
-            if (isset($params['switch_to'])) {
-                $configurator->disableAll();
-                $configurator->allowQty();
-                $tag = '/qty/';
-            } else {
-                $configurator->enableAll();
-                $tag = '/qty/price_regular/price_business/details/images/';
-            }
-
-            $additionalData['configurator'] = $configurator->getData();
-        }
+        $existedScheduled = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $existedScheduled->addFieldToFilter('listing_product_id', $listingsProductsIds);
 
         $scheduledActionManager = Mage::getModel('M2ePro/Listing_Product_ScheduledAction_Manager');
 
         foreach ($listingsProducts as $listingProduct) {
             $scheduledAction = Mage::getModel('M2ePro/Listing_Product_ScheduledAction');
             $scheduledAction->setData(
-                array(
-                'listing_product_id' => $listingProduct->getId(),
-                'component'          => Ess_M2ePro_Helper_Component_Amazon::NICK,
-                'action_type'        => $action,
-                'is_force'           => true,
-                'tag'                => $tag,
-                'additional_data'    => Mage::helper('M2ePro')->jsonEncode($additionalData),
-                )
+                $this->createUpdateScheduledActionsDataCallback($listingProduct, $action, $params)
             );
 
-            if ($existedScheduledActionsCollection->getItemByColumnValue(
-                'listing_product_id', $listingProduct->getId()
-            )) {
+            if ($existedScheduled->getItemByColumnValue('listing_product_id', $listingProduct->getId())) {
                 $scheduledActionManager->updateAction($scheduledAction);
             } else {
                 $scheduledActionManager->addAction($scheduledAction);
             }
         }
+    }
 
-        if (isset($params['switch_to'])) {
-            return $this->getResponse()->setBody(
-                Mage::helper('M2ePro')->jsonEncode(
-                    array(
-                    'messages' => array(array(
-                    'type' => 'success',
-                    'text' => Mage::helper('M2ePro')->__('Fulfillment switching is in progress now. Please wait.')
-                    ))
-                    )
-                )
-            );
+    /**
+     * @param Ess_M2ePro_Model_Listing_Product $listingProduct
+     * @param int $action
+     * @param array $params
+     * @return array
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function createUpdateScheduledActionsDataCallback($listingProduct, $action, array $params)
+    {
+        $tag = null;
+        $params['status_changer'] = Ess_M2ePro_Model_Listing_Product::STATUS_CHANGER_USER;
+        $additionalData = array('params' => $params);
+
+        if ($action == Ess_M2ePro_Model_Listing_Product::ACTION_REVISE) {
+            /** @var Ess_M2ePro_Model_Amazon_Listing_Product_Action_Configurator $configurator */
+            $configurator = Mage::getModel('M2ePro/Amazon_Listing_Product_Action_Configurator');
+            $configurator->enableAll();
+            $tag = '/qty/price_regular/price_business/details/images/';
+
+            if (isset($params['switch_to'])) {
+                $configurator->disableAll();
+                $configurator->allowQty();
+                $tag = '/qty/';
+            } elseif ($listingProduct->getChildObject()->getVariationManager()->isRelationParentType()) {
+                $configurator->disableAll();
+                $configurator->allowImages();
+                $configurator->allowDetails();
+                $tag = '/details/images/';
+            }
+
+            $additionalData['configurator'] = $configurator->getData();
         }
 
-        return Mage::helper('M2ePro')->jsonEncode(array('result'=>'success'));
+        return array(
+            'listing_product_id' => $listingProduct->getId(),
+            'component'          => Ess_M2ePro_Helper_Component_Amazon::NICK,
+            'action_type'        => $action,
+            'is_force'           => true,
+            'tag'                => $tag,
+            'additional_data'    => Mage::helper('M2ePro')->jsonEncode($additionalData)
+        );
     }
 
     // ---------------------------------------
@@ -635,19 +632,101 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
 
     public function runStopAndRemoveProductsAction()
     {
+        if (!$listingsProductsIds = $this->getRequest()->getParam('selected_products')) {
+            return $this->getResponse()->setBody(Mage::helper('M2ePro')->__('You should select Products'));
+        }
+
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_Collection $productsCollection */
+        $productsCollection = Mage::helper('M2ePro/Component_Amazon')->getCollection('Listing_Product');
+        $productsCollection->addFieldToFilter('id', explode(',', $listingsProductsIds));
+
+        /** @var Ess_M2ePro_Model_Listing_Product[] $listingsProducts */
+        $listingsProducts = $productsCollection->getItems();
+        $logsActionId = Mage::getModel('M2ePro/Listing_Log')->getResource()->getNextActionId();
+
+        $this->checkLocking($listingsProducts, $logsActionId, Ess_M2ePro_Model_Listing_Product::ACTION_STOP);
+        if (empty($listingsProducts)) {
+            return $this->getResponse()->setBody(
+                Mage::helper('M2ePro')->jsonEncode(array('result' => 'error', 'action_id' => $logsActionId))
+            );
+        }
+
+        foreach ($listingsProducts as $index => $listingProduct) {
+            if (!$listingProduct->isStoppable()) {
+                /** @var Ess_M2ePro_Model_Amazon_Listing_Product_RemoveHandler $removeHandler */
+                $removeHandler = Mage::getModel(
+                    'M2ePro/Amazon_Listing_Product_RemoveHandler', array('listing_product' => $listingProduct)
+                );
+                $removeHandler->process();
+
+                unset($listingsProducts[$index]);
+            }
+        }
+
+        if (empty($listingsProducts)) {
+            return $this->getResponse()->setBody(
+                Mage::helper('M2ePro')->jsonEncode(array('result' => 'success', 'action_id' => $logsActionId))
+            );
+        }
+
+        $this->createUpdateScheduledActions(
+            $listingsProducts,
+            Ess_M2ePro_Model_Listing_Product::ACTION_STOP,
+            array('remove' => true)
+        );
+
         return $this->getResponse()->setBody(
-            $this->scheduleAction(
-                Ess_M2ePro_Model_Listing_Product::ACTION_STOP, array('remove' => true)
-            )
+            Mage::helper('M2ePro')->jsonEncode(array('result' => 'success', 'action_id' => $logsActionId))
         );
     }
 
     public function runDeleteAndRemoveProductsAction()
     {
+        if (!$listingsProductsIds = $this->getRequest()->getParam('selected_products')) {
+            return $this->getResponse()->setBody(Mage::helper('M2ePro')->__('You should select Products'));
+        }
+
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_Collection $productsCollection */
+        $productsCollection = Mage::helper('M2ePro/Component_Amazon')->getCollection('Listing_Product');
+        $productsCollection->addFieldToFilter('id', explode(',', $listingsProductsIds));
+
+        /** @var Ess_M2ePro_Model_Listing_Product[] $listingsProducts */
+        $listingsProducts = $productsCollection->getItems();
+        $logsActionId = Mage::getModel('M2ePro/Listing_Log')->getResource()->getNextActionId();
+
+        $this->checkLocking($listingsProducts, $logsActionId, Ess_M2ePro_Model_Listing_Product::ACTION_DELETE);
+        if (empty($listingsProducts)) {
+            return $this->getResponse()->setBody(
+                Mage::helper('M2ePro')->jsonEncode(array('result' => 'error', 'action_id' => $logsActionId))
+            );
+        }
+
+        foreach ($listingsProducts as $index => $listingProduct) {
+            if ($listingProduct->isNotListed()) {
+                /** @var Ess_M2ePro_Model_Amazon_Listing_Product_RemoveHandler $removeHandler */
+                $removeHandler = Mage::getModel(
+                    'M2ePro/Amazon_Listing_Product_RemoveHandler', array('listing_product' => $listingProduct)
+                );
+                $removeHandler->process();
+
+                unset($listingsProducts[$index]);
+            }
+        }
+
+        if (empty($listingsProducts)) {
+            return $this->getResponse()->setBody(
+                Mage::helper('M2ePro')->jsonEncode(array('result' => 'success', 'action_id' => $logsActionId))
+            );
+        }
+
+        $this->createUpdateScheduledActions(
+            $listingsProducts,
+            Ess_M2ePro_Model_Listing_Product::ACTION_DELETE,
+            array('remove' => true)
+        );
+
         return $this->getResponse()->setBody(
-            $this->scheduleAction(
-                Ess_M2ePro_Model_Listing_Product::ACTION_DELETE, array('remove' => true)
-            )
+            Mage::helper('M2ePro')->jsonEncode(array('result' => 'success', 'action_id' => $logsActionId))
         );
     }
 
@@ -775,7 +854,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
             Mage::helper('M2ePro')->jsonEncode(
                 array(
                 'type' => 'success',
-                'message' => Mage::helper('M2ePro')->__('Variation has been successfully edited.')
+                'message' => Mage::helper('M2ePro')->__('Variation has been edited.')
                 )
             )
         );
@@ -867,7 +946,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
             Mage::helper('M2ePro')->jsonEncode(
                 array(
                 'type' => 'success',
-                'message' => Mage::helper('M2ePro')->__('Variation(s) has been successfully saved.')
+                'message' => Mage::helper('M2ePro')->__('Variation(s) has been saved.')
                 )
             )
         );
@@ -1050,7 +1129,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
             Mage::helper('M2ePro')->jsonEncode(
                 array(
                 'type' => 'success',
-                'message' => Mage::helper('M2ePro')->__('The Items were successfully duplicated.')
+                'message' => Mage::helper('M2ePro')->__('The Items were duplicated.')
                 )
             )
         );
@@ -1645,7 +1724,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
             $productsIds = explode(',', $productsIds);
         }
 
-        $message = Mage::helper('M2ePro')->__('ASIN(s)/ISBN(s) was successfully unassigned.');
+        $message = Mage::helper('M2ePro')->__('ASIN(s)/ISBN(s) was unassigned.');
         $type = 'success';
 
         foreach ($productsIds as $productId) {
@@ -1827,7 +1906,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
                 array(
                     'type' => 'success',
                     'text' => Mage::helper('M2ePro')->__(
-                        'New ASIN/ISBN creation feature was successfully added to %count% Products.',
+                        'New ASIN/ISBN creation feature was added to %count% Products.',
                         count($filteredProductsIdsByParent)
                     )
                 )
@@ -1911,26 +1990,8 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
         $this->setDescriptionTemplateFroProductsByChunks($filteredProductsIdsByType, $templateId);
         $this->runProcessorForParents($filteredProductsIdsByType);
 
-        /** @var Ess_M2ePro_Model_Amazon_Template_Description $template */
-        $template = Mage::getModel('M2ePro/Amazon_Template_Description')->load($templateId);
-
-        $snapshotBuilder = Mage::getModel('M2ePro/Amazon_Template_Description_SnapshotBuilder');
-        $snapshotBuilder->setModel($template->getParentObject());
-
-        $diff = Mage::getModel('M2ePro/Amazon_Template_Description_Diff');
-        $diff->setOldSnapshot(array());
-        $diff->setNewSnapshot($snapshotBuilder->getSnapshot());
-
-        $affectedListingsProducts = Mage::getModel(
-            'M2ePro/Amazon_Template_Description_AffectedListingsProducts'
-        );
-        $affectedListingsProducts->setModel($template);
-
-        $changeProcessor = Mage::getModel('M2ePro/Amazon_Template_Description_ChangeProcessor');
-        $changeProcessor->process($diff, $affectedListingsProducts->getData(array('id', 'status')));
-
         $messages[] = Mage::helper('M2ePro')->__(
-            'Description Policy was successfully assigned to %count% Products',
+            'Description Policy was assigned to %count% Products',
             count($filteredProductsIdsByType)
         );
 
@@ -1986,7 +2047,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
         if (!empty($productsIdsLocked)) {
             $messages[] = array(
                 'type' => 'success',
-                'text' => Mage::helper('M2ePro')->__('Description Policy was successfully unassigned.')
+                'text' => Mage::helper('M2ePro')->__('Description Policy was unassigned.')
             );
 
             $this->setDescriptionTemplateFroProductsByChunks($productsIdsLocked, null);
@@ -2245,28 +2306,11 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
         if (!empty($productsIdsLocked)) {
             $messages[] = array(
                 'type' => 'success',
-                'text' => Mage::helper('M2ePro')->__('Shipping Policy was successfully assigned.')
+                'text' => Mage::helper('M2ePro')->__('Shipping Policy was assigned.')
             );
 
             $this->setShippingTemplateForProducts($productsIdsLocked, $templateId);
             $this->runProcessorForParents($productsIdsLocked);
-
-            $template = Mage::getModel('M2ePro/Amazon_Template_Shipping')->load($templateId);
-
-            $snapshotBuilder = Mage::getModel('M2ePro/Amazon_Template_Shipping_SnapshotBuilder');
-            $snapshotBuilder->setModel($template);
-
-            $diff = Mage::getModel('M2ePro/Amazon_Template_Shipping_Diff');
-            $diff->setOldSnapshot(array());
-            $diff->setNewSnapshot($snapshotBuilder->getSnapshot());
-
-            $affectedListingsProducts = Mage::getModel(
-                'M2ePro/Amazon_Template_Shipping_AffectedListingsProducts'
-            );
-            $affectedListingsProducts->setModel($template);
-
-            $changeProcessor = Mage::getModel('M2ePro/Amazon_Template_Shipping_ChangeProcessor');
-            $changeProcessor->process($diff, $affectedListingsProducts->getData(array('id', 'status')));
         }
 
         return $this->getResponse()->setBody(
@@ -2306,7 +2350,7 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
         if (!empty($productsIdsLocked)) {
             $messages[] = array(
                 'type' => 'success',
-                'text' => Mage::helper('M2ePro')->__('Shipping Policy was successfully unassigned.')
+                'text' => Mage::helper('M2ePro')->__('Shipping Policy was unassigned.')
             );
 
             $this->setShippingTemplateForProducts($productsIdsLocked, null);
@@ -2717,6 +2761,43 @@ class Ess_M2ePro_Adminhtml_Amazon_ListingController
         $diff->setOldSnapshot($oldSnapshot);
 
         $changeProcessor = Mage::getModel('M2ePro/Amazon_Template_Synchronization_ChangeProcessor');
+        $changeProcessor->process($diff, $affectedListingsProductsData);
+    }
+
+    protected function processShippingTemplateChange(
+        array $oldData,
+        array $newData,
+        array $affectedListingsProductsData
+    ) {
+        if (empty($affectedListingsProductsData) ||
+            empty($oldData['template_shipping_id']) &&
+            empty($newData['template_shipping_id'])) {
+            return;
+        }
+
+        $oldTemplate = Mage::getModel('M2ePro/Amazon_Template_Shipping');
+        if (!empty($oldData['template_shipping_id'])) {
+            $oldTemplate = $oldTemplate->load($oldData['template_shipping_id']);
+        }
+
+        $snapshotBuilder = Mage::getModel('M2ePro/Amazon_Template_Shipping_SnapshotBuilder');
+        $snapshotBuilder->setModel($oldTemplate);
+        $oldSnapshot = $snapshotBuilder->getSnapshot();
+
+        $newTemplate = Mage::getModel('M2ePro/Amazon_Template_Shipping');
+        if (!empty($newData['template_shipping_id'])) {
+            $newTemplate = $oldTemplate->load($newData['template_shipping_id']);
+        }
+
+        $snapshotBuilder = Mage::getModel('M2ePro/Amazon_Template_Shipping_SnapshotBuilder');
+        $snapshotBuilder->setModel($newTemplate);
+        $newSnapshot = $snapshotBuilder->getSnapshot();
+
+        $diff = Mage::getModel('M2ePro/Amazon_Template_Shipping_Diff');
+        $diff->setNewSnapshot($newSnapshot);
+        $diff->setOldSnapshot($oldSnapshot);
+
+        $changeProcessor = Mage::getModel('M2ePro/Amazon_Template_Shipping_ChangeProcessor');
         $changeProcessor->process($diff, $affectedListingsProductsData);
     }
 

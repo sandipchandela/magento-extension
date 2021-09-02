@@ -97,26 +97,12 @@ abstract class Ess_M2ePro_Model_Ebay_Listing_Product_Action_Type_Request
     protected function prepareFinalData(array $data)
     {
         $data['is_eps_ebay_images_mode'] = $this->getIsEpsImagesMode();
-        $data['upload_images_mode'] = (int)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(
-            '/ebay/description/', 'upload_images_mode'
-        );
-
-        $data = $this->insertOutOfStockControl($data);
+        $data['upload_images_mode'] = Mage::helper('M2ePro/Component_Ebay_Configuration')->getUploadImagesMode();
         $data = $this->replaceVariationSpecificsNames($data);
         $data = $this->resolveVariationAndItemSpecificsConflict($data);
         $data = $this->removeVariationsInstances($data);
         $data = $this->resolveVariationMpnIssue($data);
 
-        return $data;
-    }
-
-    protected function insertOutOfStockControl(array $data)
-    {
-        $data['out_of_stock_control'] = $this->getEbayListingProduct()
-                                             ->getEbaySellingFormatTemplate()
-                                             ->getOutOfStockControl();
-        $data['out_of_stock_control_result'] = $data['out_of_stock_control'] || $this->getEbayAccount()
-                                                                                     ->getOutOfStockControl();
         return $data;
     }
 

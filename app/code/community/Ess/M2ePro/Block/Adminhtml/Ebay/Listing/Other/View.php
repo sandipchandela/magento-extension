@@ -20,9 +20,9 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Other_View extends Mage_Adminhtml_
 
         if (!Mage::helper('M2ePro/Component')->isSingleActiveComponent()) {
             $componentName = Mage::helper('M2ePro/Component_Ebay')->getTitle();
-            $this->_headerText = Mage::helper('M2ePro')->__('%component_name% / 3rd Party Listings', $componentName);
+            $this->_headerText = Mage::helper('M2ePro')->__('%component_name% / Unmanaged Listings', $componentName);
         } else {
-            $this->_headerText = Mage::helper('M2ePro')->__('3rd Party Listings');
+            $this->_headerText = Mage::helper('M2ePro')->__('Unmanaged Listings');
         }
 
         $this->removeButton('back');
@@ -35,10 +35,11 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Other_View extends Mage_Adminhtml_
         if ($this->getRequest()->getParam('back') !== null) {
             $url = Mage::helper('M2ePro')->getBackUrl();
             $this->_addButton(
-                'back', array(
-                'label'   => Mage::helper('M2ePro')->__('Back'),
-                'onclick' => 'CommonHandlerObj.back_click(\'' . $url . '\')',
-                'class'   => 'back'
+                'back',
+                array(
+                    'label'   => Mage::helper('M2ePro')->__('Back'),
+                    'onclick' => 'CommonObj.back_click(\'' . $url . '\')',
+                    'class'   => 'back'
                 )
             );
         }
@@ -52,9 +53,10 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Other_View extends Mage_Adminhtml_
         $marketplaceId = $this->getRequest()->getParam('marketplace');
 
         $viewHeaderBlock = $this->getLayout()->createBlock(
-            'M2ePro/adminhtml_listing_other_view_header', '',
+            'M2ePro/adminhtml_listing_other_view_header',
+            '',
             array(
-                'account' => Mage::helper('M2ePro/Component_Ebay')->getCachedObject('Account', $accountId),
+                'account'     => Mage::helper('M2ePro/Component_Ebay')->getCachedObject('Account', $accountId),
                 'marketplace' => Mage::helper('M2ePro/Component_Ebay')->getCachedObject('Marketplace', $marketplaceId)
             )
         );
@@ -70,20 +72,35 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Other_View extends Mage_Adminhtml_
         $helper = Mage::helper('M2ePro');
 
         $urls = array();
-        $urls['adminhtml_listing_other_mapping/map'] = $this->getUrl('*/adminhtml_listing_other_mapping/map');
-        $urls['adminhtml_ebay_listing_categorySettings/index'] = $this->getUrl(
-            '*/adminhtml_ebay_listing_categorySettings/index', array('step' => 1)
+        $urls['mapProductPopupHtml'] = $this->getUrl(
+            '*/adminhtml_listing_other_mapping/mapProductPopupHtml',
+            array(
+                'account_id'     => $this->getRequest()->getParam('account'),
+                'marketplace_id' => $this->getRequest()->getParam('marketplace')
+            )
         );
+        $urls['adminhtml_listing_other_mapping/map'] = $this->getUrl('*/adminhtml_listing_other_mapping/map');
+        $urls['adminhtml_ebay_listing_categorySettings/otherCategories'] = $this->getUrl(
+            '*/adminhtml_ebay_listing_categorySettings/otherCategories'
+        );
+        $urls['adminhtml_ebay_listing/view'] = $this->getUrl('*/adminhtml_ebay_listing/view');
+
+        $urls['moveToListingPopupHtml'] = $this->getUrl('*/adminhtml_listing_other_moving/moveToListingPopupHtml');
+        $urls['prepareMoveToListing'] = $this->getUrl('*/adminhtml_listing_other_moving/prepareMoveToListing');
+        $urls['moveToListing'] = $this->getUrl('*/adminhtml_ebay_listing_other/moveToListing');
 
         $urls = Mage::helper('M2ePro')->jsonEncode($urls);
 
         $translations = Mage::helper('M2ePro')->jsonEncode(
             array(
-            'Mapping Product' => $helper->__('Mapping Product'),
-            'Product does not exist.' => $helper->__('Product does not exist.'),
-            'Please enter correct Product ID.' => $helper->__('Please enter correct Product ID.'),
-            'Product(s) was successfully Mapped.' => $helper->__('Product(s) was successfully Mapped.'),
-            'Please enter correct Product ID or SKU' => $helper->__('Please enter correct Product ID or SKU')
+                'Product was Linked.'      => $helper->__('Product was Linked.'),
+                'Product(s) was Linked.'   => $helper->__('Product(s) was Linked.'),
+                'Product(s) was Unlinked.' => $helper->__('Product(s) was Unlinked.'),
+                'Product(s) was Removed.'  => $helper->__('Product(s) was Removed.'),
+                'Not enough data'          => $helper->__('Not enough data'),
+
+                'Linking Product'         => $helper->__('Linking Product'),
+                'Product does not exist.' => $helper->__('Product does not exist.')
             )
         );
 
@@ -94,31 +111,15 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Other_View extends Mage_Adminhtml_
         $removingProductsUrl = $this->getUrl('*/adminhtml_ebay_listing_other/removing');
         $unmappingProductsUrl = $this->getUrl('*/adminhtml_listing_other_mapping/unmapping');
 
-        $someProductsWereNotMappedMessage = 'No matches were found. Please change the Mapping Attributes in <strong>';
-        $someProductsWereNotMappedMessage .= 'Configuration > Account > 3rd Party Listings</strong> ';
-        $someProductsWereNotMappedMessage .= 'or try to map manually.';
+        $someProductsWereNotMappedMessage = 'No matches were found. Please change the Linking Attributes in <strong>';
+        $someProductsWereNotMappedMessage .= 'Configuration > Account > Unmanaged Listings</strong> ';
+        $someProductsWereNotMappedMessage .= 'or try to link manually.';
         $someProductsWereNotMappedMessage = $helper->escapeJs($helper->__($someProductsWereNotMappedMessage));
-
-        $prepareData = $this->getUrl('*/adminhtml_listing_other_moving/prepareMoveToListing');
-        $getMoveToListingGridHtml = $this->getUrl('*/adminhtml_listing_other_moving/moveToListingGrid');
-        $moveToListing = $this->getUrl('*/adminhtml_ebay_listing_other/moveToListing');
 
         $popupTitle = $helper->escapeJs($helper->__('Moving eBay Items'));
 
-        $successfullyMappedMessage = $helper->escapeJs($helper->__('Product was successfully Mapped.'));
-        $notEnoughDataMessage = $helper->escapeJs($helper->__('Not enough data.'));
-        $successfullyUnmappedMessage = $helper->escapeJs($helper->__('Product(s) was successfully Unmapped.'));
-        $successfullyRemovedMessage = $helper->escapeJs($helper->__('Product(s) was successfully Removed.'));
-
         $processingDataMessage = $helper->escapeJs($helper->__('Processing %product_title% Product(s).'));
-        $autoMapProgressTitle = $helper->escapeJs($helper->__('Map Item(s) to Products'));
-
-        $selectItemsMessage = $helper->escapeJs(
-            $helper->__(
-                'Please select the Products you want to perform the Action on.'
-            )
-        );
-        $selectActionMessage = $helper->escapeJs($helper->__('Please select Action.'));
+        $autoMapProgressTitle = $helper->escapeJs($helper->__('Link Item(s) to Products'));
 
         $javascript = <<<HTML
 <script type="text/javascript">
@@ -126,37 +127,19 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Other_View extends Mage_Adminhtml_
     M2ePro.url.add({$urls});
     M2ePro.translator.add({$translations});
 
-    M2eProEbay = {};
-    M2eProEbay.url = {};
-    M2eProEbay.formData = {};
-    M2eProEbay.customData = {};
-    M2eProEbay.text = {};
+    M2ePro.url.mapAutoToProduct = '{$mapAutoToProductUrl}';
+    M2ePro.text.failed_mapped = '{$someProductsWereNotMappedMessage}';
 
-    M2eProEbay.url.mapAutoToProduct = '{$mapAutoToProductUrl}';
-    M2eProEbay.text.failed_mapped = '{$someProductsWereNotMappedMessage}';
+    M2ePro.url.removingProducts = '{$removingProductsUrl}';
+    M2ePro.url.unmappingProducts = '{$unmappingProductsUrl}';
 
-    M2eProEbay.url.prepareData = '{$prepareData}';
-    M2eProEbay.url.getGridHtml = '{$getMoveToListingGridHtml}';
-    M2eProEbay.url.moveToListing = '{$moveToListing}';
+    M2ePro.text.automap_progress_title = '{$autoMapProgressTitle}';
+    M2ePro.text.processing_data_message = '{$processingDataMessage}';
 
-    M2eProEbay.url.removingProducts = '{$removingProductsUrl}';
-    M2eProEbay.url.unmappingProducts = '{$unmappingProductsUrl}';
+    M2ePro.text.popup_title = '{$popupTitle}';
 
-    M2eProEbay.text.successfully_mapped = '{$successfullyMappedMessage}';
-    M2eProEbay.text.automap_progress_title = '{$autoMapProgressTitle}';
-    M2eProEbay.text.processing_data_message = '{$processingDataMessage}';
-
-    M2eProEbay.text.popup_title = '{$popupTitle}';
-
-    M2eProEbay.text.not_enough_data = '{$notEnoughDataMessage}';
-    M2eProEbay.text.successfully_unmapped = '{$successfullyUnmappedMessage}';
-    M2eProEbay.text.successfully_removed = '{$successfullyRemovedMessage}';
-
-    M2eProEbay.text.select_items_message = '{$selectItemsMessage}';
-    M2eProEbay.text.select_action_message = '{$selectActionMessage}';
-
-    M2eProEbay.customData.componentMode = '{$component}';
-    M2eProEbay.customData.gridId = 'ebayListingOtherGrid';
+    M2ePro.customData.componentMode = '{$component}';
+    M2ePro.customData.gridId = 'ebayListingOtherGrid';
 
     // ---------------------------------------
 
@@ -165,28 +148,19 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Other_View extends Mage_Adminhtml_
         ListingProgressBarObj = new ProgressBar('listing_other_progress_bar');
         GridWrapperObj = new AreaWrapper('listing_other_content_container');
 
-        EbayListingOtherGridHandlerObj = new EbayListingOtherGridHandler('ebayListingOtherViewGrid');
-        EbayListingOtherMappingHandlerObj = new ListingOtherMappingHandler(EbayListingOtherGridHandlerObj,'ebay');
-
-        EbayListingOtherGridHandlerObj.movingHandler.setOptions(M2eProEbay);
-        EbayListingOtherGridHandlerObj.autoMappingHandler.setOptions(M2eProEbay);
-        EbayListingOtherGridHandlerObj.removingHandler.setOptions(M2eProEbay);
-        EbayListingOtherGridHandlerObj.unmappingHandler.setOptions(M2eProEbay);
-
+        EbayListingOtherGridObj = new EbayListingOtherGrid('ebayListingOtherViewGrid');
+        ListingOtherMappingObj = new ListingMapping(EbayListingOtherGridObj,'ebay');
     });
 
 </script>
 HTML;
 
-        $mapToProductBlock = $this->getLayout()->createBlock('M2ePro/adminhtml_listing_other_mapping');
-
-        return  $javascript .
-                $mapToProductBlock->toHtml() .
-                '<div id="listing_other_progress_bar"></div>' .
-                '<div id="listing_container_errors_summary" class="errors_summary" style="display: none;"></div>' .
-                '<div id="listing_other_content_container">' .
-                parent::_toHtml() .
-                '</div>';
+        return $javascript .
+            '<div id="listing_other_progress_bar"></div>' .
+            '<div id="listing_container_errors_summary" class="errors_summary" style="display: none;"></div>' .
+            '<div id="listing_other_content_container">' .
+            parent::_toHtml() .
+            '</div>';
     }
 
     //########################################

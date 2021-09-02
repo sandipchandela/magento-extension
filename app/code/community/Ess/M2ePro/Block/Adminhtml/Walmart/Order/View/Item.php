@@ -11,7 +11,7 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Order_View_Item extends Mage_Adminhtml_
     /** @var $_order Ess_M2ePro_Model_Order */
     protected $_order = null;
 
-    protected $_itemSkuToWalmartItemCache;
+    protected $_itemSkuToWalmartIds;
 
     //########################################
 
@@ -99,11 +99,11 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Order_View_Item extends Mage_Adminhtml_
         );
 
         $this->addColumn(
-            'qty', array(
+            'qty_purchased', array(
             'header'    => Mage::helper('M2ePro')->__('QTY'),
             'align'     => 'left',
             'width'     => '80px',
-            'index'     => 'qty'
+            'index'     => 'qty_purchased'
             )
         );
 
@@ -158,12 +158,12 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Order_View_Item extends Mage_Adminhtml_
 
         foreach ($collection->getItems() as $item) {
             /**@var Ess_M2ePro_Model_Listing_Product $item */
-            $sku = (string)$item->getChildObject()->getSku();
+            $sku    = (string)$item->getChildObject()->getSku();
             $itemId = (string)$item->getChildObject()->getItemId();
+            $wpid   = (string)$item->getChildObject()->getWpid();
 
-            if ($itemId) {
-                $cache[$sku] = $itemId;
-            }
+            $itemId && $cache[$sku]['item_id'] = $itemId;
+            $wpid && $cache[$sku]['wpid']      = $wpid;
         }
 
         // ---------------------------------------
@@ -178,17 +178,19 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Order_View_Item extends Mage_Adminhtml_
 
         foreach ($collection->getItems() as $item) {
             /**@var Ess_M2ePro_Model_Listing_Other $item */
-            $sku = (string)$item->getChildObject()->getSku();
+            $sku    = (string)$item->getChildObject()->getSku();
             $itemId = (string)$item->getChildObject()->getItemId();
+            $wpid   = (string)$item->getChildObject()->getWpid();
 
-            if ($itemId && empty($cache[$sku])) {
-                $cache[$sku] = $itemId;
+            if (empty($cache[$sku])) {
+                $itemId && $cache[$sku]['item_id'] = $itemId;
+                $wpid && $cache[$sku]['wpid']      = $wpid;
             }
         }
 
         // ---------------------------------------
 
-        $this->_itemSkuToWalmartItemCache = $cache;
+        $this->_itemSkuToWalmartIds = $cache;
 
         return parent::_afterLoadCollection();
     }
@@ -196,85 +198,85 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Order_View_Item extends Mage_Adminhtml_
     //########################################
 
     /**
-     * @param $value
-     * @param $row Ess_M2ePro_Model_Order_Item
-     * @param $column
-     * @param $isExport
+     * @param string $value
+     * @param Ess_M2ePro_Model_Order_Item $row
+     * @param Mage_Adminhtml_Block_Widget_Grid_Column $column
+     * @param bool $isExport
      *
      * @return string
+     * @throws Ess_M2ePro_Model_Exception_Logic
      */
     public function callbackColumnProduct($value, $row, $column, $isExport)
     {
-        $skuHtml = '';
-        if ($row->getSku()) {
-            $skuLabel = Mage::helper('M2ePro')->__('SKU');
-            $sku = Mage::helper('M2ePro')->escapeHtml($row->getSku());
+        $dataHelper = Mage::helper('M2ePro');
+        $walmartOrderItem = $row->getChildObject();
 
+        $skuHtml = '';
+        if ($walmartOrderItem->getSku()) {
             $skuHtml = <<<HTML
-<b>{$skuLabel}:</b> {$sku}<br/>
+<b>{$dataHelper->__('SKU')}:</b> {$dataHelper->escapeHtml($walmartOrderItem->getSku())}<br/>
 HTML;
         }
 
-        $itemLink = '';
-        if (!empty($this->_itemSkuToWalmartItemCache[$row->getSku()])) {
-            $itemUrl = Mage::helper('M2ePro/Component_Walmart')->getItemUrl(
-                $this->_itemSkuToWalmartItemCache[$row->getSku()], $this->_order->getMarketplaceId()
+        $walmartLink = '';
+        $marketplaceId = $this->_order->getMarketplaceId();
+        $walmartHelper = Mage::helper('M2ePro/Component_Walmart');
+        $idForLink = $walmartHelper->getIdentifierForItemUrl($marketplaceId);
+        if (!empty($this->_itemSkuToWalmartIds[$walmartOrderItem->getSku()][$idForLink])) {
+            $itemUrl = $walmartHelper->getItemUrl(
+                $this->_itemSkuToWalmartIds[$walmartOrderItem->getSku()][$idForLink],
+                $marketplaceId
             );
-
-            $itemLink .= '<a href="'.$itemUrl.'" target="_blank">'.Mage::helper('M2ePro')->__('View on Walmart').'</a>';
+            $walmartLink = <<<HTML
+<a href="{$itemUrl}" target="_blank">{$dataHelper->__('View on Walmart')}</a>
+HTML;
         }
 
         $productLink = '';
-        if ($productId = $row->getData('product_id')) {
-            $productUrl = $this->getUrl(
-                'adminhtml/catalog_product/edit', array(
-                'id'    => $productId,
+        if ($row->getProductId()) {
+            $productUrl = $this->getUrl('adminhtml/catalog_product/edit', array(
+                'id'    => $row->getProductId(),
                 'store' => $row->getOrder()->getStoreId()
-                )
-            );
-            !empty($itemLink) && $itemLink .= ' | ';
-            $productLink .= '<a href="'.$productUrl.'" target="_blank">'.Mage::helper('M2ePro')->__('View').'</a>';
+            ));
+            $productLink = <<<HTML
+<a href="{$productUrl}" target="_blank">{$dataHelper->__('View')}</a>
+HTML;
         }
 
-        $orderItemId = (int)$row->getId();
-        $gridId = $this->getId();
+        $walmartLink && $productLink && $walmartLink .= '&nbsp;|&nbsp;';
+        $jsTemplate = <<<HTML
+<a class="gray" href="javascript:void(0);" onclick="
+{OrderEditItemObj.%s('{$this->getId()}', {$row->getId()});}
+">%s</a>
+HTML;
 
         $editLink = '';
-        if (!$row->getProductId() || $row->getMagentoProduct()->isProductWithVariations()) {
-            if (!$row->getProductId()) {
-                $action = Mage::helper('M2ePro')->__('Map to Magento Product');
-            } else {
-                $action = Mage::helper('M2ePro')->__('Set Options');
-            }
+        if (!$row->getProductId()) {
+            $editLink = sprintf($jsTemplate, 'edit', $dataHelper->__('Link to Magento Product'));
+        }
 
-            $class = 'class="gray"';
+        $isPretendedToBeSimple = false;
+        if ($walmartOrderItem->getParentObject()->getMagentoProduct() !== null &&
+            $walmartOrderItem->getParentObject()->getMagentoProduct()->isGroupedType() &&
+            $walmartOrderItem->getChannelItem() !== null) {
+            $isPretendedToBeSimple = $walmartOrderItem->getChannelItem()->isGroupedProductModeSet();
+        }
 
-            $js = "{OrderEditItemHandlerObj.edit('{$gridId}', {$orderItemId});}";
-            $editLink = '<a href="javascript:void(0);" onclick="'.$js.'" '.$class.'>'.$action.'</a>';
+        if ($row->getProductId() && $row->getMagentoProduct()->isProductWithVariations() && !$isPretendedToBeSimple) {
+            $editLink = sprintf($jsTemplate, 'edit', $dataHelper->__('Set Options')) . '&nbsp;|&nbsp;';
         }
 
         $discardLink = '';
         if ($row->getProductId()) {
-            $action = Mage::helper('M2ePro')->__('Unmap');
-
-            $js = "{OrderEditItemHandlerObj.unassignProduct('{$gridId}', {$orderItemId});}";
-            $discardLink = '<a href="javascript:void(0);" onclick="'.$js.'" class="gray">'.$action.'</a>';
-
-            if ($editLink) {
-                $discardLink = '&nbsp;|&nbsp;' . $discardLink;
-            }
+            $discardLink = sprintf($jsTemplate, 'unassignProduct', $dataHelper->__('Unlink'));
         }
 
-        $itemTitle = Mage::helper('M2ePro')->escapeHtml($row->getTitle());
-
         return <<<HTML
-<b>{$itemTitle}</b><br/>
+<b>{$dataHelper->escapeHtml($walmartOrderItem->getTitle())}</b><br/>
 <div style="padding-left: 10px;">
     {$skuHtml}
 </div>
-<div style="float: left;">
-{$itemLink}{$productLink}
-</div>
+<div style="float: left;">{$walmartLink}{$productLink}</div>
 <div style="float: right;">{$editLink}{$discardLink}</div>
 HTML;
     }
@@ -338,7 +340,7 @@ HTML;
         $price = $aOrderItem->getPrice();
 
         return Mage::getSingleton('M2ePro/Currency')->formatPrice(
-            $currency, $price * $aOrderItem->getQty()
+            $currency, $price * $aOrderItem->getQtyPurchased()
         );
     }
 

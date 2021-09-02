@@ -29,7 +29,7 @@ if (empty($currency)) {
     )); ?>);
 
     Event.observe(window, 'load', function() {
-        OrderNoteHandlerObj = new OrderNoteHandler('<?php echo $this->getChild('order_note_grid')->getId();?>');
+        OrderNoteObj = new OrderNote('<?php echo $this->getChild('order_note_grid')->getId();?>');
     });
 
 </script>
@@ -310,6 +310,21 @@ if (empty($currency)) {
 
                 <table class="form-list" cellspacing="0">
                     <tbody>
+
+                    <tr>
+                        <td class="label"><?php echo Mage::helper('M2ePro')->__('Ship By Date');?>:</td>
+                        <td class="value">
+                            <strong>
+                                <?php
+                                $shippingDateTo = $this->order->getChildObject()->getShippingDateTo();
+                                if (empty($shippingDateTo)) { ?>
+                                    <?php echo Mage::helper('M2ePro')->__('N/A'); ?>
+                                <?php } else { ?>
+                                    <?php echo Mage::helper('core')->formatDate($shippingDateTo, 'medium', true); ?>
+                                <?php } ?>
+                            </strong>
+                        </td>
+                    </tr>
 
                     <tr>
                         <td class="label"><?php echo Mage::helper('M2ePro')->__('Shipping Service');?>:</td>

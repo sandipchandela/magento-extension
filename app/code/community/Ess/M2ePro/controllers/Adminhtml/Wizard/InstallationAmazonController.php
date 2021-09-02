@@ -9,6 +9,8 @@
 class Ess_M2ePro_Adminhtml_Wizard_InstallationAmazonController
     extends Ess_M2ePro_Controller_Adminhtml_Amazon_WizardController
 {
+    protected $_sessionKey = 'amazon_listing_product_add';
+
     //########################################
 
     protected function _initAction()
@@ -20,12 +22,9 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationAmazonController
              ->addCss('M2ePro/css/Plugin/AreaWrapper.css')
              ->addJs('M2ePro/Plugin/ProgressBar.js')
              ->addJs('M2ePro/Plugin/AreaWrapper.js')
-             ->addJs('M2ePro/SynchProgressHandler.js')
-             ->addJs('M2ePro/Amazon/Marketplace/SynchProgressHandler.js')
-             ->addJs('M2ePro/MarketplaceHandler.js')
-             ->addJs('M2ePro/Wizard/InstallationAmazon.js')
-             ->addJs('M2ePro/Wizard/InstallationAmazon/MarketplaceHandler.js')
-             ->addJs('M2ePro/Wizard/InstallationAmazon/CustomHandler.js');
+             ->addJs('M2ePro/SynchProgress.js')
+             ->addJs('M2ePro/Marketplace.js')
+             ->addJs('M2ePro/Wizard/InstallationAmazon.js');
 
         return $this;
     }
@@ -39,120 +38,288 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationAmazonController
 
     //########################################
 
-    public function indexAction()
+    public function listingGeneralAction()
     {
-        $this->getWizardHelper()->setStatus(
-            'migrationNewAmazon', Ess_M2ePro_Helper_Module_Wizard::STATUS_SKIPPED
-        );
-        $this->getWizardHelper()->setStatus(
-            'fullAmazonCategories', Ess_M2ePro_Helper_Module_Wizard::STATUS_SKIPPED
-        );
+        return $this->_redirect('*/adminhtml_amazon_listing_create', array('step' => 1, 'wizard' => true));
+    }
 
-        parent::indexAction();
+    public function listingSellingAction()
+    {
+        return $this->_redirect('*/adminhtml_amazon_listing_create', array('step' => 2, 'wizard' => true));
+    }
+
+    public function listingSearchAction()
+    {
+        return $this->_redirect('*/adminhtml_amazon_listing_create', array('step' => 3, 'wizard' => true));
+    }
+
+    public function sourceModeAction()
+    {
+        $listingId = Mage::helper('M2ePro/Component_Amazon')->getCollection('Listing')->getLastItem()->getId();
+
+        return $this->_redirect(
+            '*/adminhtml_amazon_listing_productAdd/index',
+            array(
+                'step'        => 1,
+                'id'          => $listingId,
+                'new_listing' => true,
+                'wizard'      => true
+            )
+        );
+    }
+
+    public function productSelectionAction()
+    {
+        $listingId = Mage::helper('M2ePro/Component_Amazon')->getCollection('Listing')->getLastItem()->getId();
+
+        $productAddSessionData = Mage::helper('M2ePro/Data_Session')->getValue($this->_sessionKey . $listingId);
+
+        return $this->_redirect(
+            '*/adminhtml_amazon_listing_productAdd/index',
+            array(
+                'step'        => 2,
+                'source'      => isset($productAddSessionData['source']) ? $productAddSessionData['source'] : null,
+                'id'          => $listingId,
+                'new_listing' => true,
+                'wizard'      => true,
+            )
+        );
+    }
+
+    public function newAsinAction()
+    {
+        $listingId = Mage::helper('M2ePro/Component_Amazon')->getCollection('Listing')->getLastItem()->getId();
+
+        $productAddSessionData = Mage::helper('M2ePro/Data_Session')->getValue($this->_sessionKey . $listingId);
+
+        return $this->_redirect(
+            '*/adminhtml_amazon_listing_productAdd/index',
+            array(
+                'step'        => 2,
+                'source'      => isset($productAddSessionData['source']) ? $productAddSessionData['source'] : null,
+                'id'          => $listingId,
+                'new_listing' => true,
+                'wizard'      => true,
+            )
+        );
+    }
+
+    public function searchAsinAction()
+    {
+        $listingId = Mage::helper('M2ePro/Component_Amazon')->getCollection('Listing')->getLastItem()->getId();
+
+        return $this->_redirect(
+            '*/adminhtml_amazon_listing_productAdd/index',
+            array(
+                'step'   => 3,
+                'id'     => $listingId,
+                'wizard' => true,
+            )
+        );
     }
 
     //########################################
 
-    public function createLicenseAction()
+    public function beforeTokenAction()
     {
-        $requiredKeys = array(
-            'email',
-            'firstname',
-            'lastname',
-            'phone',
-            'country',
-            'city',
-            'postal_code',
-        );
+        $marketplaceId = $this->getRequest()->getParam('marketplace_id', 0);
 
-        $licenseData = array();
-        foreach ($requiredKeys as $key) {
-            if ($tempValue = $this->getRequest()->getParam($key)) {
-                $licenseData[$key] = $tempValue;
-                continue;
+        $marketplace = Mage::getModel('M2ePro/Marketplace')->load($marketplaceId);
+
+        try {
+            $backUrl = $this->getUrl('*/*/afterGetTokenAutomatic');
+
+            $dispatcherObject = Mage::getModel('M2ePro/Amazon_Connector_Dispatcher');
+            $connectorObj = $dispatcherObject->getVirtualConnector(
+                'account', 'get', 'authUrl',
+                array('back_url' => $backUrl, 'marketplace' => $marketplace->getData('native_id'))
+            );
+
+            $dispatcherObject->process($connectorObj);
+            $response = $connectorObj->getResponseData();
+        } catch (Exception $exception) {
+            Mage::helper('M2ePro/Module_Exception')->process($exception);
+
+            Mage::getModel('M2ePro/Servicing_Dispatcher')->processTask(
+                Mage::getModel('M2ePro/Servicing_Task_License')->getPublicNick()
+            );
+
+            $error = 'The Amazon token obtaining is currently unavailable.<br/>Reason: %error_message%';
+
+            if (!Mage::helper('M2ePro/Module_License')->isValidDomain() ||
+                !Mage::helper('M2ePro/Module_License')->isValidIp()) {
+                $error .= '</br>Go to the <a href="%url%" target="_blank">License Page</a>.';
+                $error = Mage::helper('M2ePro')->__(
+                    $error,
+                    $exception->getMessage(),
+                    Mage::helper('M2ePro/View_Configuration')->getLicenseUrl(array('wizard' => 1))
+                );
+            } else {
+                $error = Mage::helper('M2ePro')->__($error, $exception->getMessage());
             }
 
-            $response = array(
-                'result'  => false,
-                'message' => Mage::helper('M2ePro')->__('You should fill all required fields.')
-            );
-            return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode($response));
+            return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode(array('message' => $error)));
         }
 
-        $registry = Mage::getModel('M2ePro/Registry')->load('/wizard/license_form_data/', 'key');
-        $registry->setData('key', '/wizard/license_form_data/');
-        $registry->setData('value', Mage::helper('M2ePro')->jsonEncode($licenseData));
-        $registry->save();
+        Mage::helper('M2ePro/Data_Session')->setValue('marketplace_id', $marketplaceId);
 
-        if (Mage::helper('M2ePro/Module_License')->getKey()) {
-            Mage::helper('M2ePro/Module_License')->updateLicenseUserInfo(
-                $licenseData['email'],
-                $licenseData['firstname'], $licenseData['lastname'],
-                $licenseData['country'], $licenseData['city'],
-                $licenseData['postal_code'], $licenseData['phone']
-            );
+        return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode(array('url' => $response['url'])));
+    }
 
-            return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode(array('result' => true)));
+    public function afterGetTokenAutomaticAction()
+    {
+        $params = $this->getRequest()->getParams();
+
+        if (empty($params)) {
+            return $this->indexAction();
         }
 
-        $licenseResult = Mage::helper('M2ePro/Module_License')->obtainRecord(
-            $licenseData['email'],
-            $licenseData['firstname'], $licenseData['lastname'],
-            $licenseData['country'], $licenseData['city'],
-            $licenseData['postal_code'], $licenseData['phone']
+        $requiredFields = array(
+            'Merchant',
+            'Marketplace',
+            'MWSAuthToken',
+            'Signature',
+            'SignedString'
         );
 
-        return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode(array('result' => $licenseResult)));
+        foreach ($requiredFields as $requiredField) {
+            if (!isset($params[$requiredField])) {
+                $this->_getSession()->addError(
+                    Mage::helper('M2ePro')->__('The Amazon token obtaining is currently unavailable.')
+                );
+
+                return $this->indexAction();
+            }
+        }
+
+        $accountData = array_merge(
+            $this->getAmazonAccountDefaultSettings(),
+            array(
+                'title'          => $params['Merchant'],
+                'marketplace_id' => Mage::helper('M2ePro/Data_Session')->getValue('marketplace_id'),
+                'merchant_id'    => $params['Merchant'],
+                'token'          => $params['MWSAuthToken'],
+            )
+        );
+
+        return $this->processAfterGetToken($accountData);
+    }
+
+    public function afterGetTokenManualAction()
+    {
+        $params = $this->getRequest()->getParams();
+
+        if (empty($params)) {
+            return $this->indexAction();
+        }
+
+        $requiredFields = array(
+            'merchant_id',
+            'marketplace_id',
+            'token',
+        );
+
+        foreach ($requiredFields as $requiredField) {
+            if (!isset($params[$requiredField])) {
+                $this->_getSession()->addError(
+                    Mage::helper('M2ePro')->__('The Amazon token obtaining is currently unavailable.')
+                );
+
+                return $this->indexAction();
+            }
+        }
+
+        $accountData = array_merge(
+            $this->getAmazonAccountDefaultSettings(),
+            array(
+                'title'          => $params['merchant_id'],
+                'marketplace_id' => $params['marketplace_id'],
+                'merchant_id'    => $params['merchant_id'],
+                'token'          => $params['token'],
+            )
+        );
+
+        return $this->processAfterGetToken($accountData);
+    }
+
+    protected function processAfterGetToken($accountData)
+    {
+        /** @var Ess_M2ePro_Model_Account $account */
+        $account = Mage::helper('M2ePro/Component_Amazon')->getModel('Account');
+        Mage::getModel('M2ePro/Amazon_Account_Builder')->build($account, $accountData);
+
+        try {
+            /** @var $dispatcherObject Ess_M2ePro_Model_Amazon_Connector_Dispatcher */
+            $dispatcherObject = Mage::getModel('M2ePro/Amazon_Connector_Dispatcher');
+
+            $params = array(
+                'title'          => $accountData['merchant_id'],
+                'marketplace_id' => $accountData['marketplace_id'],
+                'merchant_id'    => $accountData['merchant_id'],
+                'token'          => $accountData['token'],
+            );
+
+            $connectorObj = $dispatcherObject->getConnector(
+                'account',
+                'add',
+                'entityRequester',
+                $params,
+                $account
+            );
+            $dispatcherObject->process($connectorObj);
+
+            $responseData = $connectorObj->getResponseData();
+
+            $account->getChildObject()->addData(
+                array(
+                    'server_hash' => $responseData['hash'],
+                    'info'        => Mage::helper('M2ePro')->jsonEncode($responseData['info'])
+                )
+            );
+
+            $account->getChildObject()->save();
+        } catch (Exception $exception) {
+            Mage::helper('M2ePro/Module_Exception')->process($exception);
+
+            $this->_getSession()->addError(
+                Mage::helper('M2ePro')->__(
+                    'The Amazon access obtaining is currently unavailable.<br/>Reason: %error_message%',
+                    $exception->getMessage()
+                )
+            );
+
+            $account->deleteInstance();
+
+            return $this->indexAction();
+        }
+
+        /** @var Ess_M2ePro_Model_Marketplace $marketplace */
+        $marketplace = Mage::getModel('M2ePro/Marketplace')->load($accountData['marketplace_id']);
+        $marketplace->setData('status', Ess_M2ePro_Model_Marketplace::STATUS_ENABLE);
+        $marketplace->save();
+
+        $this->setStep($this->getNextStep());
+
+        return $this->_redirect('*/*/installation');
     }
 
     //########################################
 
-    public function updateLicenseUserInfoAction()
+    protected function getAmazonAccountDefaultSettings()
     {
+        $data = Mage::getModel('M2ePro/Amazon_Account_Builder')->getDefaultData();
 
-        $requiredKeys = array(
-            'email',
-            'firstname',
-            'lastname',
-            'phone',
-            'country',
-            'city',
-            'postal_code',
+        $data['other_listings_synchronization'] = 0;
+        $data['other_listings_mapping_mode'] = 0;
+
+        $data['magento_orders_settings']['listing_other']['store_id'] = Mage::helper('M2ePro/Magento_Store')
+            ->getDefaultStoreId();
+
+        $data['magento_orders_settings']['tax']['excluded_states'] = implode(
+            ',', $data['magento_orders_settings']['tax']['excluded_states']
         );
 
-        $licenseData = array();
-        foreach ($requiredKeys as $key) {
-            if ($tempValue = $this->getRequest()->getParam($key)) {
-                $licenseData[$key] = $tempValue;
-                continue;
-            }
-
-            $response = array(
-                'result'  => false,
-                'message' => Mage::helper('M2ePro')->__('You should fill all required fields.')
-            );
-            return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode($response));
-        }
-
-        $result = true;
-
-        if (Mage::helper('M2ePro/Module_License')->getKey()) {
-            $result = Mage::helper('M2ePro/Module_License')->updateLicenseUserInfo(
-                $licenseData['email'],
-                $licenseData['firstname'], $licenseData['lastname'],
-                $licenseData['country'], $licenseData['city'],
-                $licenseData['postal_code'], $licenseData['phone']
-            );
-
-            if ($result) {
-                $registry = Mage::getModel('M2ePro/Registry')->load('/wizard/license_form_data/', 'key');
-                $registry->setData('key', '/wizard/license_form_data/');
-                $registry->setData('value', Mage::helper('M2ePro')->jsonEncode($licenseData));
-                $registry->save();
-            }
-        }
-
-        return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode(array('result' => $result)));
+        return $data;
     }
 
     //########################################

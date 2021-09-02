@@ -23,14 +23,6 @@ class Ess_M2ePro_Model_Order_Item extends Ess_M2ePro_Model_Component_Parent_Abst
 
     protected $_proxy = null;
 
-    private static $_supportedProductTypes = array(
-        Mage_Catalog_Model_Product_Type::TYPE_SIMPLE,
-        Mage_Catalog_Model_Product_Type::TYPE_CONFIGURABLE,
-        Mage_Catalog_Model_Product_Type::TYPE_GROUPED,
-        Mage_Catalog_Model_Product_Type::TYPE_BUNDLE,
-        Mage_Downloadable_Model_Product_Type::TYPE_DOWNLOADABLE
-    );
-
     //########################################
 
     public function _construct()
@@ -263,7 +255,9 @@ class Ess_M2ePro_Model_Order_Item extends Ess_M2ePro_Model_Component_Parent_Abst
             $this->assignProduct($this->getChildObject()->getAssociatedProductId());
         }
 
-        if (!in_array($this->getMagentoProduct()->getTypeId(), self::$_supportedProductTypes)) {
+        $supportedProductTypes = Mage::helper('M2ePro/Magento_Product')->getOriginKnownTypes();
+
+        if (!in_array($this->getMagentoProduct()->getTypeId(), $supportedProductTypes)) {
             $message = Mage::helper('M2ePro/Module_Log')->encodeDescription(
                 'Order Import does not support Product type: %type%.', array(
                     'type' => $this->getMagentoProduct()->getTypeId()
@@ -470,6 +464,36 @@ class Ess_M2ePro_Model_Order_Item extends Ess_M2ePro_Model_Component_Parent_Abst
         }
 
         $this->save();
+    }
+
+    //########################################
+
+    /**
+     * @return bool
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function pretendedToBeSimple()
+    {
+        if ($this->getMagentoProduct() === null || $this->getChildObject()->getChannelItem() === null) {
+            return false;
+        }
+
+        if ($this->getMagentoProduct()->isGroupedType()) {
+            return $this->getChildObject()->getChannelItem()->isGroupedProductModeSet();
+        }
+
+        return false;
+    }
+
+    //########################################
+
+    /**
+     * @return array
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function getAdditionalData()
+    {
+        return $this->getSettings('additional_data');
     }
 
     //########################################

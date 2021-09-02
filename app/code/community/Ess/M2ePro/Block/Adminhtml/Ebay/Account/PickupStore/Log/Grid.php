@@ -6,7 +6,7 @@
  * @license    Commercial use is forbidden
  */
 
-class Ess_M2ePro_Block_Adminhtml_Ebay_Account_PickupStore_Log_Grid extends Ess_M2ePro_Block_Adminhtml_Log_Grid_Abstract
+class Ess_M2ePro_Block_Adminhtml_Ebay_Account_PickupStore_Log_Grid extends Ess_M2ePro_Block_Adminhtml_Log_AbstractGrid
 {
     protected $_listingProductPickupStoreStateId;
 
@@ -89,7 +89,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Account_PickupStore_Log_Grid extends Ess_M
             'type'      => 'text',
             'index'     => 'description',
             'filter_index' => 'main_table.description',
-            'frame_callback' => array($this, 'callbackDescription')
+            'frame_callback' => array($this, 'callbackColumnDescription')
             )
         );
 
@@ -180,12 +180,12 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Account_PickupStore_Log_Grid extends Ess_M
         $javaScriptsMain = <<<HTML
         <script>
 
-            ProductGridHandlerObj = new ListingProductGridHandler();
-            ProductGridHandlerObj.setGridId('{$this->getJsObjectName()}');
+            ProductGridObj = new ListingProductGrid();
+            ProductGridObj.setGridId('{$this->getJsObjectName()}');
 
             var init = function () {
-                {$this->getJsObjectName()}.doFilter = ProductGridHandlerObj.setFilter;
-                {$this->getJsObjectName()}.resetFilter = ProductGridHandlerObj.resetFilter;
+                {$this->getJsObjectName()}.doFilter = ProductGridObj.setFilter;
+                {$this->getJsObjectName()}.resetFilter = ProductGridObj.resetFilter;
             };
 
             {$this->isAjax} ? init()
@@ -212,6 +212,11 @@ HTML;
     public function getRowUrl($row)
     {
         return false;
+    }
+
+    protected function getComponentMode()
+    {
+        return Ess_M2ePro_Helper_Component_Ebay::NICK;
     }
 
     //########################################

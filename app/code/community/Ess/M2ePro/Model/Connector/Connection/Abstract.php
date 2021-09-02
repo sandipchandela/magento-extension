@@ -17,6 +17,7 @@ abstract class Ess_M2ePro_Model_Connector_Connection_Abstract
 
     protected $_tryToResendOnError         = true;
     protected $_tryToSwitchEndpointOnError = true;
+    protected $_canIgnoreMaintenance       = false;
 
     //########################################
 
@@ -106,6 +107,34 @@ abstract class Ess_M2ePro_Model_Connector_Connection_Abstract
     public function isTryToSwitchEndpointOnError()
     {
         return $this->_tryToSwitchEndpointOnError;
+    }
+
+    //----------------------------------------
+
+    /**
+     * @return bool
+     */
+    public function isCanIgnoreMaintenance()
+    {
+        return $this->_canIgnoreMaintenance;
+    }
+
+    /**
+     * @param bool $canIgnoreMaintenance
+     */
+    public function setCanIgnoreMaintenance($canIgnoreMaintenance)
+    {
+        $this->_canIgnoreMaintenance = $canIgnoreMaintenance;
+    }
+
+    //########################################
+
+    protected function getConnectionErrorMessage()
+    {
+        return Mage::helper('M2ePro')->__(
+            'M2E Pro Server connection failed. Find the solution <a target="_blank" href="%url%">here</a>',
+            Mage::helper('M2ePro/Module_Support')->getKnowledgebaseUrl('664870')
+        );
     }
 
     //########################################

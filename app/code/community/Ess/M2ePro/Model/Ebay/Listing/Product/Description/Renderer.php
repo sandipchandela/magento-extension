@@ -8,7 +8,7 @@
 
 class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
 {
-    const MODE_FULL = 1;
+    const MODE_FULL    = 1;
     const MODE_PREVIEW = 2;
 
     protected $_renderMode = self::MODE_FULL;
@@ -45,20 +45,13 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
     public function setListingProduct(Ess_M2ePro_Model_Ebay_Listing_Product $listingProduct)
     {
         $this->listingProduct = $listingProduct;
+
         return $this;
     }
 
     //########################################
 
     public function parseTemplate($text)
-    {
-        $text = $this->insertValues($text);
-        return $text;
-    }
-
-    //########################################
-
-    protected function insertValues($text)
     {
         preg_match_all("/#value\[(.+?)\]#/", $text, $matches);
 
@@ -68,12 +61,12 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
 
         $replaces = array();
         foreach ($matches[1] as $i => $attributeCode) {
-            $method = 'get'.implode(array_map('ucfirst', explode('_', $attributeCode)));
+            $method = 'get' . implode(array_map('ucfirst', explode('_', $attributeCode)));
 
             $arg = null;
             if (preg_match('/(?<=\[)(\d+?)(?=\])/', $method, $tempMatch)) {
                 $arg = $tempMatch[0];
-                $method = str_replace('['.$arg.']', '', $method);
+                $method = str_replace('[' . $arg . ']', '', $method);
             }
 
             $value = '';
@@ -200,7 +193,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
         $helper = Mage::helper('M2ePro');
 
         $types = array(
-            Ess_M2ePro_Model_Ebay_Template_SellingFormat::LISTING_TYPE_FIXED => $helper->__('Fixed Price'),
+            Ess_M2ePro_Model_Ebay_Template_SellingFormat::LISTING_TYPE_FIXED   => $helper->__('Fixed Price'),
             Ess_M2ePro_Model_Ebay_Template_SellingFormat::LISTING_TYPE_AUCTION => $helper->__('Auction'),
         );
 
@@ -237,9 +230,9 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
         }
 
         if ($handlingTime) {
-            $result = $handlingTime.' '.$result;
+            $result = $handlingTime . ' ' . $result;
         } else {
-            $result = Mage::helper('M2ePro')->__('Same').' '.$result;
+            $result = Mage::helper('M2ePro')->__('Same') . ' ' . $result;
         }
 
         return $result;
@@ -254,7 +247,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
                 Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NEW,
                 Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NEW_OTHER,
                 Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NEW_WITH_DEFECT,
-                Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_MANUFACTURER_REFURBISHED,
+                Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_CERTIFIED_REFURBISHED,
                 Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_SELLER_REFURBISHED,
                 Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_USED,
                 Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_VERY_GOOD,
@@ -266,7 +259,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
                 Mage::helper('M2ePro')->__('New'),
                 Mage::helper('M2ePro')->__('New Other'),
                 Mage::helper('M2ePro')->__('New With Defects'),
-                Mage::helper('M2ePro')->__('Manufacturer Refurbished'),
+                Mage::helper('M2ePro')->__('Certified Refurbished'),
                 Mage::helper('M2ePro')->__('Seller Refurbished'),
                 Mage::helper('M2ePro')->__('Used'),
                 Mage::helper('M2ePro')->__('Very Good'),
@@ -294,34 +287,30 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
 
     protected function getPrimaryCategoryId()
     {
-        if (!$this->listingProduct->isSetCategoryTemplate()) {
-            return 'N/A';
-        }
+        $source = $this->listingProduct->getCategoryTemplateSource();
 
-        $category = $this->listingProduct->getCategoryTemplateSource()->getMainCategory();
-        return $category ? $category : 'N/A';
+        return $source ? $source->getCategoryId() : 'N/A';
     }
 
     protected function getSecondaryCategoryId()
     {
-        if (!$this->listingProduct->isSetOtherCategoryTemplate()) {
-            return 'N/A';
-        }
+        $source = $this->listingProduct->getCategorySecondaryTemplateSource();
 
-        $category = $this->listingProduct->getOtherCategoryTemplateSource()->getSecondaryCategory();
-        return $category ? $category : 'N/A';
+        return $source ? $source->getCategoryId() : 'N/A';
     }
 
     protected function getStorePrimaryCategoryId()
     {
-        $category = $this->listingProduct->getOtherCategoryTemplateSource()->getStoreCategoryMain();
-        return $category ? $category : 'N/A';
+        $source = $this->listingProduct->getStoreCategoryTemplateSource();
+
+        return $source ? $source->getCategoryId() : 'N/A';
     }
 
     protected function getStoreSecondaryCategoryId()
     {
-        $category = $this->listingProduct->getOtherCategoryTemplateSource()->getStoreCategorySecondary();
-        return $category ? $category : 'N/A';
+        $source = $this->listingProduct->getStoreCategorySecondaryTemplateSource();
+
+        return $source ? $source->getCategoryId() : 'N/A';
     }
 
     // ---------------------------------------
@@ -412,7 +401,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
         }
 
         $cost = $services[$i]->getSource($this->listingProduct->getMagentoProduct())
-                             ->getCost();
+            ->getCost();
 
         if (empty($cost)) {
             return Mage::helper('M2ePro')->__('Free');
@@ -431,7 +420,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
         }
 
         $cost = $services[$i]->getSource($this->listingProduct->getMagentoProduct())
-                             ->getCostAdditional();
+            ->getCostAdditional();
 
         if (empty($cost)) {
             return Mage::helper('M2ePro')->__('Free');
@@ -485,7 +474,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
         }
 
         $cost = $services[$i]->getSource($this->listingProduct->getMagentoProduct())
-                             ->getCost();
+            ->getCost();
 
         if (empty($cost)) {
             return Mage::helper('M2ePro')->__('Free');
@@ -504,7 +493,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Description_Renderer
         }
 
         $cost = $services[$i]->getSource($this->listingProduct->getMagentoProduct())
-                             ->getCostAdditional();
+            ->getCostAdditional();
 
         if (empty($cost)) {
             return Mage::helper('M2ePro')->__('Free');

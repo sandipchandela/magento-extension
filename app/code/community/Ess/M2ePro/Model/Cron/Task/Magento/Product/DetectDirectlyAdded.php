@@ -23,16 +23,10 @@ class Ess_M2ePro_Model_Cron_Task_Magento_Product_DetectDirectlyAdded extends Ess
             return;
         }
 
-        $tempIndex = 0;
-
         foreach ($products as $product) {
             $this->processCategoriesActions($product);
             $this->processGlobalActions($product);
             $this->processWebsiteActions($product);
-
-            if ((++$tempIndex)%20 == 0) {
-                $this->getLockItemManager()->activate();
-            }
         }
 
         $lastMagentoProduct = array_pop($products);
@@ -121,13 +115,16 @@ class Ess_M2ePro_Model_Cron_Task_Magento_Product_DetectDirectlyAdded extends Ess
 
     protected function getLastProcessedProductId()
     {
-        return $this->getRegistryValue('/magento/product/detect_directly_added/last_magento_product_id/');
+        return Mage::helper('M2ePro/Module')->getRegistry()->getValue(
+            '/magento/product/detect_directly_added/last_magento_product_id/'
+        );
     }
 
     protected function setLastProcessedProductId($magentoProductId)
     {
-        $this->setRegistryValue(
-            '/magento/product/detect_directly_added/last_magento_product_id/', (int)$magentoProductId
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue(
+            '/magento/product/detect_directly_added/last_magento_product_id/',
+            (int)$magentoProductId
         );
     }
 

@@ -14,8 +14,10 @@ class Ess_M2ePro_Model_Resource_Magento_Product_Collection
     /** @var Ess_M2ePro_Model_Listing */
     protected $_listing;
 
+    /** @var string */
+    protected $_componentMode;
+
     protected $_isNeedToInjectPrices     = false;
-    protected $_isNeedToUseIndexerParent = false;
 
     //########################################
 
@@ -37,21 +39,24 @@ class Ess_M2ePro_Model_Resource_Magento_Product_Collection
         return $this;
     }
 
+    public function setComponentMode($componentMode)
+    {
+        $components = Mage::helper('M2ePro/Component')->getComponents();
+
+        if (!in_array($componentMode, $components)) {
+            throw new Ess_M2ePro_Model_Exception_Logic(
+                "Wrong component provided [$componentMode]"
+            );
+        }
+
+        $this->_componentMode = $componentMode;
+        return $this;
+    }
+
     public function setIsNeedToInjectPrices($value)
     {
         $this->_isNeedToInjectPrices = $value;
         return $this;
-    }
-
-    public function setIsNeedToUseIndexerParent($value)
-    {
-        $this->_isNeedToUseIndexerParent = $value;
-        return $this;
-    }
-
-    public function isNeedUseIndexerParent()
-    {
-        return $this->_isNeedToUseIndexerParent;
     }
 
     //########################################
@@ -77,22 +82,12 @@ class Ess_M2ePro_Model_Resource_Magento_Product_Collection
         return $ids;
     }
 
-    protected function _getClearSelect()
-    {
-        $idsSelect = parent::_getClearSelect();
-
-        /**
-         * We must save these columns because they are used in having condition in callbackFilterPrice()
-         */
-        if ($this->isNeedUseIndexerParent()) {
-            $idsSelect->columns($this->getIndexerParentColumns());
-        }
-
-        return $idsSelect;
-    }
-
     //########################################
 
+    /**
+     * @return int
+     * @throws Zend_Db_Select_Exception
+     */
     public function getSize()
     {
         if ($this->_totalRecords === null) {
@@ -119,6 +114,58 @@ SQL;
         }
 
         return (int)$this->_totalRecords;
+    }
+
+    /**
+     * @return Varien_Db_Select
+     * @throws Zend_Db_Select_Exception
+     */
+    protected function _getClearSelect()
+    {
+        $havingColumns = $this->getHavingColumns();
+        $parentSelect  = parent::_getClearSelect();
+
+        if (empty($havingColumns)) {
+            return $parentSelect;
+        }
+
+        foreach ($this->getSelect()->getPart('columns') as $columnData) {
+            if (in_array($columnData[2], $havingColumns, true)) {
+                $parentSelect->columns(array($columnData[2] => $columnData[1]), $columnData[0]);
+            }
+        }
+
+        return $parentSelect;
+    }
+
+    /**
+     * @return array
+     * @throws \Zend_Db_Select_Exception
+     */
+    protected function getHavingColumns()
+    {
+        $having = $this->getSelect()->getPart('having');
+
+        if (empty($having)) {
+            return array();
+        }
+
+        $columnsInHaving = array();
+
+        foreach ($having as $havingPart) {
+            preg_match_all(
+                '/((`{0,1})\w+(`{0,1}))' .
+                '( = | > | < | >= | <= | <> | <=> | != | LIKE | NOT | BETWEEN | IS NULL| IS NOT NULL| IN\(.*?\))/i',
+                $havingPart,
+                $matches
+            );
+
+            foreach ($matches[1] as $match) {
+                $columnsInHaving[] = trim($match);
+            }
+        }
+
+        return array_unique($columnsInHaving);
     }
 
     //########################################
@@ -157,8 +204,8 @@ SQL;
             );
         }
 
-        /** @var Ess_M2ePro_Model_Indexer_Listing_Product_Parent_Manager $manager */
-        $manager = Mage::getModel('M2ePro/Indexer_Listing_Product_Parent_Manager', array($this->_listing));
+        /** @var Ess_M2ePro_Model_Listing_Product_Indexer_VariationParent_Manager $manager */
+        $manager = Mage::getModel('M2ePro/Listing_Product_Indexer_VariationParent_Manager', array($this->_listing));
         $manager->prepare();
 
         if ($this->_listing->isComponentModeAmazon()) {
@@ -174,8 +221,8 @@ SQL;
 
     protected function joinAmazonIndexerParent()
     {
-        /** @var Ess_M2ePro_Model_Resource_Amazon_Indexer_Listing_Product_Parent $resource */
-        $resource = Mage::getResourceModel('M2ePro/Amazon_Indexer_Listing_Product_Parent');
+        /** @var Ess_M2ePro_Model_Resource_Amazon_Listing_Product_Indexer_VariationParent $resource */
+        $resource = Mage::getResourceModel('M2ePro/Amazon_Listing_Product_Indexer_VariationParent');
 
         $this->getSelect()->joinLeft(
             array('indexer' => $resource->getMainTable()),
@@ -186,8 +233,8 @@ SQL;
 
     protected function joinWalmartIndexerParent()
     {
-        /** @var Ess_M2ePro_Model_Resource_Walmart_Indexer_Listing_Product_Parent $resource */
-        $resource = Mage::getResourceModel('M2ePro/Walmart_Indexer_Listing_Product_Parent');
+        /** @var Ess_M2ePro_Model_Resource_Walmart_Listing_Product_Indexer_VariationParent $resource */
+        $resource = Mage::getResourceModel('M2ePro/Walmart_Listing_Product_Indexer_VariationParent');
 
         $this->getSelect()->joinLeft(
             array('indexer' => $resource->getMainTable()),
@@ -198,8 +245,8 @@ SQL;
 
     protected function joinEbayIndexerParent()
     {
-        /** @var Ess_M2ePro_Model_Resource_Ebay_Indexer_Listing_Product_Parent $resource */
-        $resource = Mage::getResourceModel('M2ePro/Ebay_Indexer_Listing_Product_Parent');
+        /** @var Ess_M2ePro_Model_Resource_Ebay_Listing_Product_Indexer_VariationParent $resource */
+        $resource = Mage::getResourceModel('M2ePro/Ebay_Listing_Product_Indexer_VariationParent');
 
         $this->getSelect()->joinLeft(
             array('indexer' => $resource->getMainTable()),
@@ -327,11 +374,7 @@ SQL;
                     `indexer`.`max_regular_price`
                 )
             )'
-            ),
-
-            'is_repricing' => new Zend_Db_Expr('`alp`.`is_repricing`'),
-
-            'variation_parent_repricing_state' => new Zend_Db_Expr('`alp`.`variation_parent_repricing_state`')
+            )
         );
     }
 
@@ -431,8 +474,8 @@ SQL;
             return;
         }
 
-        /** @var Ess_M2ePro_Model_Resource_Amazon_Indexer_Listing_Product_Parent $resource */
-        $resource = Mage::getResourceModel('M2ePro/Amazon_Indexer_Listing_Product_Parent');
+        /** @var Ess_M2ePro_Model_Resource_Amazon_Listing_Product_Indexer_VariationParent $resource */
+        $resource = Mage::getResourceModel('M2ePro/Amazon_Listing_Product_Indexer_VariationParent');
 
         $selectStmt = $resource->getBuildIndexSelect($this->_listing);
         $selectStmt->where('malp.variation_parent_id IN (?)', array_keys($listingProductsData));
@@ -472,8 +515,8 @@ SQL;
             return;
         }
 
-        /** @var Ess_M2ePro_Model_Resource_Ebay_Indexer_Listing_Product_Parent $resource */
-        $resource = Mage::getResourceModel('M2ePro/Ebay_Indexer_Listing_Product_Parent');
+        /** @var Ess_M2ePro_Model_Resource_Ebay_Listing_Product_Indexer_VariationParent $resource */
+        $resource = Mage::getResourceModel('M2ePro/Ebay_Listing_Product_Indexer_VariationParent');
 
         $selectStmt = $resource->getBuildIndexSelect($this->_listing);
         $selectStmt->where('mlpv.listing_product_id IN (?)', array_keys($listingProductsData));
@@ -509,8 +552,8 @@ SQL;
             return;
         }
 
-        /** @var Ess_M2ePro_Model_Resource_Walmart_Indexer_Listing_Product_Parent $resource */
-        $resource = Mage::getResourceModel('M2ePro/Walmart_Indexer_Listing_Product_Parent');
+        /** @var Ess_M2ePro_Model_Resource_Walmart_Listing_Product_Indexer_VariationParent $resource */
+        $resource = Mage::getResourceModel('M2ePro/Walmart_Listing_Product_Indexer_VariationParent');
 
         $selectStmt = $resource->getBuildIndexSelect($this->_listing);
         $selectStmt->where('malp.variation_parent_id IN (?)', array_keys($listingProductsData));

@@ -6,9 +6,13 @@
  * @license    Commercial use is forbidden
  */
 
+use Ess_M2ePro_Model_Ebay_Account as EbayAccount;
+
 class Ess_M2ePro_Adminhtml_Wizard_InstallationEbayController
     extends Ess_M2ePro_Controller_Adminhtml_Ebay_WizardController
 {
+    protected $_sessionKey = 'ebay_listing_product_add';
+
     //########################################
 
     protected function _initAction()
@@ -28,74 +32,135 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationEbayController
 
     //########################################
 
-    public function indexAction()
+    public function beforeTokenAction()
     {
-        $this->getWizardHelper()->setStatus(
-            'ebayProductDetails', Ess_M2ePro_Helper_Module_Wizard::STATUS_SKIPPED
+        $accountMode = $this->getRequest()->getParam('mode');
+
+        if ($accountMode === null) {
+            return $this->getResponse()->setBody(
+                Mage::helper('M2ePro')->jsonEncode(
+                    array('message' => Mage::helper('M2ePro')->__('Account type have not been specified.'))
+                )
+            );
+        }
+
+        try {
+            $backUrl = $this->getUrl('*/*/afterToken', array('mode' => $accountMode));
+
+            $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
+            $connectorObj = $dispatcherObject->getVirtualConnector(
+                'account',
+                'get',
+                'grandAccessUrl',
+                array('back_url' => $backUrl, 'mode' => $accountMode),
+                null,
+                null,
+                null
+            );
+
+            $dispatcherObject->process($connectorObj);
+            $response = $connectorObj->getResponseData();
+        } catch (Exception $exception) {
+            Mage::helper('M2ePro/Module_Exception')->process($exception);
+
+            Mage::getModel('M2ePro/Servicing_Dispatcher')->processTask(
+                Mage::getModel('M2ePro/Servicing_Task_License')->getPublicNick()
+            );
+
+            $error = 'The eBay token obtaining is currently unavailable.<br/>Reason: %error_message%';
+
+            if (!Mage::helper('M2ePro/Module_License')->isValidDomain() ||
+                !Mage::helper('M2ePro/Module_License')->isValidIp()) {
+                $error .= '</br>Go to the <a href="%url%" target="_blank">License Page</a>.';
+                $error = Mage::helper('M2ePro')->__(
+                    $error,
+                    $exception->getMessage(),
+                    Mage::helper('M2ePro/View_Configuration')->getLicenseUrl(array('wizard' => 1))
+                );
+            } else {
+                $error = Mage::helper('M2ePro')->__($error, $exception->getMessage());
+            }
+
+            return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode(array('message' => $error)));
+        }
+
+        if (!$response || !isset($response['url'], $response['session_id'])) {
+            $error = Mage::helper('M2ePro')->__(
+                'The eBay token obtaining is currently unavailable. Please try again later.'
+            );
+
+            return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode(array('message' => $error)));
+        }
+
+        Mage::helper('M2ePro/Data_Session')->setValue('token_session_id', $response['session_id']);
+
+        return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode(array('url' => $response['url'])));
+    }
+
+    public function afterTokenAction()
+    {
+        $tokenSessionId = Mage::helper('M2ePro/Data_Session')->getValue('token_session_id', true);
+
+        if (!$tokenSessionId) {
+            $this->_getSession()->addError(Mage::helper('M2ePro')->__('Token is not defined'));
+
+            return $this->_redirect('*/*/installation');
+        }
+
+        $accountMode = $this->getRequest()->getParam('mode');
+
+        $params = array(
+            'mode'          => $accountMode,
+            'token_session' => $tokenSessionId
         );
 
-        parent::indexAction();
-    }
+        $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
+        $connectorObj = $dispatcherObject->getVirtualConnector(
+            'account',
+            'add',
+            'entity',
+            $params,
+            null,
+            null,
+            null
+        );
 
-    public function installationAction()
-    {
-        if ($this->isFinished() || $this->isNotStarted()) {
-            return $this->_redirect('*/*/index');
+        $dispatcherObject->process($connectorObj);
+        $responseData = array_filter($connectorObj->getResponseData());
+
+        if (empty($responseData)) {
+            $this->_getSession()->addError(Mage::helper('M2ePro')->__('Account Add Entity failed.'));
+
+            return $this->_redirect('*/*/installation');
         }
 
-        if (!$this->getCurrentStep() || !in_array($this->getCurrentStep(), $this->getSteps())) {
-            $this->setStep($this->getFirstStep());
+        if ($accountMode == 'sandbox') {
+            $accountMode = EbayAccount::MODE_SANDBOX;
+        } else {
+            $accountMode = EbayAccount::MODE_PRODUCTION;
         }
 
-        $this->_forward($this->getCurrentStep());
-    }
+        $data = array_merge(
+            $this->getEbayAccountDefaultSettings(),
+            array(
+                'title'              => $responseData['info']['UserID'],
+                'user_id'            => $responseData['info']['UserID'],
+                'mode'               => $accountMode,
+                'info'               => Mage::helper('M2ePro')->jsonEncode($responseData['info']),
+                'server_hash'        => $responseData['hash'],
+                'token_session'      => $tokenSessionId,
+                'token_expired_date' => $responseData['token_expired_date']
+            )
+        );
 
-    public function congratulationAction()
-    {
-        return $this->_redirect('*/adminhtml_ebay_listing/index/');
-    }
+        /** @var Ess_M2ePro_Model_Account $accountModel */
+        $accountModel = Mage::helper('M2ePro/Component_Ebay')->getModel('Account');
+        Mage::getModel('M2ePro/Ebay_Account_Builder')->build($accountModel, $data);
+        $accountModel->getChildObject()->updateEbayStoreInfo();
 
-    //########################################
+        $this->setStep($this->getNextStep());
 
-    protected function renderSimpleStep()
-    {
-        return $this->_initAction()
-                    ->_addContent(
-                        $this->getWizardHelper()->createBlock(
-                            'installation_' . $this->getCurrentStep(),
-                            $this->getNick()
-                        )
-                    )
-                    ->renderLayout();
-    }
-
-    //########################################
-
-    public function wizardTutorialAction()
-    {
-        return $this->renderSimpleStep();
-    }
-
-    public function licenseAction()
-    {
-        return $this->renderSimpleStep();
-    }
-
-    public function modeConfirmationAction()
-    {
-        return $this->renderSimpleStep();
-    }
-
-    public function accountAction()
-    {
-        return $this->renderSimpleStep();
-    }
-
-    //########################################
-
-    public function listingTutorialAction()
-    {
-        return $this->renderSimpleStep();
+        return $this->_redirect('*/*/installation');
     }
 
     public function listingAccountAction()
@@ -108,21 +173,9 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationEbayController
         return $this->_redirect('*/adminhtml_ebay_listing_create', array('step' => 2, 'wizard' => true));
     }
 
-    public function listingSellingAction()
+    public function listingTemplatesAction()
     {
-        return $this->_redirect('*/adminhtml_ebay_listing_create', array('step' => 3, 'wizard' => true));
-    }
-
-    public function listingSynchronizationAction()
-    {
-        return $this->_redirect('*/adminhtml_ebay_listing_create', array('step' => 4, 'wizard' => true));
-    }
-
-    //########################################
-
-    public function productTutorialAction()
-    {
-        return $this->renderSimpleStep();
+        return $this->_redirect('*/adminhtml_ebay_listing_create', array('step' => 2, 'wizard' => true));
     }
 
     public function sourceModeAction()
@@ -143,19 +196,17 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationEbayController
     {
         $listingId = Mage::helper('M2ePro/Component_Ebay')->getCollection('Listing')->getLastItem()->getId();
 
-        $productAddSessionData = Mage::helper('M2ePro/Data_Session')->getValue('ebay_listing_product_add');
-        $source = isset($productAddSessionData['source']) ? $productAddSessionData['source'] : null;
+        $productAddSessionData = Mage::helper('M2ePro/Data_Session')->getValue($this->_sessionKey . $listingId);
 
-        Mage::helper('M2ePro/Data_Session')->setValue('ebay_listing_product_add', $productAddSessionData);
         return $this->_redirect(
             '*/adminhtml_ebay_listing_productAdd',
             array(
-                'clear' => true,
-                'step'  => 1,
-                'wizard' => true,
-                'listing_id' => $listingId,
+                'clear'            => true,
+                'step'             => 1,
+                'wizard'           => true,
+                'listing_id'       => $listingId,
                 'listing_creation' => true,
-                'source' => $source
+                'source'           => isset($productAddSessionData['source']) ? $productAddSessionData['source'] : null
             )
         );
     }
@@ -167,15 +218,13 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationEbayController
         return $this->_redirect(
             '*/adminhtml_ebay_listing_productAdd',
             array(
-                'step' => 2,
-                'wizard' => true,
-                'listing_id' => $listingId,
+                'step'             => 2,
+                'wizard'           => true,
+                'listing_id'       => $listingId,
                 'listing_creation' => true,
             )
         );
     }
-
-    //########################################
 
     public function categoryStepOneAction()
     {
@@ -184,9 +233,9 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationEbayController
         return $this->_redirect(
             '*/adminhtml_ebay_listing_categorySettings',
             array(
-                'step' => 1,
-                'wizard' => true,
-                'listing_id' => $listingId,
+                'step'             => 1,
+                'wizard'           => true,
+                'listing_id'       => $listingId,
                 'listing_creation' => true,
             )
         );
@@ -199,9 +248,9 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationEbayController
         return $this->_redirect(
             '*/adminhtml_ebay_listing_categorySettings',
             array(
-                'step' => 2,
-                'wizard' => true,
-                'listing_id' => $listingId,
+                'step'             => 2,
+                'wizard'           => true,
+                'listing_id'       => $listingId,
                 'listing_creation' => true,
             )
         );
@@ -214,9 +263,9 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationEbayController
         return $this->_redirect(
             '*/adminhtml_ebay_listing_categorySettings',
             array(
-                'step' => 3,
-                'wizard' => true,
-                'listing_id' => $listingId,
+                'step'             => 3,
+                'wizard'           => true,
+                'listing_id'       => $listingId,
                 'listing_creation' => true,
             )
         );
@@ -224,209 +273,19 @@ class Ess_M2ePro_Adminhtml_Wizard_InstallationEbayController
 
     //########################################
 
-    public function beforeTokenAction()
+    protected function getEbayAccountDefaultSettings()
     {
-        // Get and save session id
-        // ---------------------------------------
+        $data = Mage::getModel('M2ePro/Ebay_Account_Builder')->getDefaultData();
 
-        $requiredKeys = array(
-            'email',
-            'firstname',
-            'lastname',
-            'phone',
-            'country',
-            'city',
-            'postal_code',
-        );
+        $data['marketplaces_data'] = array();
 
-        $licenseData = array();
-        foreach ($requiredKeys as $key) {
-            if ($tempValue = $this->getRequest()->getParam($key)) {
-                $licenseData[$key] = $tempValue;
-                continue;
-            }
+        $data['other_listings_synchronization'] = 0;
 
-            $response = array(
-                'url'     => null,
-                'message' => Mage::helper('M2ePro')->__('You should fill all required fields.')
-            );
-            return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode($response));
-        }
+        $data['magento_orders_settings']['listing_other']['store_id'] = Mage::helper('M2ePro/Magento_Store')
+            ->getDefaultStoreId();
+        $data['magento_orders_settings']['qty_reservation']['days'] = 0;
 
-        if (!Mage::helper('M2ePro/Module_License')->getKey()) {
-            $licenseResult = Mage::helper('M2ePro/Module_License')->obtainRecord(
-                $licenseData['email'],
-                $licenseData['firstname'], $licenseData['lastname'],
-                $licenseData['country'], $licenseData['city'],
-                $licenseData['postal_code'], $licenseData['phone']
-            );
-        } else {
-            $licenseResult = Mage::helper('M2ePro/Module_License')->updateLicenseUserInfo(
-                $licenseData['email'],
-                $licenseData['firstname'], $licenseData['lastname'],
-                $licenseData['country'], $licenseData['city'],
-                $licenseData['postal_code'], $licenseData['phone']
-            );
-        }
-
-        if (!$licenseResult) {
-            return $this->getResponse()->setBody(
-                Mage::helper('M2ePro')->jsonEncode(
-                    array(
-                    'url' => null
-                    )
-                )
-            );
-        }
-
-        $registry = Mage::getModel('M2ePro/Registry')->load('/wizard/license_form_data/', 'key');
-        $registry->setData('key', '/wizard/license_form_data/');
-        $registry->setData('value', Mage::helper('M2ePro')->jsonEncode($licenseData));
-        $registry->save();
-
-        $accountMode = $this->getRequest()->getParam('account_mode');
-
-        try {
-            $backUrl = $this->getUrl('*/*/afterToken', array('mode' => $accountMode));
-
-            $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
-            $connectorObj = $dispatcherObject->getVirtualConnector(
-                'account', 'get', 'authUrl',
-                array(
-                   'back_url' => $backUrl,
-                   'mode' => $accountMode
-                ),
-                null, null, null
-            );
-
-            $dispatcherObject->process($connectorObj);
-            $response = $connectorObj->getResponseData();
-        } catch (Exception $exception) {
-            Mage::helper('M2ePro/Module_Exception')->process($exception);
-            return $this->getResponse()->setBody(
-                Mage::helper('M2ePro')->jsonEncode(
-                    array(
-                    'url' => null
-                    )
-                )
-            );
-        }
-
-        if (!$response || !isset($response['url'], $response['session_id'])) {
-            return $this->getResponse()->setBody(
-                Mage::helper('M2ePro')->jsonEncode(
-                    array(
-                    'url' => null
-                    )
-                )
-            );
-        }
-
-        Mage::helper('M2ePro/Data_Session')->setValue('token_session_id', $response['session_id']);
-
-        return $this->getResponse()->setBody(
-            Mage::helper('M2ePro')->jsonEncode(
-                array(
-                'url' => $response['url']
-                )
-            )
-        );
-
-        // ---------------------------------------
-    }
-
-    public function afterTokenAction()
-    {
-        $tokenSessionId = Mage::helper('M2ePro/Data_Session')->getValue('token_session_id', true);
-
-        if (!$tokenSessionId) {
-            $this->_getSession()->addError(Mage::helper('M2ePro')->__('Token is not defined'));
-            return $this->_redirect('*/*/installation');
-        }
-
-        $accountMode = $this->getRequest()->getParam('mode');
-
-        $requestParams = array(
-            'mode' => $accountMode,
-            'token_session' => $tokenSessionId
-        );
-
-        $dispatcherObject = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
-        $connectorObj = $dispatcherObject->getVirtualConnector(
-            'account', 'add', 'entity',
-            $requestParams, null,
-            null, null
-        );
-
-        $dispatcherObject->process($connectorObj);
-        $response = array_filter($connectorObj->getResponseData());
-
-        if (empty($response)) {
-            $this->_getSession()->addError(Mage::helper('M2ePro')->__('Account Add Entity failed.'));
-            return $this->_redirect('*/*/installation');
-        }
-
-        if ($accountMode == 'sandbox') {
-            $accountMode = Ess_M2ePro_Model_Ebay_Account::MODE_SANDBOX;
-        } else {
-            $accountMode = Ess_M2ePro_Model_Ebay_Account::MODE_PRODUCTION;
-        }
-
-        $data = array_merge(
-            array(
-                'title'              => $response['info']['UserID'],
-                'user_id'            => $response['info']['UserID'],
-                'mode'               => $accountMode,
-                'info'               => Mage::helper('M2ePro')->jsonEncode($response['info']),
-                'server_hash'        => $response['hash'],
-                'token_session'      => $tokenSessionId,
-                'token_expired_date' => $response['token_expired_date']
-            ),
-            Mage::getModel('M2ePro/Ebay_Account')->getDefaultSettings()
-        );
-
-        $accountModel = Mage::helper('M2ePro/Component_Ebay')->getModel('Account')->setData($data)->save();
-        $accountModel->getChildObject()->updateEbayStoreInfo();
-
-        $this->setStep($this->getNextStep());
-
-        return $this->_redirect('*/*/installation');
-    }
-
-    //########################################
-
-    public function getAccountSettingsAction()
-    {
-        $accountId = (int)$this->getRequest()->getParam('account_id');
-
-        if (!$accountId) {
-            return $this->getResponse()->setBody(
-                Mage::helper('M2ePro')->jsonEncode(
-                    array(
-                    'result' => 'error',
-                    'message' => Mage::helper('M2ePro')->__('Account id is not defined')
-                    )
-                )
-            );
-        }
-
-        $account = Mage::helper('M2ePro/Component_Ebay')->getObject('Account', $accountId);
-
-        $yes = Mage::helper('M2ePro')->__('Yes');
-        $no  = Mage::helper('M2ePro')->__('No');
-
-        return $this->getResponse()->setBody(
-            Mage::helper('M2ePro')->jsonEncode(
-                array(
-                'result' => 'success',
-                'text' => array(
-                'listing_other' => $account->getChildObject()->isOtherListingsSynchronizationEnabled() ? $yes : $no,
-                'feedbacks'     => $account->getChildObject()->isFeedbacksReceive() ? $yes : $no,
-                )
-                )
-            )
-        );
-
+        return $data;
     }
 
     //########################################

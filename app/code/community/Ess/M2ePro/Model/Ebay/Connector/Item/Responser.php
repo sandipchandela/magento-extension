@@ -7,7 +7,7 @@
  */
 
 abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
-    extends Ess_M2ePro_Model_Ebay_Connector_Command_Pending_Responser
+    extends Ess_M2ePro_Model_Connector_Command_Pending_Responser
 {
     /**
      * @var Ess_M2ePro_Model_Listing_Product
@@ -40,8 +40,8 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
     {
         parent::__construct($params, $response);
 
-        $listingProductId      = $this->_params['product']['id'];
-        $this->_listingProduct = Mage::helper('M2ePro/Component_Ebay')->getObject('Listing_Product', $listingProductId);
+        $this->_listingProduct = Mage::helper('M2ePro/Component_Ebay')
+                                    ->getObject('Listing_Product', $this->_params['product']['id']);
     }
 
     //########################################
@@ -63,11 +63,16 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
             Ess_M2ePro_Model_Connector_Connection_Response_Message::TYPE_ERROR
         );
 
-        $this->getLogger()->logListingProductMessage(
-            $this->_listingProduct,
-            $message,
-            Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
-        );
+        $this->getLogger()->logListingProductMessage($this->_listingProduct, $message);
+    }
+
+    public function eventAfterExecuting()
+    {
+        if ($this->isTemporaryErrorAppeared($this->getResponse()->getMessages()->getEntities())) {
+            $this->getResponseObject()->throwRepeatActionInstructions();
+        }
+
+        parent::eventAfterExecuting();
     }
 
     //########################################
@@ -103,8 +108,9 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
         $responseMessages = $this->getResponse()->getMessages()->getEntities();
 
         $this->processCompleted(
-            $responseData, array(
-            'is_images_upload_error' => $this->isImagesUploadFailed($responseMessages)
+            $responseData,
+            array(
+                'is_images_upload_error' => $this->isImagesUploadFailed($responseMessages)
             )
         );
     }
@@ -126,9 +132,9 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
             Ess_M2ePro_Model_Connector_Connection_Response_Message::TYPE_SUCCESS
         );
 
-        $this->getLogger()->logListingProductMessage(
-            $this->_listingProduct, $message
-        );
+        if ($message->getText() !== null) {
+            $this->getLogger()->logListingProductMessage($this->_listingProduct, $message);
+        }
 
         $this->_isSuccess = true;
     }
@@ -197,10 +203,27 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
      *
      * 21919301: (UPC/EAN/ISBN) is missing a value. Enter a value and try again.
      */
-    protected function isNewRequiredSpecificNeeded(array $messages)
+    protected function isProductIdentifierNeeded(array $messages)
     {
         foreach ($messages as $message) {
             if ($message->getCode() == 21919301) {
+                return $message;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param Ess_M2ePro_Model_Connector_Connection_Response_Message[] $messages
+     * @return Ess_M2ePro_Model_Connector_Connection_Response_Message|bool
+     *
+     * 21919303: The item specific Type is missing. Add Type to this listing, enter a valid value, and then try again.
+     */
+    protected function isNewRequiredSpecificNeeded(array $messages)
+    {
+        foreach ($messages as $message) {
+            if ($message->getCode() == 21919303) {
                 return $message;
             }
         }
@@ -266,7 +289,7 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
      * @param Ess_M2ePro_Model_Connector_Connection_Response_Message[] $messages
      * @return Ess_M2ePro_Model_Connector_Connection_Response_Message|bool
      *
-     * 488: The specified UUID has already been used; ListedByRequestAppId=1, item ID=%ited_id%.
+     * 488: The specified UUID has already been used; ListedByRequestAppId=1, item ID=%item_id%.
      */
     protected function isDuplicateErrorByUUIDAppeared(array $messages)
     {
@@ -283,7 +306,7 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
      * @param Ess_M2ePro_Model_Connector_Connection_Response_Message[] $messages
      * @return Ess_M2ePro_Model_Connector_Connection_Response_Message|bool
      *
-     * 21919067: This Listing is a duplicate of your item: %tem_title% (%item_id%).
+     * 21919067: This Listing is a duplicate of your item: %item_title% (%item_id%).
      */
     protected function isDuplicateErrorByEbayEngineAppeared(array $messages)
     {
@@ -296,33 +319,70 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
         return false;
     }
 
+    /**
+     * @param Ess_M2ePro_Model_Connector_Connection_Response_Message[] $messages
+     * @return Ess_M2ePro_Model_Connector_Connection_Response_Message|bool
+     *
+     * 10007: Sorry, Something Went Wrong. Please Wait A Moment And Try Again.
+     * 931: The token of eBay account is no longer valid. Please edit your eBay account and get a new token.
+     */
+    protected function isTemporaryErrorAppeared(array $messages)
+    {
+        $errorCodes = array(
+            10007,
+            931
+        );
+
+        foreach ($messages as $message) {
+            if (in_array($message->getCode(), $errorCodes, true)) {
+                return $message;
+            }
+        }
+
+        return false;
+    }
+
     //########################################
 
-    //TODO: Improve this functionality so that is was able to fix some sort of variation product errors
-    protected function tryToResolveVariationMpnErrors()
+    /**
+     * @throws Ess_M2ePro_Model_Exception
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function tryToResolveVariationErrors()
     {
+        if (isset($this->_params['params']['is_additional_action']) &&
+            $this->_params['params']['is_additional_action'] === true
+        ) {
+            return;
+        }
+
         if (!$this->canPerformGetItemCall()) {
             return;
         }
 
-        $variationMpnValues = $this->getVariationMpnDataFromEbay();
-        if ($variationMpnValues === false) {
-            return;
+        $additionalData = $this->_listingProduct->getAdditionalData();
+
+        /** @var Ess_M2ePro_Model_Ebay_Listing_Product_Variation_Resolver $resolver */
+        $resolver = Mage::getModel('M2ePro/Ebay_Listing_Product_Variation_Resolver');
+        $resolver->setListingProduct($this->_listingProduct)
+            ->setIsAllowedToSave(true)
+            ->setIsAllowedToProcessVariationsWhichAreNotExistInTheModule(true)
+            ->setIsAllowedToProcessVariationMpnErrors(!isset($additionalData['is_variation_mpn_filled']));
+
+        $resolver->resolve();
+
+        foreach ($resolver->getMessagesSet()->getEntities() as $resolverMessage) {
+            /** @var Ess_M2ePro_Model_Connector_Connection_Response_Message $message */
+            $message = Mage::getModel('M2ePro/Connector_Connection_Response_Message');
+            $message->initFromPreparedData(
+                $resolverMessage->getText(),
+                $resolverMessage->getType()
+            );
+
+            $this->getLogger()->logListingProductMessage($this->_listingProduct, $message);
         }
 
-        $isVariationMpnFilled = !empty($variationMpnValues);
-
-        $this->_listingProduct->setSetting('additional_data', 'is_variation_mpn_filled', $isVariationMpnFilled);
-        if (!$isVariationMpnFilled) {
-            $this->_listingProduct->setSetting('additional_data', 'without_mpn_variation_issue', true);
-        }
-
-        $this->_listingProduct->save();
-
-        if (!empty($variationMpnValues)) {
-            $this->fillVariationMpnValues($variationMpnValues);
-        }
-
+        /** @var Ess_M2ePro_Model_Connector_Connection_Response_Message $message */
         $message = Mage::getModel('M2ePro/Connector_Connection_Response_Message');
         $message->initFromPreparedData(
             Mage::helper('M2ePro')->__(
@@ -377,117 +437,6 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
         return true;
     }
 
-    protected function getVariationMpnDataFromEbay()
-    {
-        /** @var Ess_M2ePro_Model_Ebay_Listing_Product $ebayListingProduct */
-        $ebayListingProduct = $this->_listingProduct->getChildObject();
-
-        /** @var Ess_M2ePro_Model_Connector_Command_RealTime_Virtual $connector */
-        $connector = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher')->getVirtualConnector(
-            'item', 'get', 'info',
-            array(
-                'item_id' => $ebayListingProduct->getEbayItemIdReal(),
-                'parser_type' => 'standard',
-                'full_variations_mode' => true
-            ), 'result', $this->getMarketplace(), $this->getAccount()
-        );
-
-        try {
-            $connector->process();
-        } catch (Exception $exception) {
-            Mage::helper('M2ePro/Module_Exception')->process($exception);
-            return false;
-        }
-
-        $itemData = $connector->getResponseData();
-        if (empty($itemData['variations'])) {
-            return array();
-        }
-
-        $variationMpnValues = array();
-
-        foreach ($itemData['variations'] as $variation) {
-            if (empty($variation['specifics']['MPN'])) {
-                continue;
-            }
-
-            $mpnValue = $variation['specifics']['MPN'];
-            unset($variation['specifics']['MPN']);
-
-            $variationMpnValues[] = array(
-                'mpn'       => $mpnValue,
-                'sku'       => $variation['sku'],
-                'specifics' => $variation['specifics'],
-            );
-        }
-
-        return $variationMpnValues;
-    }
-
-    /**
-     * @param $variationMpnValues
-     * @throws Ess_M2ePro_Model_Exception_Logic
-     */
-    protected function fillVariationMpnValues($variationMpnValues)
-    {
-        /** @var Ess_M2ePro_Model_Resource_Listing_Product_Variation_Collection $variationCollection */
-        $variationCollection = Mage::helper('M2ePro/Component_Ebay')->getCollection('Listing_Product_Variation');
-        $variationCollection->addFieldToFilter('listing_product_id', $this->_listingProduct->getId());
-
-        /** @var Ess_M2ePro_Model_Resource_Listing_Product_Variation_Option_Collection $variationOptionCollection */
-        $variationOptionCollection = Mage::helper('M2ePro/Component_Ebay')->getCollection(
-            'Listing_Product_Variation_Option'
-        );
-        $variationOptionCollection->addFieldToFilter(
-            'listing_product_variation_id', $variationCollection->getColumnValues('id')
-        );
-
-        /** @var Ess_M2ePro_Model_Listing_Product_Variation[] $variations */
-        $variations = $variationCollection->getItems();
-
-        /** @var Ess_M2ePro_Model_Listing_Product_Variation_Option[] $variationOptions */
-        $variationOptions = $variationOptionCollection->getItems();
-
-        foreach ($variations as $variation) {
-            $specifics = array();
-
-            foreach ($variationOptions as $id => $variationOption) {
-                if ($variationOption->getListingProductVariationId() != $variation->getId()) {
-                    continue;
-                }
-
-                $specifics[$variationOption->getAttribute()] = $variationOption->getOption();
-                unset($variationOptions[$id]);
-            }
-
-            /** @var Ess_M2ePro_Model_Ebay_Listing_Product_Variation $ebayVariation */
-            $ebayVariation = $variation->getChildObject();
-
-            foreach ($variationMpnValues as $id => $variationMpnValue) {
-                if ($ebayVariation->getOnlineSku() != $variationMpnValue['sku'] &&
-                    $specifics != $variationMpnValue['specifics']
-                ) {
-                    continue;
-                }
-
-                $additionalData = $variation->getAdditionalData();
-
-                if (!isset($additionalData['online_product_details']['mpn']) ||
-                    $additionalData['online_product_details']['mpn'] != $variationMpnValue['mpn']
-                ) {
-                    $additionalData['online_product_details']['mpn'] = $variationMpnValue['mpn'];
-
-                    $variation->setSettings('additional_data', $additionalData);
-                    $variation->save();
-                }
-
-                unset($variationMpnValues[$id]);
-
-                break;
-            }
-        }
-    }
-
     protected function processDuplicateByUUID(Ess_M2ePro_Model_Connector_Connection_Response_Message $message)
     {
         $duplicateItemId = null;
@@ -499,9 +448,9 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
         $this->_listingProduct->setData('is_duplicate', 1);
         $this->_listingProduct->setSetting(
             'additional_data', 'item_duplicate_action_required', array(
-            'item_id' => $duplicateItemId,
-            'source'  => 'uuid',
-            'message' => $message->getText()
+                'item_id' => $duplicateItemId,
+                'source'  => 'uuid',
+                'message' => $message->getText()
             )
         );
         $this->_listingProduct->save();
@@ -518,9 +467,9 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
         $this->_listingProduct->setData('is_duplicate', 1);
         $this->_listingProduct->setSetting(
             'additional_data', 'item_duplicate_action_required', array(
-            'item_id' => $duplicateItemId,
-            'source'  => 'ebay_engine',
-            'message' => $message->getText()
+                'item_id' => $duplicateItemId,
+                'source'  => 'ebay_engine',
+                'message' => $message->getText()
             )
         );
         $this->_listingProduct->save();
@@ -601,8 +550,8 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
 
         $this->_listingProduct->addData(
             array(
-            'status' => Ess_M2ePro_Model_Listing_Product::STATUS_BLOCKED,
-            'additional_data' => Mage::helper('M2ePro')->jsonEncode($additionalData),
+                'status' => Ess_M2ePro_Model_Listing_Product::STATUS_BLOCKED,
+                'additional_data' => Mage::helper('M2ePro')->jsonEncode($additionalData),
             )
         )->save();
 
@@ -624,6 +573,7 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
             array(
                 'status_changer' => $this->getStatusChanger(),
                 'is_realtime'    => !empty($this->_params['is_realtime']),
+                'is_additional_action' => true
             )
         );
 
@@ -696,19 +646,19 @@ abstract class Ess_M2ePro_Model_Ebay_Connector_Item_Responser
     //########################################
 
     /**
-     * @return Ess_M2ePro_Model_Account
+     * @return int
      */
-    protected function getAccount()
+    protected function getAccountId()
     {
-        return $this->getObjectByParam('Account', 'account_id');
+        return (int)$this->_params['account_id'];
     }
 
     /**
-     * @return Ess_M2ePro_Model_Marketplace
+     * @return int
      */
-    protected function getMarketplace()
+    protected function getMarketplaceId()
     {
-        return $this->getObjectByParam('Account', 'marketplace_id');
+        return (int)$this->_params['marketplace_id'];
     }
 
     //---------------------------------------

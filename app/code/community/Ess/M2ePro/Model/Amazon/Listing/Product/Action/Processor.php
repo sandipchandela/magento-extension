@@ -15,13 +15,27 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
     const FEED_TYPE_UPDATE_DETAILS = 'update_details';
     const FEED_TYPE_UPDATE_IMAGES  = 'update_images';
 
+    const LIST_PRIORITY           = 25;
+    const RELIST_PRIORITY         = 125;
+    const STOP_PRIORITY           = 1000;
+    const DELETE_PRIORITY         = 1000;
+    const REVISE_QTY_PRIORITY     = 500;
+    const REVISE_PRICE_PRIORITY   = 250;
+    const REVISE_DETAILS_PRIORITY = 50;
+    const REVISE_IMAGES_PRIORITY  = 50;
+
     const PENDING_REQUEST_MAX_LIFE_TIME = 86400;
 
-    const CONNECTION_ERROR_REPEAT_TIMEOUT = 180;
     const FIRST_CONNECTION_ERROR_DATE_REGISTRY_KEY = '/amazon/listing/product/action/first_connection_error/date/';
 
     //########################################
 
+    /**
+     * @throws Ess_M2ePro_Model_Exception
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     * @throws Zend_Db_Select_Exception
+     * @throws Zend_Db_Statement_Exception
+     */
     public function process()
     {
         $this->removeMissedProcessingActions();
@@ -55,7 +69,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
 
             $this->fillFeedsPacks(
                 $feedsPacks,
-                $this->getScheduledActionsDataStatement($merchantId, true),
+                $this->getScheduledActionsDataStatement($merchantId),
                 $availableRequestsCount
             );
 
@@ -108,6 +122,9 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
 
     //########################################
 
+    /**
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     protected function removeMissedProcessingActions()
     {
         $actionCollection = Mage::getResourceModel('M2ePro/Amazon_Listing_Product_Action_Processing_Collection');
@@ -129,10 +146,11 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
     // ---------------------------------------
 
     /**
-     * @param $merchantId
      * @param array $feedsPacks
      * @param Zend_Db_Statement $scheduledActionsDataStatement
+     * @param int $availableRequestsCount
      * @throws Ess_M2ePro_Model_Exception_Logic
+     * @throws Zend_Db_Statement_Exception
      */
     protected function fillFeedsPacks(
         array &$feedsPacks,
@@ -216,18 +234,6 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
                             $listingProductConfigurator->setData($additionalData['configurator']);
                         }
 
-                        if ($actionType == Ess_M2ePro_Model_Listing_Product::ACTION_RELIST) {
-                            if (!empty($result[$accountId][$actionType][$listingProductId]['configurator'])) {
-                                continue;
-                            }
-
-                            $listingProductData['configurator'] = $listingProductConfigurator;
-
-                            $result[$accountId][$actionType][$listingProductId] = $listingProductData;
-
-                            continue;
-                        }
-
                         if (!empty($result[$accountId][$actionType][$listingProductId]['configurator'])) {
                             $configurator = $result[$accountId][$actionType][$listingProductId]['configurator'];
                         } else {
@@ -242,8 +248,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
                                 }
                                 break;
 
-                            case 'price_regular':
-                            case 'price_business':
+                            case 'price':
                                 if ($listingProductConfigurator->isRegularPriceAllowed()) {
                                     $configurator->allowRegularPrice();
                                 }
@@ -277,6 +282,10 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $result;
     }
 
+    /**
+     * @param array $accountsActions
+     * @return array
+     */
     protected function prepareRequestsPacks(array $accountsActions)
     {
         $groupHashesMetadata = array();
@@ -313,6 +322,12 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $requestsPacks;
     }
 
+    /**
+     * @param int $accountId
+     * @param array $groupHashesMetadata
+     * @param array $listingProductData
+     * @return int|string|null
+     */
     protected function getActualGroupHash($accountId, array $groupHashesMetadata, array $listingProductData)
     {
         if (empty($groupHashesMetadata[$accountId])) {
@@ -355,6 +370,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
      * @param array $listingsProductsData
      * @param $groupHash
      * @return string
+     * @throws Ess_M2ePro_Model_Exception
      */
     protected function initProcessingActions($actionType, array $listingsProductsData, $groupHash)
     {
@@ -402,6 +418,9 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $groupHash;
     }
 
+    /**
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     protected function prepareProcessingActions()
     {
         $processingActionPreparationLimit = (int)$this->getConfigValue(
@@ -465,8 +484,8 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
     }
 
     /**
-     * @param $actionType
      * @param array $listingsProductsData
+     * @throws Ess_M2ePro_Model_Exception_Logic
      */
     protected function prepareScheduledActions(array $listingsProductsData)
     {
@@ -514,10 +533,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
                     case 'business_price':
                         $existedConfigurator->disallowRegularPrice();
                         $existedConfigurator->disallowBusinessPrice();
-
-                        unset($tags['price_regular']);
-                        unset($tags['price_business']);
-
+                        unset($tags['price']);
                         break;
 
                     case 'details':
@@ -548,10 +564,9 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
     }
 
     /**
-     * @param Ess_M2ePro_Model_Amazon_Order_Action_Processing[] $processingActions
      * @param $actionType
-     * @param Ess_M2ePro_Model_Account $account
      * @param Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processing[] $processingActions
+     * @throws Ess_M2ePro_Model_Exception_Logic
      */
     protected function processGroupedProcessingActions(array $processingActions, $actionType)
     {
@@ -590,20 +605,11 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         } catch (Exception $exception) {
             Mage::helper('M2ePro/Module_Exception')->process($exception);
 
-            $currentDate              = Mage::helper('M2ePro')->getCurrentGmtDate();
-            $firstConnectionErrorDate = $this->getFirstConnectionErrorDate();
-
-            if (empty($firstConnectionErrorDate)) {
-                $this->setFirstConnectionErrorDate($currentDate);
-                return;
-            }
-
-            if (strtotime($currentDate) - strtotime($firstConnectionErrorDate) < self::CONNECTION_ERROR_REPEAT_TIMEOUT){
-                return;
-            }
-
-            if (!empty($firstConnectionErrorDate)) {
-                $this->removeFirstConnectionErrorDate();
+            if ($exception instanceof Ess_M2ePro_Model_Exception_Connection) {
+                $isRepeat = $exception->handleRepeatTimeout(self::FIRST_CONNECTION_ERROR_DATE_REGISTRY_KEY);
+                if ($isRepeat) {
+                    return;
+                }
             }
 
             $message = Mage::getModel('M2ePro/Connector_Connection_Response_Message');
@@ -655,46 +661,28 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
     //########################################
 
     /**
+     * @param $merchantId
      * @return Zend_Db_Statement
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     * @throws Zend_Db_Select_Exception
      */
-    protected function getScheduledActionsDataStatement(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
+    protected function getScheduledActionsDataStatement($merchantId)
+    {
         /** @var $resource Mage_Core_Model_Resource */
         $resource = Mage::getSingleton('core/resource');
         $connRead = $resource->getConnection('core_read');
 
         $unionSelect = $connRead->select()->union(
             array(
-            $this->getListScheduledActionsPreparedCollection(
-                $merchantId, $withCreateDateFilter, $excludedListingsProductsIds
-            )->getSelect(),
-            $this->getRelistScheduledActionsPreparedCollection(
-                $merchantId, $withCreateDateFilter, $excludedListingsProductsIds
-            )->getSelect(),
-            $this->getReviseQtyScheduledActionsPreparedCollection(
-                $merchantId, $withCreateDateFilter, $excludedListingsProductsIds
-            )->getSelect(),
-            $this->getRevisePriceRegularScheduledActionsPreparedCollection(
-                $merchantId, $withCreateDateFilter, $excludedListingsProductsIds
-            )->getSelect(),
-            $this->getRevisePriceBusinessScheduledActionsPreparedCollection(
-                $merchantId, $withCreateDateFilter, $excludedListingsProductsIds
-            )->getSelect(),
-            $this->getReviseDetailsScheduledActionsPreparedCollection(
-                $merchantId, $withCreateDateFilter, $excludedListingsProductsIds
-            )->getSelect(),
-            $this->getReviseImagesScheduledActionsPreparedCollection(
-                $merchantId, $withCreateDateFilter, $excludedListingsProductsIds
-            )->getSelect(),
-            $this->getStopScheduledActionsPreparedCollection(
-                $merchantId, $withCreateDateFilter, $excludedListingsProductsIds
-            )->getSelect(),
-            $this->getDeleteScheduledActionsPreparedCollection(
-                $merchantId, $withCreateDateFilter, $excludedListingsProductsIds
-            )->getSelect(),
+                $this->getListScheduledActionsPreparedCollection($merchantId)->getSelect(),
+                $this->getRelistQtyScheduledActionsPreparedCollection($merchantId)->getSelect(),
+                $this->getRelistPriceScheduledActionsPreparedCollection($merchantId)->getSelect(),
+                $this->getReviseQtyScheduledActionsPreparedCollection($merchantId)->getSelect(),
+                $this->getRevisePriceScheduledActionsPreparedCollection($merchantId)->getSelect(),
+                $this->getReviseDetailsScheduledActionsPreparedCollection($merchantId)->getSelect(),
+                $this->getReviseImagesScheduledActionsPreparedCollection($merchantId)->getSelect(),
+                $this->getStopScheduledActionsPreparedCollection($merchantId)->getSelect(),
+                $this->getDeleteScheduledActionsPreparedCollection($merchantId)->getSelect(),
             )
         );
 
@@ -709,31 +697,25 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
 
     // ---------------------------------------
 
-    protected function getListScheduledActionsPreparedCollection(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
-        $priorityCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/list/', 'priority_coefficient'
-        );
-        $waitIncreaseCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/list/', 'wait_increase_coefficient'
-        );
+    /**
+     * @param $merchantId
+     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function getListScheduledActionsPreparedCollection($merchantId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection $collection */
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $collection->setComponentMode(Ess_M2ePro_Helper_Component_Amazon::NICK)
+            ->getScheduledActionsPreparedCollection(
+                self::LIST_PRIORITY,
+                Ess_M2ePro_Model_Listing_Product::ACTION_LIST
+            )
+            ->joinAccountTable()
+            ->addFilteredTagColumnToSelect(new Zend_Db_Expr("''"))
+            ->addFieldToFilter('account.merchant_id', $merchantId);
 
-        $collection = $this->getScheduledActionsPreparedCollection(
-            $priorityCoefficient, $waitIncreaseCoefficient
-        );
-        $collection->addFieldToFilter('main_table.action_type', Ess_M2ePro_Model_Listing_Product::ACTION_LIST);
-        $collection->addFieldToFilter('aa.merchant_id', $merchantId);
-
-        if (!empty($excludedListingsProductsIds)) {
-            $collection->addFieldToFilter('listing_product_id', array('nin' => $excludedListingsProductsIds));
-        }
-
-        $collection->getSelect()->columns(array('filtered_tag' => new Zend_Db_Expr('\'\'')));
-
-        if ($withCreateDateFilter && Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
+        if (Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
             $minAllowedWaitInterval = (int)$this->getConfigValue(
                 '/amazon/listing/product/action/list/', 'min_allowed_wait_interval'
             );
@@ -743,31 +725,26 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $collection;
     }
 
-    protected function getRelistScheduledActionsPreparedCollection(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
-        $priorityCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/relist/', 'priority_coefficient'
-        );
-        $waitIncreaseCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/relist/', 'wait_increase_coefficient'
-        );
+    /**
+     * @param $merchantId
+     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function getRelistQtyScheduledActionsPreparedCollection($merchantId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection $collection */
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $collection->setComponentMode(Ess_M2ePro_Helper_Component_Amazon::NICK)
+            ->getScheduledActionsPreparedCollection(
+                self::RELIST_PRIORITY,
+                Ess_M2ePro_Model_Listing_Product::ACTION_RELIST
+            )
+            ->joinAccountTable()
+            ->addFilteredTagColumnToSelect(new Zend_Db_Expr("'qty'"))
+            ->addTagFilter('qty', true)
+            ->addFieldToFilter('account.merchant_id', $merchantId);
 
-        $collection = $this->getScheduledActionsPreparedCollection(
-            $priorityCoefficient, $waitIncreaseCoefficient
-        );
-        $collection->addFieldToFilter('main_table.action_type', Ess_M2ePro_Model_Listing_Product::ACTION_RELIST);
-        $collection->addFieldToFilter('aa.merchant_id', $merchantId);
-
-        if (!empty($excludedListingsProductsIds)) {
-            $collection->addFieldToFilter('listing_product_id', array('nin' => $excludedListingsProductsIds));
-        }
-
-        $collection->getSelect()->columns(array('filtered_tag' => new Zend_Db_Expr('\'\'')));
-
-        if ($withCreateDateFilter && Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
+        if (Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
             $minAllowedWaitInterval = (int)$this->getConfigValue(
                 '/amazon/listing/product/action/relist/', 'min_allowed_wait_interval'
             );
@@ -777,34 +754,55 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $collection;
     }
 
-    protected function getReviseQtyScheduledActionsPreparedCollection(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
-        $priorityCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_qty/', 'priority_coefficient'
-        );
-        $waitIncreaseCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_qty/', 'wait_increase_coefficient'
-        );
+    /**
+     * @param $merchantId
+     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function getRelistPriceScheduledActionsPreparedCollection($merchantId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection $collection */
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $collection->setComponentMode(Ess_M2ePro_Helper_Component_Amazon::NICK)
+            ->getScheduledActionsPreparedCollection(
+                self::RELIST_PRIORITY,
+                Ess_M2ePro_Model_Listing_Product::ACTION_RELIST
+            )
+            ->joinAccountTable()
+            ->addFilteredTagColumnToSelect(new Zend_Db_Expr("'price'"))
+            ->addTagFilter('price', true)
+            ->addFieldToFilter('account.merchant_id', $merchantId);
 
-        $collection = $this->getScheduledActionsPreparedCollection(
-            $priorityCoefficient, $waitIncreaseCoefficient
-        );
-        $collection->addFieldToFilter('main_table.action_type', Ess_M2ePro_Model_Listing_Product::ACTION_REVISE);
-        $collection->getSelect()->where(
-            'main_table.tag LIKE \'%/qty/%\' OR main_table.tag IS NULL OR main_table.tag = \'\''
-        );
-        $collection->addFieldToFilter('aa.merchant_id', $merchantId);
-
-        if (!empty($excludedListingsProductsIds)) {
-            $collection->addFieldToFilter('listing_product_id', array('nin' => $excludedListingsProductsIds));
+        if (Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
+            $minAllowedWaitInterval = (int)$this->getConfigValue(
+                '/amazon/listing/product/action/relist/', 'min_allowed_wait_interval'
+            );
+            $collection->addCreatedBeforeFilter($minAllowedWaitInterval);
         }
 
-        $collection->getSelect()->columns(array('filtered_tag' => new Zend_Db_Expr('\'qty\'')));
+        return $collection;
+    }
 
-        if ($withCreateDateFilter && Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
+    /**
+     * @param $merchantId
+     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function getReviseQtyScheduledActionsPreparedCollection($merchantId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection $collection */
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $collection->setComponentMode(Ess_M2ePro_Helper_Component_Amazon::NICK)
+            ->getScheduledActionsPreparedCollection(
+                self::REVISE_QTY_PRIORITY,
+                Ess_M2ePro_Model_Listing_Product::ACTION_REVISE
+            )
+            ->addTagFilter('qty', true)
+            ->joinAccountTable()
+            ->addFilteredTagColumnToSelect(new Zend_Db_Expr("'qty'"))
+            ->addFieldToFilter('account.merchant_id', $merchantId);
+
+        if (Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
             $minAllowedWaitInterval = (int)$this->getConfigValue(
                 '/amazon/listing/product/action/revise_qty/', 'min_allowed_wait_interval'
             );
@@ -814,34 +812,26 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $collection;
     }
 
-    protected function getRevisePriceRegularScheduledActionsPreparedCollection(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
-        $priorityCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_price/', 'priority_coefficient'
-        );
-        $waitIncreaseCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_price/', 'wait_increase_coefficient'
-        );
+    /**
+     * @param $merchantId
+     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function getRevisePriceScheduledActionsPreparedCollection($merchantId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection $collection */
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $collection->setComponentMode(Ess_M2ePro_Helper_Component_Amazon::NICK)
+            ->getScheduledActionsPreparedCollection(
+                self::REVISE_PRICE_PRIORITY,
+                Ess_M2ePro_Model_Listing_Product::ACTION_REVISE
+            )
+            ->addTagFilter('price', true)
+            ->joinAccountTable()
+            ->addFilteredTagColumnToSelect(new Zend_Db_Expr("'price'"))
+            ->addFieldToFilter('account.merchant_id', $merchantId);
 
-        $collection = $this->getScheduledActionsPreparedCollection(
-            $priorityCoefficient, $waitIncreaseCoefficient
-        );
-        $collection->addFieldToFilter('main_table.action_type', Ess_M2ePro_Model_Listing_Product::ACTION_REVISE);
-        $collection->getSelect()->where(
-            'main_table.tag LIKE \'%/price_regular/%\' OR main_table.tag IS NULL OR main_table.tag = \'\''
-        );
-        $collection->addFieldToFilter('aa.merchant_id', $merchantId);
-
-        if (!empty($excludedListingsProductsIds)) {
-            $collection->addFieldToFilter('listing_product_id', array('nin' => $excludedListingsProductsIds));
-        }
-
-        $collection->getSelect()->columns(array('filtered_tag' => new Zend_Db_Expr('\'price_regular\'')));
-
-        if ($withCreateDateFilter && Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
+        if (Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
             $minAllowedWaitInterval = (int)$this->getConfigValue(
                 '/amazon/listing/product/action/revise_price/', 'min_allowed_wait_interval'
             );
@@ -851,71 +841,26 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $collection;
     }
 
-    protected function getRevisePriceBusinessScheduledActionsPreparedCollection(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
-        $priorityCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_price/', 'priority_coefficient'
-        );
-        $waitIncreaseCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_price/', 'wait_increase_coefficient'
-        );
+    /**
+     * @param $merchantId
+     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function getReviseDetailsScheduledActionsPreparedCollection($merchantId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection $collection */
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $collection->setComponentMode(Ess_M2ePro_Helper_Component_Amazon::NICK)
+            ->getScheduledActionsPreparedCollection(
+                self::REVISE_DETAILS_PRIORITY,
+                Ess_M2ePro_Model_Listing_Product::ACTION_REVISE
+            )
+            ->addTagFilter('details', true)
+            ->joinAccountTable()
+            ->addFilteredTagColumnToSelect(new Zend_Db_Expr("'details'"))
+            ->addFieldToFilter('account.merchant_id', $merchantId);
 
-        $collection = $this->getScheduledActionsPreparedCollection(
-            $priorityCoefficient, $waitIncreaseCoefficient
-        );
-        $collection->addFieldToFilter('main_table.action_type', Ess_M2ePro_Model_Listing_Product::ACTION_REVISE);
-        $collection->getSelect()->where(
-            'main_table.tag LIKE \'%/price_business/%\' OR main_table.tag IS NULL OR main_table.tag = \'\''
-        );
-        $collection->addFieldToFilter('aa.merchant_id', $merchantId);
-
-        if (!empty($excludedListingsProductsIds)) {
-            $collection->addFieldToFilter('listing_product_id', array('nin' => $excludedListingsProductsIds));
-        }
-
-        $collection->getSelect()->columns(array('filtered_tag' => new Zend_Db_Expr('\'price_business\'')));
-
-        if ($withCreateDateFilter && Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
-            $minAllowedWaitInterval = (int)$this->getConfigValue(
-                '/amazon/listing/product/action/revise_price/', 'min_allowed_wait_interval'
-            );
-            $collection->addCreatedBeforeFilter($minAllowedWaitInterval);
-        }
-
-        return $collection;
-    }
-
-    protected function getReviseDetailsScheduledActionsPreparedCollection(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
-        $priorityCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_details/', 'priority_coefficient'
-        );
-        $waitIncreaseCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_details/', 'wait_increase_coefficient'
-        );
-
-        $collection = $this->getScheduledActionsPreparedCollection(
-            $priorityCoefficient, $waitIncreaseCoefficient
-        );
-        $collection->addFieldToFilter('main_table.action_type', Ess_M2ePro_Model_Listing_Product::ACTION_REVISE);
-        $collection->getSelect()->where(
-            'main_table.tag LIKE \'%/details/%\' OR main_table.tag IS NULL OR main_table.tag = \'\''
-        );
-        $collection->addFieldToFilter('aa.merchant_id', $merchantId);
-
-        if (!empty($excludedListingsProductsIds)) {
-            $collection->addFieldToFilter('listing_product_id', array('nin' => $excludedListingsProductsIds));
-        }
-
-        $collection->getSelect()->columns(array('filtered_tag' => new Zend_Db_Expr('\'details\'')));
-
-        if ($withCreateDateFilter && Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
+        if (Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
             $minAllowedWaitInterval = (int)$this->getConfigValue(
                 '/amazon/listing/product/action/revise_details/', 'min_allowed_wait_interval'
             );
@@ -925,34 +870,26 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $collection;
     }
 
-    protected function getReviseImagesScheduledActionsPreparedCollection(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
-        $priorityCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_images/', 'priority_coefficient'
-        );
-        $waitIncreaseCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/revise_images/', 'wait_increase_coefficient'
-        );
+    /**
+     * @param $merchantId
+     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function getReviseImagesScheduledActionsPreparedCollection($merchantId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection $collection */
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $collection->setComponentMode(Ess_M2ePro_Helper_Component_Amazon::NICK)
+            ->getScheduledActionsPreparedCollection(
+                self::REVISE_IMAGES_PRIORITY,
+                Ess_M2ePro_Model_Listing_Product::ACTION_REVISE
+            )
+            ->addTagFilter('images', true)
+            ->joinAccountTable()
+            ->addFilteredTagColumnToSelect(new Zend_Db_Expr("'images'"))
+            ->addFieldToFilter('account.merchant_id', $merchantId);
 
-        $collection = $this->getScheduledActionsPreparedCollection(
-            $priorityCoefficient, $waitIncreaseCoefficient
-        );
-        $collection->addFieldToFilter('main_table.action_type', Ess_M2ePro_Model_Listing_Product::ACTION_REVISE);
-        $collection->getSelect()->where(
-            'main_table.tag LIKE \'%/images/%\' OR main_table.tag IS NULL OR main_table.tag = \'\''
-        );
-        $collection->addFieldToFilter('aa.merchant_id', $merchantId);
-
-        if (!empty($excludedListingsProductsIds)) {
-            $collection->addFieldToFilter('listing_product_id', array('nin' => $excludedListingsProductsIds));
-        }
-
-        $collection->getSelect()->columns(array('filtered_tag' => new Zend_Db_Expr('\'images\'')));
-
-        if ($withCreateDateFilter && Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
+        if (Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
             $minAllowedWaitInterval = (int)$this->getConfigValue(
                 '/amazon/listing/product/action/revise_images/', 'min_allowed_wait_interval'
             );
@@ -962,31 +899,25 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $collection;
     }
 
-    protected function getStopScheduledActionsPreparedCollection(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
-        $priorityCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/stop/', 'priority_coefficient'
-        );
-        $waitIncreaseCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/stop/', 'wait_increase_coefficient'
-        );
+    /**
+     * @param $merchantId
+     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function getStopScheduledActionsPreparedCollection($merchantId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection $collection */
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $collection->setComponentMode(Ess_M2ePro_Helper_Component_Amazon::NICK)
+            ->getScheduledActionsPreparedCollection(
+                self::STOP_PRIORITY,
+                Ess_M2ePro_Model_Listing_Product::ACTION_STOP
+            )
+            ->joinAccountTable()
+            ->addFilteredTagColumnToSelect(new Zend_Db_Expr("''"))
+            ->addFieldToFilter('account.merchant_id', $merchantId);
 
-        $collection = $this->getScheduledActionsPreparedCollection(
-            $priorityCoefficient, $waitIncreaseCoefficient
-        );
-        $collection->addFieldToFilter('main_table.action_type', Ess_M2ePro_Model_Listing_Product::ACTION_STOP);
-        $collection->addFieldToFilter('aa.merchant_id', $merchantId);
-
-        if (!empty($excludedListingsProductsIds)) {
-            $collection->addFieldToFilter('listing_product_id', array('nin' => $excludedListingsProductsIds));
-        }
-
-        $collection->getSelect()->columns(array('filtered_tag' => new Zend_Db_Expr('\'\'')));
-
-        if ($withCreateDateFilter && Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
+        if (Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
             $minAllowedWaitInterval = (int)$this->getConfigValue(
                 '/amazon/listing/product/action/stop/', 'min_allowed_wait_interval'
             );
@@ -996,31 +927,25 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $collection;
     }
 
-    protected function getDeleteScheduledActionsPreparedCollection(
-        $merchantId,
-        $withCreateDateFilter = false,
-        $excludedListingsProductsIds = array()
-    ) {
-        $priorityCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/delete/', 'priority_coefficient'
-        );
-        $waitIncreaseCoefficient = (int)$this->getConfigValue(
-            '/amazon/listing/product/action/delete/', 'wait_increase_coefficient'
-        );
+    /**
+     * @param $merchantId
+     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    protected function getDeleteScheduledActionsPreparedCollection($merchantId)
+    {
+        /** @var Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection $collection */
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
+        $collection->setComponentMode(Ess_M2ePro_Helper_Component_Amazon::NICK)
+            ->getScheduledActionsPreparedCollection(
+                self::DELETE_PRIORITY,
+                Ess_M2ePro_Model_Listing_Product::ACTION_DELETE
+            )
+            ->joinAccountTable()
+            ->addFilteredTagColumnToSelect(new Zend_Db_Expr("''"))
+            ->addFieldToFilter('account.merchant_id', $merchantId);
 
-        $collection = $this->getScheduledActionsPreparedCollection(
-            $priorityCoefficient, $waitIncreaseCoefficient
-        );
-        $collection->addFieldToFilter('main_table.action_type', Ess_M2ePro_Model_Listing_Product::ACTION_DELETE);
-        $collection->addFieldToFilter('aa.merchant_id', $merchantId);
-
-        if (!empty($excludedListingsProductsIds)) {
-            $collection->addFieldToFilter('listing_product_id', array('nin' => $excludedListingsProductsIds));
-        }
-
-        $collection->getSelect()->columns(array('filtered_tag' => new Zend_Db_Expr('\'\'')));
-
-        if ($withCreateDateFilter && Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
+        if (Mage::helper('M2ePro/Module')->isProductionEnvironment()) {
             $minAllowedWaitInterval = (int)$this->getConfigValue(
                 '/amazon/listing/product/action/delete/', 'min_allowed_wait_interval'
             );
@@ -1030,58 +955,14 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $collection;
     }
 
-    // ---------------------------------------
-
-    /**
-     * @param $priorityCoefficient
-     * @param $waitIncreaseCoefficient
-     * @return Ess_M2ePro_Model_Resource_Listing_Product_ScheduledAction_Collection
-     */
-    protected function getScheduledActionsPreparedCollection($priorityCoefficient, $waitIncreaseCoefficient)
-    {
-        $collection = Mage::getResourceModel('M2ePro/Listing_Product_ScheduledAction_Collection');
-        $collection->getSelect()->joinLeft(
-            array('lp' => Mage::getResourceModel('M2ePro/Listing_Product')->getMainTable()),
-            'main_table.listing_product_id = lp.id'
-        );
-        $collection->getSelect()->joinLeft(
-            array('l' => Mage::getResourceModel('M2ePro/Listing')->getMainTable()),
-            'lp.listing_id = l.id'
-        );
-        $collection->getSelect()->joinLeft(
-            array('aa' => Mage::getResourceModel('M2ePro/Amazon_Account')->getMainTable()),
-            'l.account_id = aa.account_id'
-        );
-        $collection->getSelect()->joinLeft(
-            array('pl' => Mage::getResourceModel('M2ePro/Processing_Lock')->getMainTable()),
-            'pl.object_id = main_table.listing_product_id AND model_name = \'M2ePro/Listing_Product\''
-        );
-
-        $collection->addFieldToFilter('component', Ess_M2ePro_Helper_Component_Amazon::NICK);
-        $collection->addFieldToFilter('pl.id', array('null' => true));
-
-        $now = Mage::helper('M2ePro')->getCurrentGmtDate();
-        $collection->getSelect()->reset(Zend_Db_Select::COLUMNS)
-            ->columns(
-                array(
-                'listing_product_id' => 'main_table.listing_product_id',
-                'account_id'         => 'aa.account_id',
-                'action_type'        => 'main_table.action_type',
-                'tag'                => new Zend_Db_Expr('NULL'),
-                'additional_data'    => 'main_table.additional_data',
-                'coefficient'        => new Zend_Db_Expr(
-                    "{$priorityCoefficient} +
-                    (time_to_sec(timediff('{$now}', main_table.create_date)) / 3600) * {$waitIncreaseCoefficient}"
-                ),
-                'create_date'        => 'create_date',
-                )
-            );
-
-        return $collection;
-    }
-
     //########################################
 
+    /**
+     * @param array $feedsPacks
+     * @param $feedType
+     * @param $accountId
+     * @return bool
+     */
     protected function canAddToLastExistedPack(array $feedsPacks, $feedType, $accountId)
     {
         if (empty($feedsPacks[$feedType][$accountId])) {
@@ -1093,6 +974,11 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return count($feedsPacks[$feedType][$accountId][$lastPackIndex]) < $this->getMaxPackSize($feedType);
     }
 
+    /**
+     * @param array $feedsPacks
+     * @param $feedType
+     * @param $scheduledActionData
+     */
     protected function addToLastExistedPack(array &$feedsPacks, $feedType, $scheduledActionData)
     {
         if (empty($feedsPacks[$feedType][$scheduledActionData['account_id']])) {
@@ -1106,6 +992,11 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
 
     // ---------------------------------------
 
+    /**
+     * @param array $feedsPacks
+     * @param $feedType
+     * @param $scheduledActionData
+     */
     protected function addToNewPack(array &$feedsPacks, $feedType, $scheduledActionData)
     {
         if (empty($feedsPacks[$feedType][$scheduledActionData['account_id']])) {
@@ -1119,6 +1010,12 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
 
     //########################################
 
+    /**
+     * @param $actionType
+     * @param $tag
+     * @return array
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     protected function getFeedTypes($actionType, $tag = null)
     {
         switch ($actionType) {
@@ -1126,9 +1023,11 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
                 return array(self::FEED_TYPE_ADD);
 
             case Ess_M2ePro_Model_Listing_Product::ACTION_RELIST:
-                $feedTypes = array(
-                    self::FEED_TYPE_UPDATE_QTY,
-                );
+                $feedTypes = array();
+
+                if ($tag == 'qty') {
+                    $feedTypes[] = self::FEED_TYPE_UPDATE_QTY;
+                }
 
                 if ($tag == 'price') {
                     $feedTypes[] = self::FEED_TYPE_UPDATE_PRICE;
@@ -1142,7 +1041,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
                     $feedTypes[] = self::FEED_TYPE_UPDATE_QTY;
                 }
 
-                if ($tag == 'price_regular' || $tag == 'price_business') {
+                if ($tag == 'price') {
                     $feedTypes[] = self::FEED_TYPE_UPDATE_PRICE;
                 }
 
@@ -1166,6 +1065,10 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         }
     }
 
+    /**
+     * @param $feedType
+     * @return int
+     */
     protected function getMaxPackSize($feedType)
     {
         $slowFeedTypes = array(
@@ -1180,52 +1083,13 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return 10000;
     }
 
-    protected function calculateRequestsCount($feedsPacks)
-    {
-        $requestsCount = 0;
-
-        foreach ($feedsPacks as $feedType => $feedPacks) {
-            foreach ($feedPacks as $accountId => $accountPacks) {
-                $requestsCount += count($accountPacks);
-            }
-        }
-
-        return $requestsCount;
-    }
-
     //########################################
 
-    protected function getFirstConnectionErrorDate()
-    {
-        $registry = Mage::getModel('M2ePro/Registry');
-        $registry->load(self::FIRST_CONNECTION_ERROR_DATE_REGISTRY_KEY, 'key');
-
-        return $registry->getValue();
-    }
-
-    protected function setFirstConnectionErrorDate($date)
-    {
-        $registry = Mage::getModel('M2ePro/Registry');
-        $registry->load(self::FIRST_CONNECTION_ERROR_DATE_REGISTRY_KEY, 'key');
-
-        $registry->setData('key', self::FIRST_CONNECTION_ERROR_DATE_REGISTRY_KEY);
-        $registry->setData('value', $date);
-
-        $registry->save();
-    }
-
-    protected function removeFirstConnectionErrorDate()
-    {
-        $registry = Mage::getModel('M2ePro/Registry');
-        $registry->load(self::FIRST_CONNECTION_ERROR_DATE_REGISTRY_KEY, 'key');
-
-        if ($registry->getId()) {
-            $registry->delete();
-        }
-    }
-
-    //########################################
-
+    /**
+     * @param Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processing $action
+     * @param array $data
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     protected function completeProcessingAction(
         Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processing $action,
         array $data
@@ -1240,6 +1104,12 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         $action->deleteInstance();
     }
 
+    /**
+     * @param array $responseData
+     * @param array $responseMessages
+     * @param int $listingProductId
+     * @return array
+     */
     protected function getResponseMessages(array $responseData, array $responseMessages, $listingProductId)
     {
         $messages = $responseMessages;
@@ -1259,6 +1129,11 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         return $messages;
     }
 
+    /**
+     * @param $processingActionType
+     * @return array
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     protected function getServerCommand($processingActionType)
     {
         switch ($processingActionType) {
@@ -1276,6 +1151,12 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
         }
     }
 
+    /**
+     * @param $actionType
+     * @param array $params
+     * @return string
+     * @throws Ess_M2ePro_Model_Exception
+     */
     protected function getLockIdentifier($actionType, array $params)
     {
         switch ($actionType) {
@@ -1301,6 +1182,11 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Processor
 
     // ---------------------------------------
 
+    /**
+     * @param $group
+     * @param $key
+     * @return mixed
+     */
     protected function getConfigValue($group, $key)
     {
         return Mage::helper('M2ePro/Module')->getConfig()->getGroupValue($group, $key);

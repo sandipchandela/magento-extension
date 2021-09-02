@@ -49,58 +49,7 @@
 
     $formData['discount_rules'] = $model && $model->getId() ? $model->getChildObject()->getBusinessDiscounts() : array();
 
-    $default = array(
-        'title' => '',
-
-        'is_regular_customer_allowed' => 1,
-        'is_business_customer_allowed' => 0,
-
-        'qty_mode' => Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_PRODUCT,
-        'qty_custom_value' => 1,
-        'qty_custom_attribute' => '',
-        'qty_percentage' => 100,
-        'qty_modification_mode' => Ess_M2ePro_Model_Amazon_Template_SellingFormat::QTY_MODIFICATION_MODE_OFF,
-        'qty_min_posted_value' => Ess_M2ePro_Model_Amazon_Template_SellingFormat::QTY_MIN_POSTED_DEFAULT_VALUE,
-        'qty_max_posted_value' => Ess_M2ePro_Model_Amazon_Template_SellingFormat::QTY_MAX_POSTED_DEFAULT_VALUE,
-
-        'regular_price_mode' => Ess_M2ePro_Model_Template_SellingFormat::PRICE_MODE_PRODUCT,
-        'regular_price_coefficient' => '',
-        'regular_price_custom_attribute' => '',
-
-        'regular_map_price_mode' => Ess_M2ePro_Model_Template_SellingFormat::PRICE_MODE_NONE,
-        'regular_map_price_custom_attribute' => '',
-
-        'regular_sale_price_mode' => Ess_M2ePro_Model_Template_SellingFormat::PRICE_MODE_NONE,
-        'regular_sale_price_coefficient' => '',
-        'regular_sale_price_custom_attribute' => '',
-
-        'regular_price_variation_mode' => Ess_M2ePro_Model_Amazon_Template_SellingFormat::PRICE_VARIATION_MODE_PARENT,
-
-        'regular_sale_price_start_date_mode' => Ess_M2ePro_Model_Amazon_Template_SellingFormat::DATE_VALUE,
-        'regular_sale_price_end_date_mode' => Ess_M2ePro_Model_Amazon_Template_SellingFormat::DATE_VALUE,
-
-        'regular_sale_price_start_date_custom_attribute' => '',
-        'regular_sale_price_end_date_custom_attribute' => '',
-
-        'regular_sale_price_start_date_value' => Mage::helper('M2ePro')->getCurrentGmtDate(false, 'Y-m-d'),
-        'regular_sale_price_end_date_value' => Mage::helper('M2ePro')->getCurrentGmtDate(false, 'Y-m-d'),
-
-        'regular_price_vat_percent' => 0,
-
-        'business_price_mode' => Ess_M2ePro_Model_Template_SellingFormat::PRICE_MODE_PRODUCT,
-        'business_price_coefficient' => '',
-        'business_price_custom_attribute' => '',
-
-        'business_price_variation_mode' => Ess_M2ePro_Model_Amazon_Template_SellingFormat::PRICE_VARIATION_MODE_PARENT,
-
-        'business_price_vat_percent' => 0,
-
-        'business_discounts_mode' => 0,
-        'business_discounts_tier_coefficient' => '',
-        'business_discounts_tier_customer_group_id' => null,
-
-        'discount_rules' => array()
-    );
+    $default = Mage::getModel('M2ePro/Amazon_Template_SellingFormat_Builder')->getDefaultData();
 
     $formData = array_merge($default, $formData);
 
@@ -130,12 +79,12 @@
     /** @var Ess_M2ePro_Helper_Magento_Attribute $magentoAttributeHelper */
     $magentoAttributeHelper = Mage::helper('M2ePro/Magento_Attribute');
 
-    $generalFromAllAttributeSets = Mage::helper('M2ePro/Magento_Attribute')->getGeneralFromAllAttributeSets();
+    $allAttributeSets = Mage::helper('M2ePro/Magento_Attribute')->getAll();
     $attributesByInputTypes = array(
-        'text' => $magentoAttributeHelper->filterByInputTypes($generalFromAllAttributeSets, array('text')),
-        'text_select' => $magentoAttributeHelper->filterByInputTypes($generalFromAllAttributeSets, array('text', 'select')),
-        'text_price' => $magentoAttributeHelper->filterByInputTypes($generalFromAllAttributeSets, array('text', 'price')),
-        'text_date' => $magentoAttributeHelper->filterByInputTypes($generalFromAllAttributeSets, array('text', 'date')),
+        'text' => $magentoAttributeHelper->filterByInputTypes($allAttributeSets, array('text')),
+        'text_select' => $magentoAttributeHelper->filterByInputTypes($allAttributeSets, array('text', 'select')),
+        'text_price' => $magentoAttributeHelper->filterByInputTypes($allAttributeSets, array('text', 'price')),
+        'text_date' => $magentoAttributeHelper->filterByInputTypes($allAttributeSets, array('text', 'date')),
     );
 
     $groups = Mage::getModel('customer/group')->getCollection()->toArray();
@@ -213,90 +162,90 @@
     M2ePro.formData.discountRules = <?php echo json_encode($formData['discount_rules']) ?>;
 
     Event.observe(window, 'load', function() {
-        AmazonTemplateSellingFormatHandlerObj = new AmazonTemplateSellingFormatHandler();
+        AmazonTemplateSellingFormatObj = new AmazonTemplateSellingFormat();
 
         if ($('is_regular_customer_allowed')) {
             $('is_regular_customer_allowed')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.is_regular_customer_allowed_change)
+                .observe('change', AmazonTemplateSellingFormatObj.is_regular_customer_allowed_change)
                 .simulate('change');
         }
 
         if ($('is_business_customer_allowed')) {
             $('is_business_customer_allowed')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.is_business_customer_allowed_change)
+                .observe('change', AmazonTemplateSellingFormatObj.is_business_customer_allowed_change)
                 .simulate('change');
         }
 
         $('qty_mode')
-             .observe('change', AmazonTemplateSellingFormatHandlerObj.qty_mode_change)
+             .observe('change', AmazonTemplateSellingFormatObj.qty_mode_change)
              .simulate('change');
 
         $('qty_modification_mode')
-             .observe('change', AmazonTemplateSellingFormatHandlerObj.qtyPostedMode_change)
+             .observe('change', AmazonTemplateSellingFormatObj.qtyPostedMode_change)
              .simulate('change');
 
         if ($('regular_price_mode')) {
             $('regular_price_mode')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.regular_price_mode_change)
+                .observe('change', AmazonTemplateSellingFormatObj.regular_price_mode_change)
                 .simulate('change');
         }
 
         if ($('regular_map_price_mode')) {
             $('regular_map_price_mode')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.regular_map_price_mode_change)
+                .observe('change', AmazonTemplateSellingFormatObj.regular_map_price_mode_change)
                 .simulate('change');
         }
 
         if ($('regular_sale_price_start_date_mode')) {
             $('regular_sale_price_start_date_mode')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.regular_sale_price_start_date_mode_change)
+                .observe('change', AmazonTemplateSellingFormatObj.regular_sale_price_start_date_mode_change)
                 .simulate('change');
         }
 
         if ($('regular_sale_price_end_date_mode')) {
             $('regular_sale_price_end_date_mode')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.regular_sale_price_end_date_mode_change)
+                .observe('change', AmazonTemplateSellingFormatObj.regular_sale_price_end_date_mode_change)
                 .simulate('change');
         }
 
         if ($('regular_sale_price_mode')) {
             $('regular_sale_price_mode')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.regular_sale_price_mode_change)
+                .observe('change', AmazonTemplateSellingFormatObj.regular_sale_price_mode_change)
                 .simulate('change');
         }
 
         if ($('regular_price_increase_vat_percent')) {
             $('regular_price_increase_vat_percent')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.regular_price_increase_vat_percent_mode_change)
+                .observe('change', AmazonTemplateSellingFormatObj.regular_price_increase_vat_percent_mode_change)
                 .simulate('change');
         }
 
         if ($('business_price_mode')) {
             $('business_price_mode')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.business_price_mode_change)
+                .observe('change', AmazonTemplateSellingFormatObj.business_price_mode_change)
                 .simulate('change');
         }
 
         if ($('business_price_increase_vat_percent')) {
             $('business_price_increase_vat_percent')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.business_price_increase_vat_percent_mode_change)
+                .observe('change', AmazonTemplateSellingFormatObj.business_price_increase_vat_percent_mode_change)
                 .simulate('change');
         }
 
         if ($('business_discounts_mode')) {
             $('business_discounts_mode')
-                .observe('change', AmazonTemplateSellingFormatHandlerObj.business_discounts_mode_change)
+                .observe('change', AmazonTemplateSellingFormatObj.business_discounts_mode_change)
                 .simulate('change');
         }
 
         if ($('business_discounts_custom_value_discount_table_tbody')) {
             $('business_discounts_custom_value_discount_table_tbody').on(
-                'change', 'select.business-discount-mode', AmazonTemplateSellingFormatHandlerObj.business_discount_price_mode_change
+                'change', 'select.business-discount-mode', AmazonTemplateSellingFormatObj.business_discount_price_mode_change
             );
         }
 
         if ($('business_discounts_mode')) {
-            AmazonTemplateSellingFormatHandlerObj.renderDiscountRules(M2ePro.formData.discountRules);
+            AmazonTemplateSellingFormatObj.renderDiscountRules(M2ePro.formData.discountRules);
         }
 
         editForm = new varienForm('edit_form', '<?php echo $this->getValidationUrl(); ?>');
@@ -353,7 +302,7 @@
 
 </div>
 
-<?php if (Mage::helper('M2ePro/Component_Amazon_Business')->isEnabled()) { ?>
+<?php if (Mage::helper('M2ePro/Component_Amazon_Configuration')->isEnabledBusinessMode()) { ?>
     <div class="entry-edit" id="magento_block_amazon_template_selling_format_business">
 
         <div class="entry-edit-head">
@@ -429,12 +378,11 @@
 
                         <select id="qty_mode" name="qty_mode" class="M2ePro-custom-attribute-can-be-created" allowed_attribute_types="text">
                             <option id="qty_mode_product" value="<?php echo Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_PRODUCT; ?>" <?php if (Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_PRODUCT == $formData['qty_mode']) echo ' selected="selected"'; ?>><?php echo Mage::helper('M2ePro')->__('Product Quantity'); ?></option>
-                            <option id="qty_mode_single" value="<?php echo Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_SINGLE; ?>" <?php if (Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_SINGLE == $formData['qty_mode']) echo ' selected="selected"'; ?>><?php echo Mage::helper('M2ePro')->__('Single Item'); ?></option>
                             <option id="qty_mode_cv" value="<?php echo Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_NUMBER; ?>" <?php if (Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_NUMBER == $formData['qty_mode']) echo ' selected="selected"'; ?>><?php echo Mage::helper('M2ePro')->__('Custom Value'); ?></option>
 
                             <optgroup class="M2ePro-custom-attribute-optgroup" label="Magento Attribute" new_option_value="<?php echo Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_ATTRIBUTE; ?>">
                                 <option value="<?php echo Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_PRODUCT_FIXED; ?>" <?php if (Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_PRODUCT_FIXED == $formData['qty_mode']): echo ' selected="selected"'; endif; ?>>QTY</option>
-                                <?php if ($formData['qty_mode'] == Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_ATTRIBUTE && !$magentoAttributeHelper->isExistInAttributesArray($formData['qty_custom_attribute'], $generalFromAllAttributeSets) && $formData['qty_custom_attribute'] != ''): ?>
+                                <?php if ($formData['qty_mode'] == Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_ATTRIBUTE && !$magentoAttributeHelper->isExistInAttributesArray($formData['qty_custom_attribute'], $allAttributeSets) && $formData['qty_custom_attribute'] != ''): ?>
                                     <option attribute_code="<?php echo Mage::helper('M2ePro')->escapeHtml($formData['qty_custom_attribute']) ?>" selected="selected" value="<?php echo Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_ATTRIBUTE; ?>">
                                         <?php echo Mage::helper('M2ePro')->escapeHtml($magentoAttributeHelper->getAttributeLabel($formData['qty_custom_attribute'])) ?>
                                     </option>
@@ -533,7 +481,7 @@
 
     <div class="entry-edit-head">
         <?php
-            $priceTitle = Mage::helper('M2ePro/Component_Amazon_Business')->isEnabled() ?
+            $priceTitle = Mage::helper('M2ePro/Component_Amazon_Configuration')->isEnabledBusinessMode() ?
                 Mage::helper('M2ePro')->__('Price (B2C)') :
                 Mage::helper('M2ePro')->__('Price')
         ?>
@@ -763,17 +711,20 @@
                             <option value="1" <?php if ($formData['regular_price_vat_percent'] > 0): echo ' selected="selected"'; endif; ?>><?php echo Mage::helper('M2ePro')->__('Yes'); ?></option>
                         </select>
                         <p class="note">
-                            <?php echo Mage::helper('M2ePro')->__('
-                                Choose whether you want to add VAT to the Price when a Product is Listed on Amazon and
-                                provide the appropriate VAT Percent Value.<br/><br/>
-
-                                <strong>Example:</strong>
-                                For a Product with Magento Price = £10 and VAT Rate = 15%<br/>
-                                VAT = £10 * 15% = £1.50<br/>
-                                Final Price on Amazon (Magento Price + VAT) = £10 + £1.50 = £11.50<br/><br/>
-
-                                <strong>Note:</strong> No VAT Rate Value will be sent on Amazon. Only the Item Price will be increased on the Channel.
-                            ') ?>
+                            <?php echo Mage::helper('M2ePro')->__(<<<HTML
+Enable this option to add a specified VAT percent value to the Price when a Product is listed on Amazon.
+<br/>
+<br/>
+The final product price on Amazon will be calculated according to the following formula:
+<br/>
+<br/>
+(Product Price + Price Change) + VAT Rate
+<br/>
+<br/>
+<strong>Note:</strong> Amazon considers the VAT rate value sent by M2E Pro as an additional price increase,
+not as a proper VAT rate.
+HTML
+                            ) ?>
                         </p>
                     </td>
                 </tr>
@@ -794,7 +745,7 @@
 
 </div>
 
-<?php if (Mage::helper('M2ePro/Component_Amazon_Business')->isEnabled()) { ?>
+<?php if (Mage::helper('M2ePro/Component_Amazon_Configuration')->isEnabledBusinessMode()) { ?>
     <div class="entry-edit" id="magento_block_amazon_template_selling_format_business_prices">
 
         <div class="entry-edit-head">
@@ -867,17 +818,20 @@
                                 <option value="1" <?php if ($formData['business_price_vat_percent'] > 0): echo ' selected="selected"'; endif; ?>><?php echo Mage::helper('M2ePro')->__('Yes'); ?></option>
                             </select>
                             <p class="note">
-                                <?php echo Mage::helper('M2ePro')->__('
-                                    Choose whether you want to add VAT to the Price when a Product is Listed on Amazon and
-                                    provide the appropriate VAT Percent Value.<br/><br/>
-
-                                    <strong>Example:</strong>
-                                    For a Product with Magento Price = £10 and VAT Rate = 15%<br/>
-                                    VAT = £10 * 15% = £1.50<br/>
-                                    Final Price on Amazon (Magento Price + VAT) = £10 + £1.50 = £11.50<br/><br/>
-
-                                    <strong>Note:</strong> No VAT Rate Value will be sent on Amazon. Only the Item Price will be increased on the Channel.
-                            ') ?>
+                                <?php echo Mage::helper('M2ePro')->__(<<<HTML
+Enable this option to add a specified VAT percent value to the Price when a Product is listed on Amazon.
+<br/>
+<br/>
+The final product price on Amazon will be calculated according to the following formula:
+<br/>
+<br/>
+(Product Price + Price Change) + VAT Rate
+<br/>
+<br/>
+<strong>Note:</strong> Amazon considers the VAT rate value sent by M2E Pro as an additional price increase,
+not as a proper VAT rate.
+HTML
+                                ) ?>
                             </p>
                         </td>
                     </tr>
@@ -1010,7 +964,7 @@
 
 </form>
 
-<?php if (Mage::helper('M2ePro/Component_Amazon_Business')->isEnabled()) { ?>
+<?php if (Mage::helper('M2ePro/Component_Amazon_Configuration')->isEnabledBusinessMode()) { ?>
 <table id="business_discounts_custom_value_discount_table_row_template" style="display: none;">
     <tbody>
     <tr id="custom_value_discount_rule_%i%_tr" class="business-discount-rule">

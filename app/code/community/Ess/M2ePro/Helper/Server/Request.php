@@ -15,13 +15,13 @@ class Ess_M2ePro_Helper_Server_Request extends Mage_Core_Helper_Abstract
         $serverBaseUrl = null,
         $serverHostName = null,
         $tryToResendOnError = true,
-        $tryToSwitchEndpointOnError = true
+        $tryToSwitchEndpointOnError = true,
+        $canIgnoreMaintenance = false
     ) {
-        if (Mage::helper('M2ePro/Server_Maintenance')->isInRealRange()) {
-            $message = 'The action is temporarily unavailable. M2E Pro server is currently';
-            $message .= ' under the planned maintenance. Please try again later.';
-
-            throw new Ess_M2ePro_Model_Exception_Connection($message, array('request_package'  => $package));
+        if (!$canIgnoreMaintenance && Mage::helper('M2ePro/Server_Maintenance')->isNow()) {
+            throw new Ess_M2ePro_Model_Exception_Connection(
+                'The action is temporarily unavailable. M2E Pro Server is under maintenance. Please try again later.'
+            );
         }
 
         !$serverBaseUrl  && $serverBaseUrl  = $this->getServerHelper()->getEndpoint();
@@ -45,10 +45,12 @@ class Ess_M2ePro_Helper_Server_Request extends Mage_Core_Helper_Abstract
 
             Mage::helper('M2ePro/Module_Logger')->process(
                 array(
-                'curl_error_number' => $response['curl_error_number'],
-                'curl_error_message' => $response['curl_error_message'],
-                'curl_info' => $response['curl_info']
-                ), 'Curl Empty Response', false
+                    'curl_error_number' => $response['curl_error_number'],
+                    'curl_error_message' => $response['curl_error_message'],
+                    'curl_info' => $response['curl_info']
+                ),
+                'Curl Empty Response',
+                false
             );
 
             if ($this->canRepeatRequest(
@@ -62,25 +64,21 @@ class Ess_M2ePro_Helper_Server_Request extends Mage_Core_Helper_Abstract
                     $tryToSwitchEndpointOnError ? $this->getServerHelper()->getEndpoint() : $serverBaseUrl,
                     $tryToSwitchEndpointOnError ? $this->getServerHelper()->getCurrentHostName() : $serverHostName,
                     false,
-                    $tryToSwitchEndpointOnError
+                    $tryToSwitchEndpointOnError,
+                    $canIgnoreMaintenance
                 );
             }
 
-            $errorMsg = 'The Action was not completed because connection with M2E Pro Server was not set.
-            There are several possible reasons:  temporary connection problem – please wait and try again later;
-            block of outgoing connection by firewall – please, ensure that connection to s1.m2epro.com and
-            s2.m2epro.com, port 443 is allowed; CURL library is not installed or it does not support HTTPS Protocol –
-            please, install/update CURL library on your server and ensure it supports HTTPS Protocol.
-            More information you can find <a target="_blank" href="'.
-                Mage::helper('M2ePro/Module_Support')
-                    ->getKnowledgebaseUrl('server-connection')
-                .'">here</a>';
-
             throw new Ess_M2ePro_Model_Exception_Connection(
-                $errorMsg,
-                array('curl_error_number'  => $response['curl_error_number'],
-                      'curl_error_message' => $response['curl_error_message'],
-                'curl_info'          => $response['curl_info'])
+                Mage::helper('M2ePro')->__(
+                    'M2E Pro Server connection failed. Find the solution <a target="_blank" href="%url%">here</a>',
+                    Mage::helper('M2ePro/Module_Support')->getKnowledgebaseUrl('664870')
+                ),
+                array(
+                    'curl_error_number'  => $response['curl_error_number'],
+                    'curl_error_message' => $response['curl_error_message'],
+                    'curl_info'          => $response['curl_info']
+                )
             );
         }
 
@@ -93,13 +91,13 @@ class Ess_M2ePro_Helper_Server_Request extends Mage_Core_Helper_Abstract
         $serverHostName = null,
         $tryToResendOnError = true,
         $tryToSwitchEndpointOnError = true,
-        $asynchronous = false
+        $asynchronous = false,
+        $canIgnoreMaintenance = false
     ) {
-        if (Mage::helper('M2ePro/Server_Maintenance')->isInRealRange()) {
-            $message = 'The action is temporarily unavailable. M2E Pro server is currently';
-            $message .= ' under the planned maintenance. Please try again later.';
-
-            throw new Ess_M2ePro_Model_Exception_Connection($message, array('request_package'  => $packages));
+        if (!$canIgnoreMaintenance && Mage::helper('M2ePro/Server_Maintenance')->isNow()) {
+            throw new Ess_M2ePro_Model_Exception_Connection(
+                'The action is temporarily unavailable. M2E Pro Server is under maintenance. Please try again later.'
+            );
         }
 
         if (empty($packages)) {
@@ -167,10 +165,12 @@ class Ess_M2ePro_Helper_Server_Request extends Mage_Core_Helper_Abstract
 
                 Mage::helper('M2ePro/Module_Logger')->process(
                     array(
-                    'curl_error_number' => $response['curl_error_number'],
-                    'curl_error_message' => $response['curl_error_message'],
-                    'curl_info' => $response['curl_info']
-                    ), 'Curl Empty Response', false
+                        'curl_error_number'  => $response['curl_error_number'],
+                        'curl_error_message' => $response['curl_error_message'],
+                        'curl_info'          => $response['curl_info']
+                    ),
+                    'Curl Empty Response',
+                    false
                 );
                 break;
             }
@@ -199,7 +199,8 @@ class Ess_M2ePro_Helper_Server_Request extends Mage_Core_Helper_Abstract
                     $tryToSwitchEndpointOnError ? $this->getServerHelper()->getCurrentHostName() : $serverHostName,
                     false,
                     $tryToSwitchEndpointOnError,
-                    $asynchronous
+                    $asynchronous,
+                    $canIgnoreMaintenance
                 );
 
                 $responses = array_merge($responses, $secondAttemptResponses);

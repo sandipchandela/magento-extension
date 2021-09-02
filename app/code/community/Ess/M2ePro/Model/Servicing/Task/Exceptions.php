@@ -33,24 +33,16 @@ class Ess_M2ePro_Model_Servicing_Task_Exceptions extends Ess_M2ePro_Model_Servic
         $data = $this->prepareAndCheckReceivedData($data);
 
         Mage::helper('M2ePro/Module')->getConfig()->setGroupValue(
-            '/debug/exceptions/', 'filters_mode', (int)$data['is_filter_enable']
+            '/server/exceptions/', 'filters', (int)$data['is_filter_enable']
         );
         Mage::helper('M2ePro/Module')->getConfig()->setGroupValue(
-            '/debug/fatal_error/', 'send_to_server', (int)$data['send_to_server']['fatal']
+            '/server/fatal_error/', 'send', (int)$data['send_to_server']['fatal']
         );
         Mage::helper('M2ePro/Module')->getConfig()->setGroupValue(
-            '/debug/exceptions/', 'send_to_server', (int)$data['send_to_server']['exception']
+            '/server/exceptions/', 'send', (int)$data['send_to_server']['exception']
         );
 
-        /**  @var $registryModel Ess_M2ePro_Model_Registry */
-        $registryModel = Mage::getModel('M2ePro/Registry')->load('/exceptions_filters/', 'key');
-
-        $registryModel->addData(
-            array(
-            'key' => '/exceptions_filters/',
-            'value' => Mage::helper('M2ePro')->jsonEncode($data['filters'])
-            )
-        )->save();
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue('/exceptions_filters/', $data['filters']);
     }
 
     //########################################

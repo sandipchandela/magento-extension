@@ -28,6 +28,7 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
 
             Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_OTHER,
             Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_LISTING,
+            Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_REMAP_FROM_LISTING,
 
             Ess_M2ePro_Model_Walmart_Listing_Product::INSTRUCTION_TYPE_CHANNEL_QTY_CHANGED,
             Ess_M2ePro_Model_Walmart_Listing_Product::INSTRUCTION_TYPE_CHANNEL_STATUS_CHANGED,
@@ -120,8 +121,9 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
         }
 
         if ($walmartSynchronizationTemplate->isReviseUpdatePromotions()) {
-            $configurator->allowPromotions();
-            $tags[] = 'promotions';
+            // Due to the fact that "promotion feed" can be sent only 6 times a day,
+            // we are forced to refuse on relist action.
+            $this->setPropertiesForRecheck(array('promotions'));
         }
 
         $this->checkUpdatePriceOrPromotionsFeedsLock(
@@ -216,54 +218,12 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
             }
         }
 
-        if ($walmartSynchronizationTemplate->isRelistWhenQtyMagentoHasValue()) {
-            $result = false;
-            $productQty = (int)$walmartListingProduct->getQty(true);
-
-            $typeQty = (int)$walmartSynchronizationTemplate->getRelistWhenQtyMagentoHasValueType();
-            $minQty = (int)$walmartSynchronizationTemplate->getRelistWhenQtyMagentoHasValueMin();
-            $maxQty = (int)$walmartSynchronizationTemplate->getRelistWhenQtyMagentoHasValueMax();
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_LESS &&
-                $productQty <= $minQty) {
-                $result = true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_MORE &&
-                $productQty >= $minQty) {
-                $result = true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_BETWEEN &&
-                $productQty >= $minQty && $productQty <= $maxQty) {
-                $result = true;
-            }
-
-            if (!$result) {
-                return false;
-            }
-        }
-
         if ($walmartSynchronizationTemplate->isRelistWhenQtyCalculatedHasValue()) {
             $result = false;
             $productQty = (int)$walmartListingProduct->getQty(false);
+            $minQty = (int)$walmartSynchronizationTemplate->getRelistWhenQtyCalculatedHasValue();
 
-            $typeQty = (int)$walmartSynchronizationTemplate->getRelistWhenQtyCalculatedHasValueType();
-            $minQty = (int)$walmartSynchronizationTemplate->getRelistWhenQtyCalculatedHasValueMin();
-            $maxQty = (int)$walmartSynchronizationTemplate->getRelistWhenQtyCalculatedHasValueMax();
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_LESS &&
-                $productQty <= $minQty) {
-                $result = true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_MORE &&
-                $productQty >= $minQty) {
-                $result = true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_BETWEEN &&
-                $productQty >= $minQty && $productQty <= $maxQty) {
+            if ($productQty >= $minQty) {
                 $result = true;
             }
 

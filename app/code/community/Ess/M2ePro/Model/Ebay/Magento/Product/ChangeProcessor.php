@@ -173,7 +173,7 @@ class Ess_M2ePro_Model_Ebay_Magento_Product_ChangeProcessor
 
         $categoryTemplate = $this->getEbayListingProduct()->getCategoryTemplate();
 
-        return array_unique($categoryTemplate->getMainCategoryAttributes());
+        return array_unique($categoryTemplate->getCategoryAttributes());
     }
 
     public function getShippingTrackingAttributes()
@@ -204,8 +204,7 @@ class Ess_M2ePro_Model_Ebay_Magento_Product_ChangeProcessor
             $attributes = array_merge(
                 $attributes, array_merge(
                     $service->getCostAttributes(),
-                    $service->getCostAdditionalAttributes(),
-                    $service->getCostSurchargeAttributes()
+                    $service->getCostAdditionalAttributes()
                 )
             );
         }
@@ -222,7 +221,8 @@ class Ess_M2ePro_Model_Ebay_Magento_Product_ChangeProcessor
             $trackingAttributes,
             $ebaySellingFormatTemplate->getBestOfferAcceptAttributes(),
             $ebaySellingFormatTemplate->getBestOfferRejectAttributes(),
-            $ebaySellingFormatTemplate->getTaxCategoryAttributes()
+            $ebaySellingFormatTemplate->getTaxCategoryAttributes(),
+            $ebaySellingFormatTemplate->getLotSizeAttributes()
         );
 
         $ebayDescriptionTemplate = $this->getEbayListingProduct()->getEbayDescriptionTemplate();

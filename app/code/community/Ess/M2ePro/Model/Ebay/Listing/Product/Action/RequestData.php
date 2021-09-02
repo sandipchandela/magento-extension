@@ -119,21 +119,6 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_RequestData
     /**
      * @return bool
      */
-    public function hasOutOfStockControl()
-    {
-        return isset($this->_data['out_of_stock_control']);
-    }
-
-    public function hasOutOfStockControlResult()
-    {
-        return isset($this->_data['out_of_stock_control_result']);
-    }
-
-    // ---------------------------------------
-
-    /**
-     * @return bool
-     */
     public function hasSku()
     {
         return isset($this->_data['sku']);
@@ -252,18 +237,6 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_RequestData
 
     // ---------------------------------------
 
-    public function getOutOfStockControl()
-    {
-        return $this->hasOutOfStockControl() ? $this->_data['out_of_stock_control'] : null;
-    }
-
-    public function getOutOfStockControlResult()
-    {
-        return $this->hasOutOfStockControlResult() ? $this->_data['out_of_stock_control_result'] : null;
-    }
-
-    // ---------------------------------------
-
     public function getSku()
     {
         return $this->hasSku() ? $this->_data['sku'] : null;
@@ -367,6 +340,15 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_RequestData
      */
     public function getVariationPrice($calculateWithEmptyQty = true)
     {
+        return $this->getVariationMinPrice($calculateWithEmptyQty);
+    }
+
+    /**
+     * @param bool $calculateWithEmptyQty
+     * @return float|null
+     */
+    public function getVariationMinPrice($calculateWithEmptyQty = true)
+    {
         if (!$this->hasVariations()) {
             return null;
         }
@@ -383,6 +365,37 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_RequestData
             }
 
             if ($price !== null && (float)$variationData['price'] >= $price) {
+                continue;
+            }
+
+            $price = (float)$variationData['price'];
+        }
+
+        return (float)$price;
+    }
+
+    /**
+     * @param bool $calculateWithEmptyQty
+     * @return float|null
+     */
+    public function getVariationMaxPrice($calculateWithEmptyQty = true)
+    {
+        if (!$this->hasVariations()) {
+            return null;
+        }
+
+        $price = null;
+
+        foreach ($this->getVariations() as $variationData) {
+            if ($variationData['delete'] || !isset($variationData['price'])) {
+                continue;
+            }
+
+            if (!$calculateWithEmptyQty && (int)$variationData['qty'] <= 0) {
+                continue;
+            }
+
+            if ($price !== null && (float)$variationData['price'] <= $price) {
                 continue;
             }
 

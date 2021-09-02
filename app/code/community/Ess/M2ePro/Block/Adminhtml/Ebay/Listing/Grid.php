@@ -91,13 +91,13 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Grid extends Ess_M2ePro_Block_Admi
     {
         $this->addColumn(
             'items_sold_count', array(
-            'header'    => Mage::helper('M2ePro')->__('Sold QTY'),
-            'align'     => 'right',
-            'width'     => '100px',
-            'type'      => 'number',
-            'index'     => 'items_sold_count',
-            'filter_index' => 'second_table.items_sold_count',
-            'frame_callback' => array($this, 'callbackColumnSoldQTY')
+                'header'         => Mage::helper('M2ePro')->__('Sold QTY'),
+                'align'          => 'right',
+                'width'          => '100px',
+                'type'           => 'number',
+                'index'          => 'items_sold_count',
+                'filter_index'   => 'second_table.items_sold_count',
+                'frame_callback' => array($this, 'callbackColumnSoldQTY')
             )
         );
 
@@ -128,14 +128,14 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Grid extends Ess_M2ePro_Block_Admi
                 'caption'        => $helper->__('Add From Products List'),
                 'group'          => 'products_actions',
                 'field'          => 'id',
-                'onclick_action' => 'EbayListingGridHandlerObj.addProductsSourceProductsAction',
+                'onclick_action' => 'EbayListingGridObj.addProductsSourceProductsAction',
             ),
 
             'addProductsSourceCategories' => array(
                 'caption'        => $helper->__('Add From Categories'),
                 'group'          => 'products_actions',
                 'field'          => 'id',
-                'onclick_action' => 'EbayListingGridHandlerObj.addProductsSourceCategoriesAction',
+                'onclick_action' => 'EbayListingGridObj.addProductsSourceCategoriesAction',
             ),
 
             'autoActions' => array(
@@ -148,13 +148,38 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Grid extends Ess_M2ePro_Block_Admi
                 )
             ),
 
+            'editTitle' => array(
+                'caption'        => $helper->__('Title'),
+                'group'          => 'edit_actions',
+                'field'          => 'id',
+                'onclick_action' => 'EditListingTitleObj.openPopup',
+            ),
+
+            'editConfiguration' => array(
+                'caption' => $helper->__('Configuration'),
+                'group'   => 'edit_actions',
+                'field'   => 'id',
+                'url'     => array(
+                    'base'   => '*/adminhtml_ebay_listing/edit',
+                    'params' => array('back' => $backUrl)
+                )
+            ),
+
+            'editPartsCompatibilityMode' => array(
+                'caption'        => $helper->__('Parts Compatibility Mode'),
+                'group'          => 'edit_actions',
+                'field'          => 'id',
+                'onclick_action' => 'EditCompatibilityModeObj.openPopup',
+                'action_id'      => self::MASS_ACTION_ID_EDIT_PARTS_COMPATIBILITY
+            ),
+
             'viewLogs' => array(
                 'caption' => $helper->__('Logs & Events'),
                 'group'   => 'other',
-                'field'   => 'id',
+                'field'   => 'listing_id',
                 'url'     => array(
                     'base'   => '*/adminhtml_ebay_log/listing',
-                    'params' => array('id' => $this->getId())
+                    'params' => array('listing_id' => $this->getId())
                 )
             ),
 
@@ -180,63 +205,6 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Grid extends Ess_M2ePro_Block_Admi
                     'base'   => '*/adminhtml_ebay_listing/delete',
                     'params' => array('id' => $this->getId())
                 )
-            ),
-
-            'editTitle' => array(
-                'caption'        => $helper->__('Title'),
-                'group'          => 'edit_actions',
-                'field'          => 'id',
-                'onclick_action' => 'EditListingTitleObj.openPopup',
-            ),
-
-            'editSelling' => array(
-                'caption' => $helper->__('Selling'),
-                'group'   => 'edit_actions',
-                'field'   => 'id',
-                'url'     => array(
-                    'base'   => '*/adminhtml_ebay_template/editListing',
-                    'params' => array(
-                        'id' => $this->getId(),
-                        'tab' => 'selling',
-                        'back' => $backUrl
-                    )
-                )
-            ),
-
-            'editSynchronization' => array(
-                'caption' => $helper->__('Synchronization'),
-                'group'   => 'edit_actions',
-                'field'   => 'id',
-                'url'     => array(
-                    'base'   => '*/adminhtml_ebay_template/editListing',
-                    'params' => array(
-                        'id' => $this->getId(),
-                        'tab' => 'synchronization',
-                        'back' => $backUrl
-                    )
-                )
-            ),
-
-            'editPaymentAndShipping' => array(
-                'caption' => $helper->__('Payment And Shipping'),
-                'group'   => 'edit_actions',
-                'field'   => 'id',
-                'url'     => array(
-                    'base'   => '*/adminhtml_ebay_template/editListing',
-                    'params' => array(
-                        'id' => $this->getId(),
-                        'tab' => 'general',
-                        'back' => $backUrl
-                    )
-                )
-            ),
-
-            'editPartsCompatibilityMode' => array(
-                'caption'        => $helper->__('Parts Compatibility Mode'),
-                'group'          => 'edit_actions',
-                'field'          => 'id',
-                'onclick_action' => 'EditCompatibilityModeObj.openPopup',
-                'action_id'      => self::MASS_ACTION_ID_EDIT_PARTS_COMPATIBILITY
             ),
         );
 
@@ -283,7 +251,7 @@ HTML;
         }
 
         $account = Mage::helper('M2ePro')->__('Account');
-        $marketplace = Mage::helper('M2ePro')->__('eBay Site');
+        $marketplace = Mage::helper('M2ePro')->__('Marketplace');
         $store = Mage::helper('M2ePro')->__('Magento Store View');
 
         $value .= <<<HTML
@@ -386,7 +354,7 @@ HTML;
             'Ess_M2ePro_Helper_Component'
         );
 
-        EbayListingGridHandlerObj = new EbayListingGridHandler('{$this->getId()}');
+        EbayListingGridObj = new EbayListingGrid('{$this->getId()}');
         EditListingTitleObj = new ListingEditListingTitle('{$this->getId()}');
         EditCompatibilityModeObj = new EditCompatibilityMode('{$this->getId()}');
     });

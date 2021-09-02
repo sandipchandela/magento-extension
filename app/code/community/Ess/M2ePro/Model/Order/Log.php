@@ -6,6 +6,8 @@
  * @license    Commercial use is forbidden
  */
 
+use Ess_M2ePro_Model_Connector_Connection_Response_Message as Message;
+
 class Ess_M2ePro_Model_Order_Log extends Ess_M2ePro_Model_Log_Abstract
 {
     /** @var int|null  */
@@ -41,40 +43,57 @@ class Ess_M2ePro_Model_Order_Log extends Ess_M2ePro_Model_Log_Abstract
 
     //########################################
 
-    public function addMessage($orderId, $description, $type, array $additionalData = array())
+    /**
+     * @param Ess_M2ePro_Model_Order|int $order
+     * @param string $description
+     * @param int $type
+     * @param array $additionalData
+     */
+    public function addMessage($order, $description, $type, array $additionalData = array())
     {
-        $dataForAdd = $this->makeDataForAdd($orderId, $description, $type, $additionalData);
-        $this->createMessage($dataForAdd);
-    }
+        if (!($order instanceof Ess_M2ePro_Model_Order)) {
+            $order = Mage::getModel('M2ePro/Order')->load($order);
+        }
 
-    //########################################
+        $dataForAdd = array(
+            'account_id'      => $order->getAccountId(),
+            'marketplace_id'  => $order->getMarketplaceId(),
+            'order_id'        => $order->getId(),
+            'description'     => $description,
+            'type'            => (int)$type,
+            'additional_data' => Mage::helper('M2ePro')->jsonEncode($additionalData),
 
-    protected function createMessage($dataForAdd)
-    {
-        $dataForAdd['initiator'] = $this->_initiator ? $this->_initiator : Ess_M2ePro_Helper_Data::INITIATOR_EXTENSION;
-        $dataForAdd['component_mode'] = $this->getComponentMode();
+            'initiator'      => $this->_initiator ? $this->_initiator : Ess_M2ePro_Helper_Data::INITIATOR_EXTENSION,
+            'component_mode' => $this->getComponentMode()
+        );
 
-        $this->isObjectNew(true);
-
-        $this->setId(null)
+        Mage::getModel('M2ePro/Order_Log')
             ->setData($dataForAdd)
             ->save();
     }
 
-    protected function makeDataForAdd($orderId, $description, $type, array $additionalData = array())
+    /**
+     * @param Ess_M2ePro_Model_Order|int $order
+     * @param Message $message
+     */
+    public function addServerResponseMessage($order, Message $message)
     {
-        $order = Mage::getModel('M2ePro/Order')->load($orderId);
+        if (!($order instanceof Ess_M2ePro_Model_Order)) {
+            $order = Mage::getModel('M2ePro/Order')->load($order);
+        }
 
-        $dataForAdd = array(
-            'account_id'      => $order->getData('account_id'),
-            'marketplace_id'  => $order->getData('marketplace_id'),
-            'order_id'        => $orderId,
-            'description'     => $description,
-            'type'            => (int)$type,
-            'additional_data' => Mage::helper('M2ePro')->jsonEncode($additionalData)
+        $map = array(
+            Message::TYPE_NOTICE  => self::TYPE_NOTICE,
+            Message::TYPE_SUCCESS => self::TYPE_SUCCESS,
+            Message::TYPE_WARNING => self::TYPE_WARNING,
+            Message::TYPE_ERROR   => self::TYPE_ERROR
         );
 
-        return $dataForAdd;
+        $this->addMessage(
+            $order,
+            $message->getText(),
+            isset($map[$message->getType()]) ? $map[$message->getType()] : self::TYPE_ERROR
+        );
     }
 
     //########################################

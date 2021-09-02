@@ -17,7 +17,7 @@ class Ess_M2ePro_Sql_Upgrade_v6_3_5__v6_3_6_AllFeatures extends Ess_M2ePro_Model
 
             $installer->run(<<<SQL
 
-    CREATE TABLE `m2epro_system_log` (
+    CREATE TABLE `{$this->_installer->getTable('m2epro_system_log')}` (
         id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         `type` VARCHAR(255) DEFAULT NULL,
         description TEXT DEFAULT NULL,
@@ -43,11 +43,13 @@ SQL
 
         if ($connection->tableColumnExists($tempTable, 'creator') || isset($tempTableIndexList[strtoupper('creator')])
         ) {
+            $this->_installer->getTablesObject()->renameTable(
+                'm2epro_listing_log',
+                $tempBackupTable
+            );
 
             $installer->run(<<<SQL
-    RENAME TABLE `m2epro_listing_log` TO {$tempBackupTable};
-
-    CREATE TABLE `m2epro_listing_log` (
+    CREATE TABLE `{$this->_installer->getTable('m2epro_listing_log')}` (
         id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         listing_id INT(11) UNSIGNED DEFAULT NULL,
         product_id INT(11) UNSIGNED DEFAULT NULL,
@@ -83,7 +85,7 @@ SQL
     CHARACTER SET utf8
     COLLATE utf8_general_ci;
 
-    INSERT INTO `m2epro_listing_log`
+    INSERT INTO `{$this->_installer->getTable('m2epro_listing_log')}`
     SELECT
         `id`,
         `listing_id`,
@@ -120,12 +122,15 @@ SQL
 
         if (!$connection->tableColumnExists($tempTable, 'additional_data') ||
             $connection->tableColumnExists($tempTable, 'creator') ||
-            isset($tempTableIndexList[strtoupper('creator')])) {
+            isset($tempTableIndexList[strtoupper('creator')])
+        ) {
+            $this->_installer->getTablesObject()->renameTable(
+                'm2epro_listing_other_log',
+                $tempBackupTable
+            );
 
             $installer->run(<<<SQL
-    RENAME TABLE `m2epro_listing_other_log` TO {$tempBackupTable};
-
-    CREATE TABLE `m2epro_listing_other_log` (
+    CREATE TABLE `{$this->_installer->getTable('m2epro_listing_other_log')}` (
         id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         listing_other_id INT(11) UNSIGNED DEFAULT NULL,
         identifier VARCHAR(32) DEFAULT NULL,
@@ -155,7 +160,7 @@ SQL
     CHARACTER SET utf8
     COLLATE utf8_general_ci;
 
-    INSERT INTO `m2epro_listing_other_log`
+    INSERT INTO `{$this->_installer->getTable('m2epro_listing_other_log')}`
     SELECT
         `id`,
         `listing_other_id`,
@@ -189,12 +194,15 @@ SQL
 
         if (!$connection->tableColumnExists($tempTable, 'additional_data') ||
             $connection->tableColumnExists($tempTable, 'creator') ||
-            isset($tempTableIndexList[strtoupper('creator')])) {
+            isset($tempTableIndexList[strtoupper('creator')])
+        ) {
+            $this->_installer->getTablesObject()->renameTable(
+                'm2epro_synchronization_log',
+                $tempBackupTable
+            );
 
             $installer->run(<<<SQL
-    RENAME TABLE `m2epro_synchronization_log` TO {$tempBackupTable};
-
-    CREATE TABLE `m2epro_synchronization_log` (
+    CREATE TABLE `{$this->_installer->getTable('m2epro_synchronization_log')}` (
         id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         operation_history_id INT(11) UNSIGNED DEFAULT NULL,
         task TINYINT(2) UNSIGNED NOT NULL DEFAULT 0,
@@ -218,7 +226,7 @@ SQL
     CHARACTER SET utf8
     COLLATE utf8_general_ci;
 
-    INSERT INTO `m2epro_synchronization_log`
+    INSERT INTO `{$this->_installer->getTable('m2epro_synchronization_log')}`
     SELECT
         `id`,
         `operation_history_id`,
@@ -247,11 +255,13 @@ SQL
         $tempBackupTable = $installer->getTable('m2epro_backup_v636_order_log');
 
         if (!$connection->tableColumnExists($tempTable, 'additional_data')) {
+            $this->_installer->getTablesObject()->renameTable(
+                'm2epro_order_log',
+                $tempBackupTable
+            );
 
             $installer->run(<<<SQL
-    RENAME TABLE `m2epro_order_log` TO {$tempBackupTable};
-
-    CREATE TABLE m2epro_order_log (
+    CREATE TABLE `{$this->_installer->getTable('m2epro_order_log')}` (
         id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         order_id INT(11) UNSIGNED DEFAULT NULL,
         type TINYINT(2) UNSIGNED NOT NULL DEFAULT 2,
@@ -270,7 +280,7 @@ SQL
     CHARACTER SET utf8
     COLLATE utf8_general_ci;
 
-    INSERT INTO `m2epro_order_log`
+    INSERT INTO `{$this->_installer->getTable('m2epro_order_log')}`
     SELECT
         `id`,
         `order_id`,
@@ -298,7 +308,7 @@ SQL
 
             $installer->run(<<<SQL
 
-    CREATE TABLE `m2epro_amazon_dictionary_shipping_override` (
+    CREATE TABLE `{$this->_installer->getTable('m2epro_amazon_dictionary_shipping_override')}` (
         id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         marketplace_id INT(11) UNSIGNED NOT NULL,
         `service` VARCHAR(255) NOT NULL,
@@ -323,7 +333,7 @@ SQL
 
             $installer->run(<<<SQL
 
-    CREATE TABLE `m2epro_amazon_template_shipping_override` (
+    CREATE TABLE `{$this->_installer->getTable('m2epro_amazon_template_shipping_override')}` (
         id int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         title varchar(255) NOT NULL,
         marketplace_id INT(11) UNSIGNED NOT NULL,
@@ -349,7 +359,7 @@ SQL
 
             $installer->run(<<<SQL
 
-    CREATE TABLE `m2epro_amazon_template_shipping_override_service` (
+    CREATE TABLE `{$this->_installer->getTable('m2epro_amazon_template_shipping_override_service')}` (
         id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         template_shipping_override_id INT(11) UNSIGNED NOT NULL,
         `service` VARCHAR(255) NOT NULL,
@@ -398,7 +408,7 @@ SQL
 
             $installer->run(<<<SQL
 
-    UPDATE `m2epro_amazon_template_synchronization`
+    UPDATE `{$this->_installer->getTable('m2epro_amazon_template_synchronization')}`
     SET `revise_change_shipping_override_template` = 1;
 
 SQL
@@ -445,7 +455,8 @@ SQL
 
             $installer->run(<<<SQL
 
-        INSERT INTO `m2epro_config` (`group`,`key`,`value`,`notice`,`update_date`,`create_date`)
+        INSERT INTO `{$this->_installer->getTable('m2epro_config')}` 
+        (`group`,`key`,`value`,`notice`,`update_date`,`create_date`)
         VALUES ('/debug/logging/', 'send_to_server', 1, '0 - disable,\r\n1 - enable',
                 '2015-08-12 00:00:00', '2015-08-12 00:00:00'),
                ('/ebay/description/', 'upload_images_mode', 2, NULL, '2015-08-21 00:00:00', '2015-08-21 00:00:00');
@@ -467,7 +478,8 @@ SQL
 
             $installer->run(<<<SQL
 
-        INSERT INTO `m2epro_wizard` (`nick`, `view`, `status`, `step`, `type`, `priority`)
+        INSERT INTO `{$this->_installer->getTable('m2epro_wizard')}` 
+        (`nick`, `view`, `status`, `step`, `type`, `priority`)
         VALUES ('amazonShippingOverridePolicy', 'common', 0, NULL, 1, 9);
 SQL
             );
@@ -477,19 +489,19 @@ SQL
 
         $installer->run(<<<SQL
 
-    UPDATE `m2epro_ebay_marketplace`
+    UPDATE `{$this->_installer->getTable('m2epro_ebay_marketplace')}`
     SET `is_international_shipping_rate_table` = 1
     WHERE `marketplace_id` = 1;
 
-    UPDATE `m2epro_ebay_marketplace`
+    UPDATE `{$this->_installer->getTable('m2epro_ebay_marketplace')}`
     SET `is_holiday_return` = 1
     WHERE `marketplace_id` = 19;
 
-    UPDATE `m2epro_ebay_marketplace`
+    UPDATE `{$this->_installer->getTable('m2epro_ebay_marketplace')}`
     SET `is_freight_shipping` = 1
     WHERE `marketplace_id` = 19;
 
-    UPDATE `m2epro_synchronization_config`
+    UPDATE `{$this->_installer->getTable('m2epro_synchronization_config')}`
     SET `value` = 1
     WHERE (`group` = '/ebay/other_listings/' AND `key` = 'mode')
     OR    (`group` = '/amazon/other_listings/' AND `key` = 'mode')
@@ -498,12 +510,12 @@ SQL
     OR    (`group` = '/amazon/other_listings/update/' AND `key` = 'mode')
     OR    (`group` = '/buy/other_listings/update/' AND `key` = 'mode');
 
-    UPDATE `m2epro_wizard` as `mw`
+    UPDATE `{$this->_installer->getTable('m2epro_wizard')}` as `mw`
     SET `mw`.`status` = 3
     WHERE `mw`.`nick` = 'amazonShippingOverridePolicy'
     AND (
         (SELECT `mc`.`value`
-         FROM `m2epro_config` as `mc`
+         FROM `{$this->_installer->getTable('m2epro_config')}` as `mc`
          WHERE `mc`.`value` IS NOT NULL
          AND `mc`.`group` = '/component/amazon/'
          AND `mc`.`key` = 'mode'
@@ -512,7 +524,7 @@ SQL
          OR
 
         (SELECT `mc`.`value`
-         FROM `m2epro_config` as `mc`
+         FROM `{$this->_installer->getTable('m2epro_config')}` as `mc`
          WHERE `mc`.`value` IS NOT NULL
          AND `mc`.`group` = '/component/amazon/'
          AND `mc`.`key` = 'allowed'
@@ -520,7 +532,7 @@ SQL
 
          OR
 
-         (SELECT COUNT(`mm`.`id`) FROM `m2epro_marketplace` as `mm`
+         (SELECT COUNT(`mm`.`id`) FROM `{$this->_installer->getTable('m2epro_marketplace')}` as `mm`
           WHERE `mm`.`component_mode` = 'amazon'
           AND `mm`.`status` = 1) = 0
     );

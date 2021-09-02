@@ -91,7 +91,7 @@ class Ess_M2ePro_Adminhtml_OrderController
 
             if ($actionSuccessful) {
                 $this->_getSession()->addSuccess(
-                    Mage::helper('M2ePro')->__('QTY for selected Order(s) was successfully reserved.')
+                    Mage::helper('M2ePro')->__('QTY for selected Order(s) was reserved.')
                 );
             } else {
                 $this->_getSession()->addError(
@@ -139,7 +139,7 @@ class Ess_M2ePro_Adminhtml_OrderController
 
             if ($actionSuccessful) {
                 $this->_getSession()->addSuccess(
-                    Mage::helper('M2ePro')->__('QTY reserve for selected Order(s) was successfully canceled.')
+                    Mage::helper('M2ePro')->__('QTY reserve for selected Order(s) was canceled.')
                 );
             } else {
                 $this->_getSession()->addError(
@@ -192,7 +192,7 @@ class Ess_M2ePro_Adminhtml_OrderController
                 Mage::helper('M2ePro')->jsonEncode(
                     array(
                         'title' => Mage::helper('M2ePro')->__(
-                            'Mapping Product "%title%"',
+                            'Linking Product "%title%"',
                             $item->getChildObject()->getTitle()
                         ),
                         'html' => $block->toHtml(),
@@ -278,7 +278,7 @@ class Ess_M2ePro_Adminhtml_OrderController
             $this->getResponse()->setBody(
                 Mage::helper('M2ePro')->jsonEncode(
                     array(
-                    'error' => Mage::helper('M2ePro')->__('Product does not exist.')
+                        'error' => Mage::helper('M2ePro')->__('Product does not exist.')
                     )
                 )
             );
@@ -289,17 +289,23 @@ class Ess_M2ePro_Adminhtml_OrderController
 
         $orderItem->getOrder()->getLog()->setInitiator(Ess_M2ePro_Helper_Data::INITIATOR_USER);
         $orderItem->getOrder()->addSuccessLog(
-            'Order Item "%title%" was successfully Mapped.',
+            'Order Item "%title%" was Linked.',
             array(
                 'title' => $orderItem->getChildObject()->getTitle(),
             )
         );
 
+        $isPretendedToBeSimple = false;
+        if ($orderItem->getMagentoProduct()->isGroupedType() &&
+            $orderItem->getChildObject()->getChannelItem() !== null) {
+            $isPretendedToBeSimple = $orderItem->getChildObject()->getChannelItem()->isGroupedProductModeSet();
+        }
+
         $this->getResponse()->setBody(
             Mage::helper('M2ePro')->jsonEncode(
                 array(
-                'success'  => Mage::helper('M2ePro')->__('Order Item was successfully Mapped.'),
-                'continue' => $orderItem->getMagentoProduct()->isProductWithVariations()
+                    'success'  => Mage::helper('M2ePro')->__('Order Item was Linked.'),
+                    'continue' => $orderItem->getMagentoProduct()->isProductWithVariations() && !$isPretendedToBeSimple
                 )
             )
         );
@@ -385,7 +391,7 @@ class Ess_M2ePro_Adminhtml_OrderController
 
         $orderItem->getOrder()->getLog()->setInitiator(Ess_M2ePro_Helper_Data::INITIATOR_USER);
         $orderItem->getOrder()->addSuccessLog(
-            'Order Item "%title%" Options were Successfully configured.', array(
+            'Order Item "%title%" Options were configured.', array(
             'title' => $orderItem->getChildObject()->getTitle()
             )
         );
@@ -393,7 +399,7 @@ class Ess_M2ePro_Adminhtml_OrderController
         $this->getResponse()->setBody(
             Mage::helper('M2ePro')->jsonEncode(
                 array(
-                'success' => Mage::helper('M2ePro')->__('Order Item Options were Successfully configured.')
+                    'success' => Mage::helper('M2ePro')->__('Order Item Options were configured.')
                 )
             )
         );
@@ -442,7 +448,7 @@ class Ess_M2ePro_Adminhtml_OrderController
         $orderItem->unassignProduct();
 
         $orderItem->getOrder()->addSuccessLog(
-            'Item "%title%" was successfully Unmapped.',
+            'Item "%title%" was Unlinked.',
             array(
                 'title' => $orderItem->getChildObject()->getTitle()
             )
@@ -451,7 +457,7 @@ class Ess_M2ePro_Adminhtml_OrderController
         $this->getResponse()->setBody(
             Mage::helper('M2ePro')->jsonEncode(
                 array(
-                'success' => Mage::helper('M2ePro')->__('Item was successfully Unmapped.')
+                    'success' => Mage::helper('M2ePro')->__('Item was Unlinked.')
                 )
             )
         );
@@ -553,7 +559,8 @@ class Ess_M2ePro_Adminhtml_OrderController
                 $order->getLog()->setInitiator(Ess_M2ePro_Helper_Data::INITIATOR_USER);
 
                 /** @var Ess_M2ePro_Model_Order_Shipment_Handler $handler */
-                $handler = Ess_M2ePro_Model_Order_Shipment_Handler::factory($order->getComponentMode());
+                $componentMode = ucfirst($order->getComponentMode());
+                $handler = Mage::getModel("M2ePro/{$componentMode}_Order_Shipment_Handler");
                 $result  = $handler->handle($order, $shipment);
 
                 if ($result == Ess_M2ePro_Model_Order_Shipment_Handler::HANDLE_RESULT_FAILED) {
@@ -571,7 +578,7 @@ class Ess_M2ePro_Adminhtml_OrderController
             $this->_getSession()->addError($errorMessage);
         } else {
             $this->_getSession()->addSuccess(
-                Mage::helper('M2ePro')->__('Shipping Information has been successfully resend.')
+                Mage::helper('M2ePro')->__('Shipping Information has been resend.')
             );
         }
 
@@ -676,8 +683,21 @@ class Ess_M2ePro_Adminhtml_OrderController
 
         $order->deleteInstance();
 
-        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Order was successfully deleted.'));
+        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Order was deleted.'));
         $this->_redirect('*/*/index');
+    }
+
+    //########################################
+
+    public function skipLogNotificationToCurrentDateAction()
+    {
+        $currentDate = new DateTime('now', new DateTimeZone('UTC'));
+
+        /** @var Ess_M2ePro_Helper_Order_Notification $configHelper */
+        $configHelper = Mage::helper('M2ePro/Order_Notification');
+        $configHelper->setNotificationDate($currentDate->format('Y-m-d'));
+
+        return $this->getResponse()->setBody(Mage::helper('M2ePro')->jsonEncode(array('result' => true)));
     }
 
     //########################################

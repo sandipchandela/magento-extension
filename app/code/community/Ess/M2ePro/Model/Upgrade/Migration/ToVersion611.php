@@ -96,25 +96,19 @@ class Ess_M2ePro_Model_Upgrade_Migration_ToVersion611
 
     protected function prepareOrdersTables()
     {
-        $connection = $this->_installer->getConnection();
+        $this->_installer->getTablesObject()->renameTable(
+            'm2epro_ebay_order',
+            'm2epro' . self::BACKUP_TABLE_PREFIX . '_ebay_order'
+        );
 
-        $orderTable = $this->_installer->getTable('m2epro_ebay_order');
-        $orderBackupOTable = $this->_installer->getTable('m2epro' . self::BACKUP_TABLE_PREFIX . '_ebay_order');
-
-        if ($this->_installer->tableExists($orderTable) && !$this->_installer->tableExists($orderBackupOTable)) {
-            $connection->query("RENAME TABLE `{$orderTable}` TO `{$orderBackupOTable}`");
-        }
-
-        $orderItemTable = $this->_installer->getTable('m2epro_ebay_order_item');
-        $orderItemBackupTable = $this->_installer->getTable('m2epro' . self::BACKUP_TABLE_PREFIX . '_ebay_order_item');
-
-        if ($this->_installer->tableExists($orderItemTable) && !$this->_installer->tableExists($orderItemBackupTable)) {
-            $connection->query("RENAME TABLE `{$orderItemTable}` TO `{$orderItemBackupTable}`");
-        }
+        $this->_installer->getTablesObject()->renameTable(
+            'm2epro_ebay_order_item',
+            'm2epro' . self::BACKUP_TABLE_PREFIX . '_ebay_order_item'
+        );
 
         $this->_installer->run(
             <<<SQL
-CREATE TABLE IF NOT EXISTS m2epro_ebay_order (
+CREATE TABLE IF NOT EXISTS `{$this->_installer->getTable('m2epro_ebay_order')}` (
   order_id INT(11) UNSIGNED NOT NULL,
   ebay_order_id VARCHAR(255) NOT NULL,
   selling_manager_id INT(11) UNSIGNED DEFAULT NULL,
@@ -148,7 +142,7 @@ ENGINE = INNODB
 CHARACTER SET utf8
 COLLATE utf8_general_ci;
 
-CREATE TABLE IF NOT EXISTS m2epro_ebay_order_item (
+CREATE TABLE IF NOT EXISTS `{$this->_installer->getTable('m2epro_ebay_order_item')}` (
   order_item_id INT(11) UNSIGNED NOT NULL,
   transaction_id VARCHAR(20) NOT NULL,
   selling_manager_id INT(11) UNSIGNED DEFAULT NULL,
@@ -193,7 +187,7 @@ SQL;
             $this->_installer->run(
                 <<<SQL
 
-INSERT INTO `m2epro_config` (`group`,`key`,`value`,`notice`,`update_date`,`create_date`) VALUES
+INSERT INTO `{$tempTable}` (`group`,`key`,`value`,`notice`,`update_date`,`create_date`) VALUES
 ('/ebay/order/migration_to_v611/', 'is_need_migrate', '1', null, '2013-09-18 00:00:00', '2013-09-18 00:00:00');
 
 SQL

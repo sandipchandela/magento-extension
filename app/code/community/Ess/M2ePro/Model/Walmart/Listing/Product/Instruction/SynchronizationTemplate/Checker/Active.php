@@ -23,6 +23,7 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
             ProductChangeProcessor::INSTRUCTION_TYPE_PRODUCT_STATUS_DATA_POTENTIALLY_CHANGED,
             Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_OTHER,
             Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_LISTING,
+            Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_REMAP_FROM_LISTING,
             Ess_M2ePro_Model_Walmart_Listing_Product::INSTRUCTION_TYPE_CHANNEL_QTY_CHANGED,
             Ess_M2ePro_Model_Walmart_Listing_Product::INSTRUCTION_TYPE_CHANNEL_STATUS_CHANGED,
             Ess_M2ePro_Model_Walmart_Template_ChangeProcessor_Abstract::INSTRUCTION_TYPE_QTY_DATA_CHANGED,
@@ -56,13 +57,6 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
             return false;
         }
 
-        $variationManager = $walmartListingProduct->getVariationManager();
-        if ($variationManager->isVariationProduct()) {
-            if ($variationManager->isRelationParentType()) {
-                return false;
-            }
-        }
-
         if ($scheduledAction = $this->_input->getScheduledAction()) {
             if ($scheduledAction->isActionTypeDelete() && $scheduledAction->isForce()) {
                 return false;
@@ -80,6 +74,8 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
         if ($scheduledAction === null) {
             $scheduledAction = Mage::getModel('M2ePro/Listing_Product_ScheduledAction');
         }
+
+        $variationManager = $this->_input->getListingProduct()->getChildObject()->getVariationManager();
 
         if ($this->_input->hasInstructionWithTypes($this->getStopInstructionTypes())) {
             if (!$this->isMeetStopRequirements()) {
@@ -121,9 +117,6 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
             return;
         }
 
-        /** @var Ess_M2ePro_Model_Walmart_Listing_Product $walmartListingProduct */
-        $walmartListingProduct = $this->_input->getListingProduct()->getChildObject();
-
         /** @var Ess_M2ePro_Model_Walmart_Listing_Product_Action_Configurator $configurator */
         $configurator = Mage::getModel('M2ePro/Walmart_Listing_Product_Action_Configurator');
         $configurator->disableAll();
@@ -147,6 +140,12 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
         }
 
         $tags = array_flip($tags);
+
+        if ($variationManager->isRelationParentType() &&
+            $this->_input->getListingProduct()->getChildObject()->getSku() === null
+        ) {
+            return false;
+        }
 
         if ($this->_input->hasInstructionWithTypes($this->getReviseQtyInstructionTypes())) {
             if ($this->isMeetReviseQtyRequirements()) {
@@ -190,11 +189,11 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
 
         if ($this->_input->hasInstructionWithTypes($this->getReviseDetailsInstructionTypes())) {
             if ($this->isMeetReviseDetailsRequirements()) {
-                !$walmartListingProduct->isDetailsDataChanged() &&
-                $walmartListingProduct->setData('is_details_data_changed', true)->save();
+                $configurator->allowDetails();
+                $tags['details'] = true;
             } else {
-                $walmartListingProduct->isDetailsDataChanged() &&
-                $walmartListingProduct->setData('is_details_data_changed', false)->save();
+                $configurator->disallowDetails();
+                unset($tags['details']);
             }
         }
 
@@ -244,6 +243,9 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
         /** @var Ess_M2ePro_Model_Walmart_Listing_Product $walmartListingProduct */
         $walmartListingProduct = $listingProduct->getChildObject();
         $variationManager = $walmartListingProduct->getVariationManager();
+        if ($variationManager->isRelationParentType()) {
+            return false;
+        }
 
         $walmartSynchronizationTemplate = $walmartListingProduct->getWalmartSynchronizationTemplate();
         $variationResource = Mage::getResourceModel('M2ePro/Listing_Product_Variation');
@@ -290,48 +292,11 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
             }
         }
 
-        if ($walmartSynchronizationTemplate->isStopWhenQtyMagentoHasValue()) {
-            $productQty = (int)$walmartListingProduct->getQty(true);
-
-            $typeQty = (int)$walmartSynchronizationTemplate->getStopWhenQtyMagentoHasValueType();
-            $minQty = (int)$walmartSynchronizationTemplate->getStopWhenQtyMagentoHasValueMin();
-            $maxQty = (int)$walmartSynchronizationTemplate->getStopWhenQtyMagentoHasValueMax();
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_LESS &&
-                $productQty <= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_MORE &&
-                $productQty >= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_BETWEEN &&
-                $productQty >= $minQty && $productQty <= $maxQty) {
-                return true;
-            }
-        }
-
         if ($walmartSynchronizationTemplate->isStopWhenQtyCalculatedHasValue()) {
             $productQty = (int)$walmartListingProduct->getQty(false);
+            $minQty = (int)$walmartSynchronizationTemplate->getStopWhenQtyCalculatedHasValue();
 
-            $typeQty = (int)$walmartSynchronizationTemplate->getStopWhenQtyCalculatedHasValueType();
-            $minQty = (int)$walmartSynchronizationTemplate->getStopWhenQtyCalculatedHasValueMin();
-            $maxQty = (int)$walmartSynchronizationTemplate->getStopWhenQtyCalculatedHasValueMax();
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_LESS &&
-                $productQty <= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_MORE &&
-                $productQty >= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_BETWEEN &&
-                $productQty >= $minQty && $productQty <= $maxQty) {
+            if ($productQty <= $minQty) {
                 return true;
             }
         }
@@ -361,9 +326,12 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
 
         /** @var Ess_M2ePro_Model_Walmart_Listing_Product $walmartListingProduct */
         $walmartListingProduct = $listingProduct->getChildObject();
+        $variationManager = $walmartListingProduct->getVariationManager();
+        if ($variationManager->isRelationParentType()) {
+            return false;
+        }
 
         $walmartSynchronizationTemplate = $walmartListingProduct->getWalmartSynchronizationTemplate();
-
         if (!$walmartSynchronizationTemplate->isReviseUpdateQty()) {
             return false;
         }
@@ -393,9 +361,12 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
 
         /** @var Ess_M2ePro_Model_Walmart_Listing_Product $walmartListingProduct */
         $walmartListingProduct = $listingProduct->getChildObject();
+        $variationManager = $walmartListingProduct->getVariationManager();
+        if ($variationManager->isRelationParentType()) {
+            return false;
+        }
 
         $walmartSynchronizationTemplate = $walmartListingProduct->getWalmartSynchronizationTemplate();
-
         if (!$walmartSynchronizationTemplate->isReviseUpdateQty()) {
             return false;
         }
@@ -418,9 +389,12 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
 
         /** @var Ess_M2ePro_Model_Walmart_Listing_Product $walmartListingProduct */
         $walmartListingProduct = $listingProduct->getChildObject();
+        $variationManager = $walmartListingProduct->getVariationManager();
+        if ($variationManager->isRelationParentType()) {
+            return false;
+        }
 
         $walmartSynchronizationTemplate = $walmartListingProduct->getWalmartSynchronizationTemplate();
-
         if (!$walmartSynchronizationTemplate->isReviseUpdatePrice()) {
             return false;
         }
@@ -428,8 +402,7 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
         $currentPrice = $walmartListingProduct->getPrice();
         $onlinePrice  = $walmartListingProduct->getOnlinePrice();
 
-        $isChanged = $walmartSynchronizationTemplate->isPriceChangedOverAllowedDeviation($onlinePrice, $currentPrice);
-        if ($isChanged) {
+        if ($currentPrice != $onlinePrice) {
             return true;
         }
 
@@ -444,9 +417,12 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
 
         /** @var Ess_M2ePro_Model_Walmart_Listing_Product $walmartListingProduct */
         $walmartListingProduct = $listingProduct->getChildObject();
+        $variationManager = $walmartListingProduct->getVariationManager();
+        if ($variationManager->isRelationParentType()) {
+            return false;
+        }
 
         $walmartSynchronizationTemplate = $walmartListingProduct->getWalmartSynchronizationTemplate();
-
         if (!$walmartSynchronizationTemplate->isReviseUpdatePromotions()) {
             return false;
         }
@@ -457,10 +433,17 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
         $onlinePromotions = $walmartListingProduct->getOnlinePromotions();
 
         if (empty($onlinePromotions)) {
-            $onlinePromotions = array('promotion_prices' => array());
+            $onlinePromotions = $hashDetailsData = Mage::helper('M2ePro')->hashString(
+                Mage::helper('M2ePro')->jsonEncode(array('promotion_prices' => array())),
+                'md5'
+            );
         }
 
-        return $promotionsActionDataBuilder->getData() != $onlinePromotions;
+        $hashPromotionsData = Mage::helper('M2ePro')->hashString(
+            Mage::helper('M2ePro')->jsonEncode($promotionsActionDataBuilder->getData()),
+            'md5'
+        );
+        return $hashPromotionsData != $onlinePromotions;
     }
 
     // ---------------------------------------
@@ -472,10 +455,16 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
         /** @var Ess_M2ePro_Model_Walmart_Listing_Product $walmartListingProduct */
         $walmartListingProduct = $listingProduct->getChildObject();
 
-        $detailsActionDataBuilder = Mage::getModel('M2ePro/Walmart_Listing_Product_Action_DataBuilder_Details');
-        $detailsActionDataBuilder->setListingProduct($listingProduct);
+        $walmartSynchronizationTemplate = $walmartListingProduct->getWalmartSynchronizationTemplate();
 
-        $currentDetailsData = $detailsActionDataBuilder->getData();
+        if (!$walmartSynchronizationTemplate->isReviseUpdateDetails()) {
+            return false;
+        }
+
+        $actionDataBuilder = Mage::getModel('M2ePro/Walmart_Listing_Product_Action_DataBuilder_Details');
+        $actionDataBuilder->setListingProduct($listingProduct);
+
+        $currentDetailsData = $actionDataBuilder->getData();
 
         $currentStartDate = $currentDetailsData['start_date'];
         unset($currentDetailsData['start_date']);
@@ -483,7 +472,11 @@ class Ess_M2ePro_Model_Walmart_Listing_Product_Instruction_SynchronizationTempla
         $currentEndDate = $currentDetailsData['end_date'];
         unset($currentDetailsData['end_date']);
 
-        if ($currentDetailsData != $walmartListingProduct->getOnlineDetailsData()) {
+        $hashDetailsData = Mage::helper('M2ePro')->hashString(
+            Mage::helper('M2ePro')->jsonEncode($currentDetailsData),
+            'md5'
+        );
+        if ($hashDetailsData != $walmartListingProduct->getOnlineDetailsData()) {
             return true;
         }
 

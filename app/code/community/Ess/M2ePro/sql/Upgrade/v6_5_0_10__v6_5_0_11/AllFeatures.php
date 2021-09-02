@@ -13,8 +13,8 @@ class Ess_M2ePro_Sql_Upgrade_v6_5_0_10__v6_5_0_11_AllFeatures extends Ess_M2ePro
 
         $installer->run(<<<SQL
 
-DELETE mp.*, mpl.* FROM `m2epro_processing` mp
-LEFT JOIN `m2epro_processing_lock` mpl ON mpl.processing_id = mp.id
+DELETE mp.*, mpl.* FROM `{$this->_installer->getTable('m2epro_processing')}` mp
+LEFT JOIN `{$this->_installer->getTable('m2epro_processing_lock')}` mpl ON mpl.processing_id = mp.id
 WHERE mp.model LIKE '%Amazon_Synchronization_Orders_Receive_ProcessingRunner%'
 
 SQL
@@ -25,7 +25,7 @@ SQL
         if (!$installer->getTablesObject()->isExists('amazon_listing_product_action_processing_list_sku')) {
             $installer->run(<<<SQL
 
-CREATE TABLE `m2epro_amazon_listing_product_action_processing_list_sku` (
+CREATE TABLE `{$this->_installer->getTable('m2epro_amazon_listing_product_action_processing_list_sku')}` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `account_id` INT(11) UNSIGNED NOT NULL,
   `sku` VARCHAR(255) NOT NULL,
@@ -221,20 +221,20 @@ SQL
             'is_repricing_inactive', 'TINYINT(2) UNSIGNED NOT NULL', '0', 'is_repricing_disabled', true);
 
         $installer->run(<<<SQL
-    UPDATE `m2epro_amazon_listing_product_repricing`
+    UPDATE `{$this->_installer->getTable('m2epro_amazon_listing_product_repricing')}`
     SET `is_online_inactive` = 0;
 SQL
         );
 
         $installer->run(<<<SQL
-    UPDATE `m2epro_amazon_listing_other`
+    UPDATE `{$this->_installer->getTable('m2epro_amazon_listing_other')}`
     SET `is_repricing_inactive` = 0;
 SQL
         );
 
         $installer->run(<<<SQL
-UPDATE `m2epro_listing_product` mlp
-  JOIN `m2epro_amazon_listing_product` malp
+UPDATE `{$this->_installer->getTable('m2epro_listing_product')}` mlp
+  JOIN `{$this->_installer->getTable('m2epro_amazon_listing_product')}` malp
     ON mlp.id = malp.listing_product_id
   SET mlp.additional_data = REPLACE(`additional_data`, 'repricing_disabled_count', 'repricing_not_managed_count')
   WHERE malp.is_repricing = 1;
@@ -242,8 +242,8 @@ SQL
         );
 
         $installer->run(<<<SQL
-UPDATE `m2epro_listing_product` mlp
-  JOIN `m2epro_amazon_listing_product` malp
+UPDATE `{$this->_installer->getTable('m2epro_listing_product')}` mlp
+  JOIN `{$this->_installer->getTable('m2epro_amazon_listing_product')}` malp
     ON mlp.id = malp.listing_product_id
   SET mlp.additional_data = REPLACE(`additional_data`, 'repricing_enabled_count', 'repricing_managed_count')
   WHERE malp.is_repricing = 1;
@@ -308,7 +308,7 @@ SQL
         if (!$installer->getTablesObject()->isExists('magento_product_websites_update')) {
             $installer->run(<<<SQL
 
-CREATE TABLE `m2epro_magento_product_websites_update` (
+CREATE TABLE `{$this->_installer->getTable('m2epro_magento_product_websites_update')}` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `product_id` INT(11) NOT NULL,
   `action` TINYINT(2) UNSIGNED NOT NULL,
@@ -438,13 +438,13 @@ SQL
 
             $installer->run(<<<SQL
 
-INSERT INTO `m2epro_marketplace` VALUES
+INSERT INTO `{$this->_installer->getTable('m2epro_marketplace')}` VALUES
   (34, 9, 'Mexico', 'MX', 'amazon.com.mx', 0, 10, 'America', 'amazon', '2017-09-27 00:00:00', '2017-09-27 00:00:00'),
   (35, 10, 'Australia', 'AU', 'amazon.com.au', 0, 11, 'Asia / Pacific', 'amazon',
    '2017-09-27 00:00:00', '2017-09-27 00:00:00'),
   (36, 0, 'India', 'IN', 'amazon.in', 0, 12, 'Asia / Pacific', 'amazon', '2017-09-27 00:00:00', '2017-09-27 00:00:00');
 
-INSERT INTO `m2epro_amazon_marketplace` VALUES
+INSERT INTO `{$this->_installer->getTable('m2epro_amazon_marketplace')}` VALUES
   (34, '8636-1433-4377', 'MXN',0,0,0,0,0),
   (35, '2770-5005-3793', 'AUD',1,0,0,0,0),
   (36, NULL, '',0,0,0,0,0);
@@ -469,7 +469,7 @@ SQL
 
             if ((int)$listingsCount > 0 || (int)$accountsCount > 0) {
                 $installer->run(<<<SQL
-UPDATE `m2epro_marketplace` SET `status` = 1 WHERE `id` = {$marketplaceId};
+UPDATE `{$this->_installer->getTable('m2epro_marketplace')}` SET `status` = 1 WHERE `id` = {$marketplaceId};
 SQL
                 );
             }
@@ -711,7 +711,7 @@ SQL
         }
 
         $installer->run(<<<SQL
-TRUNCATE TABLE `m2epro_wizard`;
+TRUNCATE TABLE `{$this->_installer->getTable('m2epro_wizard')}`;
 SQL
         );
 
@@ -832,14 +832,10 @@ SQL
             ->renameColumn('template_shipping_template_id', 'template_shipping_id', true, false)
             ->commit();
 
-        if ($installer->getTablesObject()->isExists('amazon_template_shipping_template') &&
-            !$installer->getTablesObject()->isExists('amazon_template_shipping')
-        ) {
-            $installer->run(<<<SQL
-    RENAME TABLE `m2epro_amazon_template_shipping_template` TO `m2epro_amazon_template_shipping`;
-SQL
-            );
-        }
+        $this->_installer->getTablesObject()->renameTable(
+            'm2epro_amazon_template_shipping_template',
+            'm2epro_amazon_template_shipping'
+        );
 
         $installer->getTableModifier('amazon_account')
             ->dropColumn('shipping_mode');
@@ -852,7 +848,7 @@ SQL
         if (!$installer->getTablesObject()->isExists('listing_product_instruction')) {
             $installer->run(<<<SQL
 
-CREATE TABLE `m2epro_listing_product_instruction` (
+CREATE TABLE `{$this->_installer->getTable('m2epro_listing_product_instruction')}` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `listing_product_id` INT(11) UNSIGNED NOT NULL,
   `component` VARCHAR(10) DEFAULT NULL,
@@ -1018,7 +1014,7 @@ SQL
         if (!$installer->getTablesObject()->isExists('listing_product_scheduled_action')) {
             $installer->run(<<<SQL
 
-CREATE TABLE `m2epro_listing_product_scheduled_action` (
+CREATE TABLE `{$this->_installer->getTable('m2epro_listing_product_scheduled_action')}` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `listing_product_id` INT(11) UNSIGNED NOT NULL,
   `component` VARCHAR(10) DEFAULT NULL,
@@ -1065,19 +1061,19 @@ SQL
 
         $installer->run(<<<SQL
 
-UPDATE `m2epro_ebay_listing_product_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_ebay_listing_product_action_processing')}`
 SET `type` = 'list'
 WHERE `type` = 0;
 
-UPDATE `m2epro_ebay_listing_product_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_ebay_listing_product_action_processing')}`
 SET `type` = 'revise'
 WHERE `type` = 1;
 
-UPDATE `m2epro_ebay_listing_product_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_ebay_listing_product_action_processing')}`
 SET `type` = 'relist'
 WHERE `type` = 2;
 
-UPDATE `m2epro_ebay_listing_product_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_ebay_listing_product_action_processing')}`
 SET `type` = 'stop'
 WHERE `type` = 3;
 
@@ -1105,28 +1101,25 @@ SQL
 
         $installer->run(<<<SQL
 
-UPDATE `m2epro_amazon_listing_product_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_amazon_listing_product_action_processing')}`
 SET `type` = 'add'
 WHERE `type` = 0;
 
-UPDATE `m2epro_amazon_listing_product_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_amazon_listing_product_action_processing')}`
 SET `type` = 'update'
 WHERE `type` = 1 OR `type` = 2;
 
-UPDATE `m2epro_amazon_listing_product_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_amazon_listing_product_action_processing')}`
 SET `type` = 'delete'
 WHERE `type` = 3;
 
 SQL
         );
 
-        $amazonOrderActionProcessingTable = $installer->getTablesObject()
-                                                      ->getFullName('amazon_order_action_processing');
-
         if (!$installer->getTablesObject()->isExists('amazon_order_action_processing')) {
             $installer->run(<<<SQL
 
-CREATE TABLE `m2epro_amazon_order_action_processing` (
+CREATE TABLE `{$this->_installer->getTable('m2epro_amazon_order_action_processing')}` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `order_id` INT(11) UNSIGNED DEFAULT NULL,
   `processing_id` INT(11) UNSIGNED NOT NULL,
@@ -1151,7 +1144,7 @@ SQL
 
         $installer->run(<<<SQL
 
-INSERT INTO `m2epro_amazon_order_action_processing` (`order_id`,
+INSERT INTO `{$this->_installer->getTable('m2epro_amazon_order_action_processing')}` (`order_id`,
                                                      `processing_id`,
                                                      `request_pending_single_id`,
                                                      `type`,
@@ -1165,19 +1158,19 @@ SELECT `listing_product_id`,
        `request_data`,
        `update_date`,
        `create_date`
-FROM `m2epro_amazon_listing_product_action_processing` WHERE `type` IN (3, 4, 5);
+FROM `{$this->_installer->getTable('m2epro_amazon_listing_product_action_processing')}` WHERE `type` IN (3, 4, 5);
 
-DELETE FROM `m2epro_amazon_listing_product_action_processing` WHERE `type` IN (3, 4, 5);
+DELETE FROM `{$this->_installer->getTable('m2epro_amazon_listing_product_action_processing')}` WHERE `type` IN (3, 4, 5);
 
-UPDATE `m2epro_amazon_order_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_amazon_order_action_processing')}`
 SET `type` = 'update'
 WHERE `type` = 3;
 
-UPDATE `m2epro_amazon_order_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_amazon_order_action_processing')}`
 SET `type` = 'cancel'
 WHERE `type` = 4;
 
-UPDATE `m2epro_amazon_order_action_processing`
+UPDATE `{$this->_installer->getTable('m2epro_amazon_order_action_processing')}`
 SET `type` = 'refund'
 WHERE `type` = 5;
 

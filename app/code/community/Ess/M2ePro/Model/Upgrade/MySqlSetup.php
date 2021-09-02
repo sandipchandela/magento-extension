@@ -12,12 +12,10 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
 {
     const MODULE_IDENTIFIER = 'M2ePro_setup';
 
-    const INSTALLATION_HISTORY_KEY = '/installation/versions_history/';
-
     /**
      * Means that version, upgrade files are included to the build
      */
-    const MIN_SUPPORTED_VERSION_FOR_UPGRADE = '5.0.3';
+    const MIN_SUPPORTED_VERSION_FOR_UPGRADE = '6.0.8';
 
     /** @var string */
     public $versionFrom;
@@ -32,11 +30,6 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
     protected function _installResourceDb($newVersion)
     {
         if (!$this->getLockObject()->getLock()) {
-            return;
-        }
-
-        if (Mage::helper('M2ePro/Module_Maintenance')->isEnabled() &&
-            !$this->isMaintenanceCanBeIgnored()) {
             return;
         }
 
@@ -56,7 +49,6 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
 
             $this->_setResourceVersion(self::TYPE_DB_INSTALL, $newVersion);
 
-            $this->afterInstall($newVersion);
             $this->afterModuleDbModification();
         } catch (Exception $e) {
             $this->getLockObject()->releaseLock();
@@ -80,40 +72,13 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
             return;
         }
 
-        if (Mage::helper('M2ePro/Module_Maintenance')->isEnabled() &&
-            !$this->isMaintenanceCanBeIgnored()) {
-            return;
-        }
-
         Mage::helper('M2ePro/Module_Maintenance')->enable();
 
         try {
-
-            /** @var Ess_M2ePro_Model_Setup[] $notCompletedUpgrades */
-            $notCompletedUpgrades = $this->getNotCompletedUpgrades();
-            if ($this->getSetupConfigObject()->isAllowedRollbackFromBackup() && !empty($notCompletedUpgrades)) {
-
-                /**
-                 * Only one not completed upgrade is supported
-                 */
-                $notCompletedUpgrade = reset($notCompletedUpgrades);
-                if (version_compare($notCompletedUpgrade->getVersionFrom(), $oldVersion, '<')) {
-                    $oldVersion = $notCompletedUpgrade->getVersionFrom();
-                }
-            }
-
-            if (version_compare($oldVersion, self::MIN_SUPPORTED_VERSION_FOR_UPGRADE, '<')) {
-                throw new Exception(
-                    sprintf(
-                        'This version [%s] is too old.', $oldVersion
-                    )
-                );
-            }
-
             $this->beforeModuleDbModification();
             $this->beforeUpgrade($oldVersion, $newVersion);
 
-            $versionsToExecute = $this->getAvailableFiles($oldVersion, $newVersion);
+            $versionsToExecute = $this->getVersionsToExecute($oldVersion, $newVersion);
             foreach ($versionsToExecute as $versionFrom => $versionTo) {
 
                 /** @var Ess_M2ePro_Model_Upgrade_MySqlSetup_UpgradeManager $upgradeManager */
@@ -122,15 +87,11 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
                 $setupObject  = $upgradeManager->getCurrentSetupObject();
                 $backupObject = $upgradeManager->getBackupObject();
 
-                if ($setupObject->isBackuped() && $this->getSetupConfigObject()->isAllowedRollbackFromBackup()) {
-                    $backupObject->rollback();
+                if (!$setupObject->isBackuped()) {
+                    $backupObject->create();
+                    $setupObject->setData('is_backuped', 1);
+                    $setupObject->save();
                 }
-
-                $backupObject->remove();
-                $backupObject->create();
-
-                $setupObject->setData('is_backuped', 1);
-                $setupObject->save();
 
                 $upgradeManager->process();
 
@@ -141,6 +102,8 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
 
                 $this->_setResourceVersion(self::TYPE_DB_UPGRADE, $versionTo);
             }
+
+            $this->_setResourceVersion(self::TYPE_DB_UPGRADE, $newVersion);
 
             $this->afterUpgrade($oldVersion, $newVersion);
             $this->afterModuleDbModification();
@@ -158,6 +121,30 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
         Mage::helper('M2ePro/Module_Maintenance')->disable();
 
         $this->getLockObject()->releaseLock();
+    }
+
+    protected function getVersionsToExecute($versionFrom, $versionTo)
+    {
+        /** @var Ess_M2ePro_Model_Setup[] $notCompletedUpgrades */
+        $notCompletedUpgrades = Mage::getModel('M2ePro/Setup')->getResource()
+            ->getNotCompletedUpgrades();
+
+        if (!empty($notCompletedUpgrades)) {
+            /**
+             * Only one not completed upgrade is supported
+             */
+            $notCompletedUpgrade = reset($notCompletedUpgrades);
+            if (version_compare($notCompletedUpgrade->getVersionFrom(), $versionFrom, '<')) {
+                $versionFrom = $notCompletedUpgrade->getVersionFrom();
+            }
+        }
+
+        if (version_compare($versionFrom, self::MIN_SUPPORTED_VERSION_FOR_UPGRADE, '<')) {
+            // @codingStandardsIgnoreLine
+            throw new Exception(sprintf('This version [%s] is too old.', $versionFrom));
+        }
+
+        return $this->getAvailableFiles($versionFrom, $versionTo);
     }
 
     protected function getAvailableFiles($fromVersion, $toVersion)
@@ -188,7 +175,7 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
 
         uksort(
             $files, function($first, $second) {
-            return version_compare($first, $second);
+                return version_compare($first, $second);
             }
         );
 
@@ -198,7 +185,7 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
         foreach ($files as $fileVersionFrom => $fileData) {
             uksort(
                 $fileData, function($first, $second) {
-                return version_compare($first, $second);
+                    return version_compare($first, $second);
                 }
             );
 
@@ -216,42 +203,7 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
         return $filesData;
     }
 
-    /**
-     * @return Ess_M2ePro_Model_Setup[]
-     */
-    protected function getNotCompletedUpgrades()
-    {
-        if (!$this->getConnection()->isTableExists($this->getFullTableName('setup'))) {
-            return array();
-        }
-
-        $collection = Mage::getModel('M2ePro/Setup')->getCollection();
-        $collection->addFieldToFilter('version_from', array('notnull' => true));
-        $collection->addFieldToFilter('version_to', array('notnull' => true));
-        $collection->addFieldToFilter('is_backuped', 1);
-        $collection->addFieldToFilter('is_completed', 0);
-
-        return $collection->getItems();
-    }
-
     //########################################
-
-    public function run($sql)
-    {
-        if (trim($sql) == '') {
-            return $this;
-        }
-
-        foreach ($this->getTablesObject()->getAllEntities() as $tableNameFrom => $tableNameTo) {
-            $tableNameFrom = ($tableNameFrom == 'ess_config') ?
-                $tableNameFrom :
-                Ess_M2ePro_Model_Upgrade_Tables::PREFIX . $tableNameFrom;
-            $sql = str_replace(' `'.$tableNameFrom.'`', ' `'.$tableNameTo.'`', $sql);
-            $sql = str_replace(' '.$tableNameFrom, ' `'.$tableNameTo.'`', $sql);
-        }
-
-        return parent::run($sql);
-    }
 
     public function generateRandomHash()
     {
@@ -266,7 +218,8 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
             apc_clear_cache('system');
         }
 
-        if (function_exists('opcache_get_status')) {
+        if (function_exists('opcache_reset')) {
+            // @codingStandardsIgnoreLine
             opcache_reset();
         }
 
@@ -289,14 +242,6 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
     {
         $this->versionFrom = null;
         $this->versionTo   = $newVersion;
-
-        $this->updateInstallationVersionHistory(null, $newVersion);
-    }
-
-    protected function afterInstall($newVersion)
-    {
-        // re init tables after installation
-        $this->getTablesObject()->init();
     }
 
     // ---------------------------------------
@@ -305,8 +250,6 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
     {
         $this->versionFrom = $oldVersion;
         $this->versionTo   = $newVersion;
-
-        $this->updateInstallationVersionHistory($oldVersion, $newVersion);
     }
 
     protected function afterUpgrade($oldVersion, $newVersion)
@@ -316,77 +259,6 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
         } catch (Exception $e) {
             Mage::helper('M2ePro/Module_Exception')->process($e);
         }
-    }
-
-    //########################################
-
-    protected function updateInstallationVersionHistory($versionFrom, $versionTo)
-    {
-        if ($versionFrom === $versionTo) {
-            return;
-        }
-
-        $versionsHistory = (array)$this->getInstallationVersionsHistory();
-        $versionsHistory[$versionTo] = array(
-            'from' => $versionFrom,
-            'to'   => $versionTo,
-            'date' => Mage::getModel('core/date')->gmtDate()
-        );
-
-        $this->setInstallationVersionsHistory($versionsHistory);
-    }
-
-    public function getInstallationVersionsHistory()
-    {
-        if (!$this->getTablesObject()->isExists('registry')) {
-            return null;
-        }
-
-        $versionsHistory = $this->getConnection()->select()
-            ->from($this->getTablesObject()->getFullName('registry'), array('value'))
-            ->where('`key` = ?', self::INSTALLATION_HISTORY_KEY)
-            ->query()
-            ->fetch();
-
-        if (empty($versionsHistory)) {
-            return null;
-        }
-
-        return Mage::helper('M2ePro/Data')->jsonDecode($versionsHistory['value']);
-    }
-
-    public function setInstallationVersionsHistory($history)
-    {
-        if (!$this->getTablesObject()->isExists('registry')) {
-            return;
-        }
-
-        $currentHistory = $this->getInstallationVersionsHistory();
-        if ($currentHistory === null) {
-            $this->getConnection()->insertArray(
-                $this->getTablesObject()->getFullName('registry'),
-                array('key', 'value', 'update_date', 'create_date'),
-                array(
-                    array(
-                        'key'         => self::INSTALLATION_HISTORY_KEY,
-                        'value'       => Mage::helper('M2ePro/Data')->jsonEncode($history),
-                        'update_date' => Mage::getModel('core/date')->gmtDate(),
-                        'create_date' => Mage::getModel('core/date')->gmtDate()
-                    )
-                )
-            );
-
-            return;
-        }
-
-        $this->getConnection()->update(
-            $this->getTablesObject()->getFullName('registry'),
-            array(
-                'value'       => Mage::helper('M2ePro/Data')->jsonEncode($history),
-                'update_date' => Mage::getModel('core/date')->gmtDate(),
-            ),
-            array('`key` = ?' => self::INSTALLATION_HISTORY_KEY)
-        );
     }
 
     //########################################
@@ -401,7 +273,7 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
 
     protected function resetServicingStatus()
     {
-        $tableName = 'cache_config';
+        $tableName = 'registry';
 
         if (!$this->getTablesObject()->isExists($tableName)) {
             return;
@@ -410,20 +282,12 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
         $this->getConnection()->update(
             $this->getTablesObject()->getFullName($tableName),
             array('value' => null),
-            array(
-                '`group` = ?' => '/servicing/',
-                '`key` = ?' => 'last_update_time'
-            )
+            array('`key` = ?' => '/servicing/last_update_time/')
         );
     }
 
     protected function removeOldBackupsTables()
     {
-        $versionsHistory = $this->getInstallationVersionsHistory();
-        if (empty($versionsHistory)) {
-            return;
-        }
-
         $prefixes = array(
             'm2epro__source'      => '6.0.0',
             'ess__source'         => '6.0.0',
@@ -434,37 +298,14 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
             'm2epro__b_65016'     => '6.5.0.16'
         );
 
-        $borderDate = new \DateTime('now', new \DateTimeZone('UTC'));
-        $borderDate->modify('- 30 days');
-
         foreach ($prefixes as $backupPrefix => $removeAfterVersion) {
-            $hasToBeRemoved = false;
-            foreach ($versionsHistory as $versionHistoryRecord) {
-                if (empty($versionHistoryRecord['to']) || empty($versionHistoryRecord['date'])) {
-                    continue;
-                }
-
-                try {
-                    $version          = $versionHistoryRecord['to'];
-                    $installationDate = new \DateTime($versionHistoryRecord['date'], new \DateTimeZone('UTC'));
-                } catch (\Exception $e) {
-                    continue;
-                }
-
-                if (version_compare($version, $removeAfterVersion, '>=') &&
-                    $installationDate->getTimestamp() < $borderDate->getTimestamp()
-                ) {
-                    $hasToBeRemoved = true;
-                    break;
-                }
+            if (version_compare($this->versionTo, $removeAfterVersion, '<')) {
+                continue;
             }
 
-            if ($hasToBeRemoved) {
-                $queryStmt = $this->getConnection()->query("SHOW TABLES LIKE '%{$backupPrefix}%'");
-
-                while ($tableName = $queryStmt->fetchColumn()) {
-                    $this->getConnection()->dropTable($tableName);
-                }
+            $queryStmt = $this->getConnection()->query("SHOW TABLES LIKE '%{$backupPrefix}%'");
+            while ($tableName = $queryStmt->fetchColumn()) {
+                $this->getConnection()->dropTable($tableName);
             }
         }
     }
@@ -473,16 +314,8 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
 
     public function removeConfigsDuplicates()
     {
-        if ($this->getTablesObject()->isExists('primary_config')) {
-            $this->getConfigModifier('primary_config')->removeDuplicates();
-        }
-
         if ($this->getTablesObject()->isExists('config')) {
             $this->getConfigModifier('config')->removeDuplicates();
-        }
-
-        if ($this->getTablesObject()->isExists('cache_config')) {
-            $this->getConfigModifier('cache_config')->removeDuplicates();
         }
     }
 
@@ -524,6 +357,7 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
     // ---------------------------------------
 
     /**
+     * @deprecated
      * @return Ess_M2ePro_Model_Upgrade_Modifier_Config
      */
     public function getPrimaryConfigModifier()
@@ -540,6 +374,7 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
     }
 
     /**
+     * @deprecated
      * @return Ess_M2ePro_Model_Upgrade_Modifier_Config
      */
     public function getCacheConfigModifier()
@@ -548,6 +383,7 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
     }
 
     /**
+     * @deprecated
      * @return Ess_M2ePro_Model_Upgrade_Modifier_Config
      */
     public function getSynchConfigModifier()
@@ -617,33 +453,11 @@ class Ess_M2ePro_Model_Upgrade_MySqlSetup extends Mage_Core_Model_Resource_Setup
     }
 
     /**
-     * @return Ess_M2ePro_Model_Upgrade_MySqlSetup_Config
-     */
-    public function getSetupConfigObject()
-    {
-        return Mage::getSingleton('M2ePro/Upgrade_MySqlSetup_Config');
-    }
-
-    /**
      * @return Ess_M2ePro_Model_Upgrade_MySqlSetup_Lock
      */
     protected function getLockObject()
     {
         return Mage::getSingleton('M2ePro/Upgrade_MySqlSetup_Lock');
-    }
-
-    //########################################
-
-    protected function isMaintenanceCanBeIgnored()
-    {
-        $select = $this->getConnection()
-            ->select()
-            ->from($this->getTable('core_config_data'), 'value')
-            ->where('scope = ?', 'default')
-            ->where('scope_id = ?', 0)
-            ->where('path = ?', 'm2epro/setup/ignore_maintenace');
-
-        return (bool)$this->getConnection()->fetchOne($select);
     }
 
     //########################################

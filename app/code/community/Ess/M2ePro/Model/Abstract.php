@@ -22,6 +22,7 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
         }
 
         $this->_isObjectCreatingState = $value;
+
         return $this->_isObjectCreatingState;
     }
 
@@ -36,6 +37,7 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
         $result = parent::save();
 
         $this->isObjectCreatingState(false);
+
         return $result;
     }
 
@@ -54,9 +56,11 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
         if ($this->getId() === null) {
             throw new Ess_M2ePro_Model_Exception_Logic(
                 'Instance does not exist.',
-                array('id'    => $id,
-                                                             'field' => $field,
-                'model' => $this->_resourceName)
+                array(
+                    'id'    => $id,
+                    'field' => $field,
+                    'model' => $this->_resourceName
+                )
             );
         }
 
@@ -95,6 +99,7 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
         }
 
         $this->delete();
+
         return true;
     }
 
@@ -107,6 +112,7 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
         }
 
         $this->deleteProcessingLocks();
+
         return parent::delete();
     }
 
@@ -119,7 +125,7 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
 
         /** @var $collection Mage_Core_Model_Resource_Db_Collection_Abstract */
         $collection = Mage::getModel('M2ePro/Processing')->getCollection();
-        $collection->addFieldToFilter('id', array('in'=>array_unique($processingIds)));
+        $collection->addFieldToFilter('id', array('in' => array_unique($processingIds)));
 
         foreach ($collection->getItems() as $processing) {
             /** @var $processing Ess_M2ePro_Model_Processing */
@@ -176,6 +182,7 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
         }
 
         $locks = $this->getProcessingLocks($tag, $processingId);
+
         return !empty($locks);
     }
 
@@ -196,93 +203,11 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
         $lockedCollection->addFieldToFilter('model_name', $this->_resourceName);
         $lockedCollection->addFieldToFilter('object_id', $this->getId());
 
-        $tag === null && $tag = array('null' =>true);
+        $tag === null && $tag = array('null' => true);
         $tag !== false && $lockedCollection->addFieldToFilter('tag', $tag);
         $processingId !== false && $lockedCollection->addFieldToFilter('processing_id', $processingId);
 
         return $lockedCollection->getItems();
-    }
-
-    //########################################
-
-    /**
-     * @param string $modelName
-     * @param string $fieldName
-     * @param bool $asObjects
-     * @param array $filters
-     * @param array $sort
-     * @return array|Ess_M2ePro_Model_Abstract[]
-     * @throws Ess_M2ePro_Model_Exception_Logic
-     */
-    protected function getRelatedSimpleItems(
-        $modelName,
-        $fieldName,
-        $asObjects = false,
-        array $filters = array(),
-        array $sort = array()
-    ) {
-        if ($this->getId() === null) {
-            throw new Ess_M2ePro_Model_Exception_Logic('Method require loaded instance first');
-        }
-
-        $tempModel = Mage::getModel('M2ePro/' . $modelName);
-
-        if ($tempModel === null || !($tempModel instanceof Ess_M2ePro_Model_Abstract)) {
-            return array();
-        }
-
-        return $this->getRelatedItems($tempModel, $fieldName, $asObjects, $filters, $sort);
-    }
-
-    /**
-     * @param Ess_M2ePro_Model_Abstract $model
-     * @param string $fieldName
-     * @param bool $asObjects
-     * @param array $filters
-     * @param array $sort
-     * @return array|Ess_M2ePro_Model_Abstract[]
-     * @throws Ess_M2ePro_Model_Exception_Logic
-     */
-    protected function getRelatedItems(
-        Ess_M2ePro_Model_Abstract $model,
-        $fieldName,
-        $asObjects = false,
-        array $filters = array(),
-        array $sort = array()
-    ) {
-        if ($this->getId() === null) {
-            throw new Ess_M2ePro_Model_Exception_Logic('Method require loaded instance first');
-        }
-
-        /** @var $tempCollection Mage_Core_Model_Resource_Db_Collection_Abstract */
-        $tempCollection = $model->getCollection();
-        $tempCollection->addFieldToFilter(new Zend_Db_Expr("`{$fieldName}`"), $this->getId());
-
-        foreach ($filters as $field=>$filter) {
-            if ($filter instanceof Zend_Db_Expr) {
-                $tempCollection->getSelect()->where((string)$filter);
-                continue;
-            }
-
-            $tempCollection->addFieldToFilter(new Zend_Db_Expr("`{$field}`"), $filter);
-        }
-
-        foreach ($sort as $field => $order) {
-            $order = strtoupper(trim($order));
-            if ($order != Varien_Data_Collection::SORT_ORDER_ASC &&
-                $order != Varien_Data_Collection::SORT_ORDER_DESC) {
-                continue;
-            }
-
-            $tempCollection->setOrder($field, $order);
-        }
-
-        if ((bool)$asObjects) {
-            return $tempCollection->getItems();
-        }
-
-        $tempArray = $tempCollection->toArray();
-        return $tempArray['items'];
     }
 
     //########################################
@@ -305,25 +230,27 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
 
         if ($encodeType == self::SETTING_FIELD_TYPE_JSON) {
             $settings = Mage::helper('M2ePro')->jsonDecode($settings);
-        } else if ($encodeType == self::SETTING_FIELD_TYPE_SERIALIZATION) {
-            $settings = Mage::helper('M2ePro')->unserialize($settings);
         } else {
-            throw new Ess_M2ePro_Model_Exception_Logic(
-                Mage::helper('M2ePro')->__(
-                    'Encoding type "%encode_type%" is not supported.',
-                    $encodeType
-                )
-            );
+            if ($encodeType == self::SETTING_FIELD_TYPE_SERIALIZATION) {
+                $settings = Mage::helper('M2ePro')->unserialize($settings);
+            } else {
+                throw new Ess_M2ePro_Model_Exception_Logic(
+                    Mage::helper('M2ePro')->__(
+                        'Encoding type "%encode_type%" is not supported.',
+                        $encodeType
+                    )
+                );
+            }
         }
 
         return !empty($settings) ? $settings : array();
     }
 
     /**
-     * @param string       $fieldName
+     * @param string $fieldName
      * @param string|array $settingNamePath
-     * @param mixed        $defaultValue
-     * @param string       $encodeType
+     * @param mixed $defaultValue
+     * @param string $encodeType
      *
      * @return mixed|null
      */
@@ -360,7 +287,7 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
 
     /**
      * @param string $fieldName
-     * @param array  $settings
+     * @param array $settings
      * @param string $encodeType
      *
      * @return Ess_M2ePro_Model_Abstract
@@ -371,15 +298,17 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
     {
         if ($encodeType == self::SETTING_FIELD_TYPE_JSON) {
             $settings = Mage::helper('M2ePro')->jsonEncode($settings);
-        } else if ($encodeType == self::SETTING_FIELD_TYPE_SERIALIZATION) {
-            $settings = Mage::helper('M2ePro')->serialize($settings);
         } else {
-            throw new Ess_M2ePro_Model_Exception_Logic(
-                Mage::helper('M2ePro')->__(
-                    'Encoding type "%encode_type%" is not supported.',
-                    $encodeType
-                )
-            );
+            if ($encodeType == self::SETTING_FIELD_TYPE_SERIALIZATION) {
+                $settings = Mage::helper('M2ePro')->serialize($settings);
+            } else {
+                throw new Ess_M2ePro_Model_Exception_Logic(
+                    Mage::helper('M2ePro')->__(
+                        'Encoding type "%encode_type%" is not supported.',
+                        $encodeType
+                    )
+                );
+            }
         }
 
         $this->setData((string)$fieldName, $settings);
@@ -388,10 +317,10 @@ abstract class Ess_M2ePro_Model_Abstract extends Mage_Core_Model_Abstract
     }
 
     /**
-     * @param string       $fieldName
+     * @param string $fieldName
      * @param string|array $settingNamePath
-     * @param mixed        $settingValue
-     * @param string       $encodeType
+     * @param mixed $settingValue
+     * @param string $encodeType
      *
      * @return Ess_M2ePro_Model_Abstract
      */

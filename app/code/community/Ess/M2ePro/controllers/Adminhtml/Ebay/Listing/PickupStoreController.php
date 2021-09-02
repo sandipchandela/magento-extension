@@ -26,24 +26,24 @@ class Ess_M2ePro_Adminhtml_Ebay_Listing_PickupStoreController
             ->addJs('M2ePro/Plugin/AreaWrapper.js')
             ->addJs('M2ePro/Plugin/DropDown.js')
             ->addJs('M2ePro/Plugin/ActionColumn.js')
-            ->addJs('M2ePro/AttributeHandler.js')
-            ->addJs('M2ePro/Listing/ProductGridHandler.js')
-            ->addJs('M2ePro/ActionHandler.js')
-            ->addJs('M2ePro/Listing/ActionHandler.js')
-            ->addJs('M2ePro/Ebay/Listing/ActionHandler.js')
-            ->addJs('M2ePro/Listing/MovingHandler.js')
-            ->addJs('M2ePro/GridHandler.js')
-            ->addJs('M2ePro/Listing/GridHandler.js')
+            ->addJs('M2ePro/Attribute.js')
+            ->addJs('M2ePro/Listing/ProductGrid.js')
+            ->addJs('M2ePro/Action.js')
+            ->addJs('M2ePro/Listing/Action.js')
+            ->addJs('M2ePro/Ebay/Listing/Action.js')
+            ->addJs('M2ePro/Listing/Moving.js')
+            ->addJs('M2ePro/Grid.js')
+            ->addJs('M2ePro/Listing/Grid.js')
             ->addJs('M2ePro/Listing/EditListingTitle.js')
-            ->addJs('M2ePro/Ebay/Listing/GridHandler.js')
-            ->addJs('M2ePro/Ebay/Listing/ViewGridHandler.js')
-            ->addJs('M2ePro/Ebay/Listing/BidsHandler.js')
-            ->addJs('M2ePro/Ebay/Listing/VariationProductManageHandler.js')
-            ->addJs('M2ePro/Ebay/Listing/Ebay/GridHandler.js')
-            ->addJs('M2ePro/Ebay/Listing/PickupStore/GridHandler.js')
-            ->addJs('M2ePro/Ebay/Listing/PickupStore/Step/Products/GridHandler.js')
-            ->addJs('M2ePro/Ebay/Listing/PickupStore/Step/Stores/GridHandler.js')
-            ->addJs('M2ePro/Ebay/Listing/VariationProductManageVariationsGridHandler.js');
+            ->addJs('M2ePro/Ebay/Listing/Grid.js')
+            ->addJs('M2ePro/Ebay/Listing/ViewGrid.js')
+            ->addJs('M2ePro/Ebay/Listing/Bids.js')
+            ->addJs('M2ePro/Ebay/Listing/VariationProductManage.js')
+            ->addJs('M2ePro/Ebay/Listing/Ebay/Grid.js')
+            ->addJs('M2ePro/Ebay/Listing/PickupStore/Grid.js')
+            ->addJs('M2ePro/Ebay/Listing/PickupStore/Step/Products/Grid.js')
+            ->addJs('M2ePro/Ebay/Listing/PickupStore/Step/Stores/Grid.js')
+            ->addJs('M2ePro/Ebay/Listing/VariationProductManageVariationsGrid.js');
 
         $this->_initPopUp();
         $this->setPageHelpLink();
@@ -148,7 +148,7 @@ class Ess_M2ePro_Adminhtml_Ebay_Listing_PickupStoreController
 
             $messages[] = array(
                 'type' => 'success',
-                'text' => Mage::helper('M2ePro')->__('Stores have been successfully assigned.')
+                'text' => Mage::helper('M2ePro')->__('Stores have been assigned.')
             );
         }
 
@@ -185,7 +185,7 @@ class Ess_M2ePro_Adminhtml_Ebay_Listing_PickupStoreController
             '`id` IN ('.implode(',', $listingProductPickupStoreIds).')'
         );
 
-        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Stores have been successfully unassigned.'));
+        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Stores have been unassigned.'));
         return $this->_redirect('*/*/index', array('id' => $listingId));
     }
 

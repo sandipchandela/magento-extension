@@ -9,7 +9,7 @@
 abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
     extends Ess_M2ePro_Controller_Adminhtml_MainController
 {
-    /** @var Ess_M2ePro_Helper_Module_Wizard|null  */
+    /** @var Ess_M2ePro_Helper_Module_Wizard|null */
     protected $_wizardHelper = null;
 
     //########################################
@@ -25,74 +25,227 @@ abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
     protected function _initAction()
     {
         $this->loadLayout();
-
-        // Popup
-        // ---------------------------------------
         $this->_initPopUp();
-        // ---------------------------------------
 
-        Mage::helper('M2ePro/Module_Wizard')->addWizardHandlerJs();
+        Mage::helper('M2ePro/Module_Wizard')->addWizardJs();
 
         return $this;
+    }
+
+    protected function _isAllowed()
+    {
+        return Mage::getSingleton('admin/session')->isAllowed($this->getMenuRootNodeNick());
     }
 
     //########################################
 
     public function indexAction()
     {
-        if ($this->isNotStarted()) {
-            return $this->_redirect('*/*/welcome');
-        }
-
-        if ($this->isActive()) {
+        if ($this->isNotStarted() || $this->isActive()) {
             return $this->_redirect('*/*/installation');
         }
 
-        $this->_redirect('*/*/congratulation', array('wizard'=>true));
+        $this->_redirect('*/*/congratulation', array('wizard' => true));
     }
 
     // ---------------------------------------
 
-    public function welcomeAction()
-    {
-        if (!$this->isNotStarted()) {
-            return $this->_redirect('*/*/index');
-        }
-
-        $this->setStatus(Ess_M2ePro_Helper_Module_Wizard::STATUS_ACTIVE)
-             ->setStep($this->getFirstStep());
-
-        $this->_redirect('*/*/index');
-    }
-
     public function installationAction()
     {
-        if ($this->isFinished() || $this->isNotStarted()) {
-            return $this->_redirect('*/*/index');
+        if ($this->isFinished()) {
+            return $this->_redirect('*/*/congratulation', array('wizard' => true));
         }
 
-        if (!$this->getCurrentStep()) {
+        if ($this->isNotStarted()) {
+            $this->setStatus(Ess_M2ePro_Helper_Module_Wizard::STATUS_ACTIVE);
+        }
+
+        if (!$this->getCurrentStep() || !in_array($this->getCurrentStep(), $this->getSteps())) {
             $this->setStep($this->getFirstStep());
         }
 
-        return $this->_initAction()
-                    ->_addContent($this->getWizardHelper()->createBlock('installation', $this->getNick()))
-                    ->renderLayout();
+        $this->_forward($this->getCurrentStep());
     }
 
     public function congratulationAction()
     {
         if (!$this->isFinished()) {
             $this->_redirect('*/*/index');
+
             return;
         }
 
         Mage::helper('M2ePro/Magento')->clearMenuCache();
 
         $this->_initAction();
-        $this->_addContent($this->getWizardHelper()->createBlock('congratulation', $this->getNick()));
-        $this->_addNextWizardPresentation();
+        $this->_addContent(Mage::getSingleton('core/layout')->createBlock('M2ePro/adminhtml_wizard_congratulation'));
         $this->renderLayout();
+    }
+
+    public function registrationAction()
+    {
+        $licenseData = Mage::helper('M2ePro/Module')->getRegistry()->getValueFromJson('/wizard/license_form_data/');
+        if (!empty($licenseData)) {
+            $this->setStep($this->getNextStep());
+        }
+
+        return $this->renderSimpleStep();
+    }
+
+    public function accountAction()
+    {
+        return $this->renderSimpleStep();
+    }
+
+    public function listingTutorialAction()
+    {
+        return $this->renderSimpleStep();
+    }
+
+    //########################################
+
+    public function createLicenseAction()
+    {
+        $requiredKeys = array(
+            'email',
+            'firstname',
+            'lastname',
+            'phone',
+            'country',
+            'city',
+            'postal_code',
+        );
+
+        $licenseData = array();
+        foreach ($requiredKeys as $key) {
+            if ($tempValue = $this->getRequest()->getParam($key)) {
+                $licenseData[$key] = Mage::helper('M2ePro')->escapeJs(
+                    Mage::helper('M2ePro')->escapeHtml($tempValue)
+                );
+                continue;
+            }
+
+            return $this->getResponse()->setBody(
+                Mage::helper('M2ePro')->jsonEncode(
+                    array(
+                        'status'  => false,
+                        'message' => Mage::helper('M2ePro')->__('You should fill all required fields.')
+                    )
+                )
+            );
+        }
+
+        $message = null;
+
+        if (Mage::helper('M2ePro/Module_License')->getKey()) {
+            try {
+                $licenseResult = Mage::helper('M2ePro/Module_License')->updateLicenseUserInfo(
+                    $licenseData['email'],
+                    $licenseData['firstname'],
+                    $licenseData['lastname'],
+                    $licenseData['country'],
+                    $licenseData['city'],
+                    $licenseData['postal_code'],
+                    $licenseData['phone']
+                );
+            } catch (Exception $e) {
+                Mage::helper('M2ePro/Module_Exception')->process($e);
+                $licenseResult = false;
+                $message = Mage::helper('M2ePro')->__($e->getMessage());
+            }
+        } else {
+            try {
+                $licenseResult = Mage::helper('M2ePro/Module_License')->obtainRecord(
+                    $licenseData['email'],
+                    $licenseData['firstname'],
+                    $licenseData['lastname'],
+                    $licenseData['country'],
+                    $licenseData['city'],
+                    $licenseData['postal_code'],
+                    $licenseData['phone']
+                );
+            } catch (Exception $e) {
+                Mage::helper('M2ePro/Module_Exception')->process($e);
+                $licenseResult = false;
+                $message = Mage::helper('M2ePro')->__($e->getMessage());
+            }
+        }
+
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue('/wizard/license_form_data/', $licenseData);
+
+        return $this->getResponse()->setBody(
+            Mage::helper('M2ePro')->jsonEncode(
+                array(
+                    'status'  => $licenseResult,
+                    'message' => $message
+                )
+            )
+        );
+    }
+
+    public function updateLicenseUserInfoAction()
+    {
+
+        $requiredKeys = array(
+            'email',
+            'firstname',
+            'lastname',
+            'phone',
+            'country',
+            'city',
+            'postal_code',
+        );
+
+        $licenseData = array();
+        foreach ($requiredKeys as $key) {
+            if ($tempValue = $this->getRequest()->getParam($key)) {
+                $licenseData[$key] = Mage::helper('M2ePro')->escapeJs(
+                    Mage::helper('M2ePro')->escapeHtml($tempValue)
+                );
+                continue;
+            }
+
+            return $this->getResponse()->setBody(
+                Mage::helper('M2ePro')->jsonEncode(
+                    array(
+                        'status'  => false,
+                        'message' => Mage::helper('M2ePro')->__('You should fill all required fields.')
+                    )
+                )
+            );
+        }
+
+        $licenseResult = true;
+        $message = null;
+
+        if (Mage::helper('M2ePro/Module_License')->getKey()) {
+            try {
+                $licenseResult = Mage::helper('M2ePro/Module_License')->updateLicenseUserInfo(
+                    $licenseData['email'],
+                    $licenseData['firstname'],
+                    $licenseData['lastname'],
+                    $licenseData['country'],
+                    $licenseData['city'],
+                    $licenseData['postal_code'],
+                    $licenseData['phone']
+                );
+
+                Mage::helper('M2ePro/Module')->getRegistry()->setValue('/wizard/license_form_data/', $licenseData);
+            } catch (Exception $e) {
+                Mage::helper('M2ePro/Module_Exception')->process($e);
+                $licenseResult = false;
+                $message = Mage::helper('M2ePro')->__($e->getMessage());
+            }
+        }
+
+        return $this->getResponse()->setBody(
+            Mage::helper('M2ePro')->jsonEncode(
+                array(
+                    'status'  => $licenseResult,
+                    'message' => $message
+                )
+            )
+        );
     }
 
     //########################################
@@ -103,7 +256,8 @@ abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
 
         $this->setStatus(Ess_M2ePro_Helper_Module_Wizard::STATUS_SKIPPED);
 
-        $this->_redirect('*/*/index');
+        $component = $this->getCustomViewNick();
+        $this->_redirect("M2ePro/adminhtml_{$component}_listing/index");
     }
 
     public function completeAction()
@@ -131,6 +285,7 @@ abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
     protected function setStatus($status)
     {
         $this->getWizardHelper()->setStatus($this->getNick(), $status);
+
         return $this;
     }
 
@@ -144,6 +299,7 @@ abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
     protected function setStep($step)
     {
         $this->getWizardHelper()->setStep($this->getNick(), $step);
+
         return $this;
     }
 
@@ -207,10 +363,10 @@ abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
 
         if ($step === null) {
             return $this->getResponse()->setBody(
-                json_encode(
+                Mage::helper('M2ePro')->jsonEncode(
                     array(
-                    'type' => 'error',
-                    'message' => Mage::helper('M2ePro')->__('Step is invalid')
+                        'type'    => 'error',
+                        'message' => Mage::helper('M2ePro')->__('Step is invalid')
                     )
                 )
             );
@@ -219,9 +375,9 @@ abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
         $this->setStep($step);
 
         return $this->getResponse()->setBody(
-            json_encode(
+            Mage::helper('M2ePro')->jsonEncode(
                 array(
-                'type' => 'success'
+                    'type' => 'success'
                 )
             )
         );
@@ -233,10 +389,10 @@ abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
 
         if ($status === null) {
             return $this->getResponse()->setBody(
-                json_encode(
+                Mage::helper('M2ePro')->jsonEncode(
                     array(
-                    'type' => 'error',
-                    'message' => Mage::helper('M2ePro')->__('Status is invalid')
+                        'type'    => 'error',
+                        'message' => Mage::helper('M2ePro')->__('Status is invalid')
                     )
                 )
             );
@@ -245,9 +401,9 @@ abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
         $this->setStatus($status);
 
         return $this->getResponse()->setBody(
-            json_encode(
+            Mage::helper('M2ePro')->jsonEncode(
                 array(
-                'type' => 'success'
+                    'type' => 'success'
                 )
             )
         );
@@ -255,32 +411,27 @@ abstract class Ess_M2ePro_Controller_Adminhtml_WizardController
 
     //########################################
 
-    protected function _addNextWizardPresentation()
-    {
-        $nextWizard = $this->getWizardHelper()->getActiveWizard($this->getCustomViewNick());
-        if ($nextWizard) {
-            $presentationBlock = $this->getWizardHelper()->createBlock(
-                'presentation', $this->getWizardHelper()->getNick($nextWizard)
-            );
-            $presentationBlock && $this->_addContent($presentationBlock);
-        }
-
-        return $this;
-    }
-
-    //########################################
-
-    protected function _isAllowed()
-    {
-        return Mage::getSingleton('admin/session')->isAllowed($this->getMenuRootNodeNick());
-    }
-
-    public function loadLayout($ids=null, $generateBlocks=true, $generateXml=true)
+    public function loadLayout($ids = null, $generateBlocks = true, $generateXml = true)
     {
         $tempResult = parent::loadLayout($ids, $generateBlocks, $generateXml);
         $tempResult->_setActiveMenu($this->getMenuRootNodeNick());
         $tempResult->_title($this->getMenuRootNodeLabel());
+
         return $tempResult;
+    }
+
+    //########################################
+
+    protected function renderSimpleStep()
+    {
+        return $this->_initAction()
+            ->_addContent(
+                $this->getWizardHelper()->createBlock(
+                    'installation_' . $this->getCurrentStep(),
+                    $this->getNick()
+                )
+            )
+            ->renderLayout();
     }
 
     //########################################

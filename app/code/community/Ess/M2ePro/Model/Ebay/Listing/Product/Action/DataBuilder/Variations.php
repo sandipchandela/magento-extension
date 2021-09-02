@@ -51,7 +51,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Variations
         $qtyMode = $this->getEbayListingProduct()->getEbaySellingFormatTemplate()->getQtyMode();
 
         $productsIds = array();
-        $variationIdsIndexes = array();
+        $variationMetaData = array();
 
         foreach ($this->getListingProduct()->getVariations(true) as $variation) {
             /** @var $variation Ess_M2ePro_Model_Listing_Product_Variation */
@@ -120,11 +120,15 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Variations
             //--
 
             $data[] = $item;
-
-            $variationIdsIndexes[$variation->getId()] = count($data) - 1;
+            $variationMetaData[$variation->getId()] = array(
+                // @codingStandardsIgnoreLine
+                'index'        => count($data) - 1,
+                'online_qty'   => $variation->getChildObject()->getOnlineQty(),
+                'online_price' => $variation->getChildObject()->getOnlinePrice()
+            );
         }
 
-        $this->addMetaData('variation_ids_indexes', $variationIdsIndexes);
+        $this->addMetaData('variation_data', $variationMetaData);
 
         $this->checkQtyWarnings($productsIds);
 
@@ -234,7 +238,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Variations
             $this->addWarningMessage(
                 Mage::helper('M2ePro')->__(
                     'The Product was Listed as a Simple Product as it has limitation for Multi-Variation Items. '.
-                    'Reason: eBay Site allows to list only Simple Items.'
+                    'Reason: Marketplace allows to list only Simple Items.'
                 )
             );
             return;
@@ -242,7 +246,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Variations
 
         $isVariationEnabled = Mage::helper('M2ePro/Component_Ebay_Category_Ebay')
                                     ->isVariationEnabled(
-                                        (int)$this->getCategorySource()->getMainCategory(),
+                                        (int)$this->getCategorySource()->getCategoryId(),
                                         $this->getMarketplace()->getId()
                                     );
 
@@ -357,9 +361,8 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Variations
             if ($tempType == 'mpn' && !empty($additionalData['online_product_details']['mpn'])) {
                 $data['mpn'] = $additionalData['online_product_details']['mpn'];
 
-                $isMpnCanBeChanged = Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(
-                    '/component/ebay/variation/', 'mpn_can_be_changed'
-                );
+                $isMpnCanBeChanged = Mage::helper('M2ePro/Component_Ebay_Configuration')
+                    ->getVariationMpnCanBeChanged();
 
                 if (!$isMpnCanBeChanged) {
                     continue;
@@ -432,7 +435,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_DataBuilder_Variations
             return $data;
         }
 
-        $categoryId = $this->getCategorySource()->getMainCategory();
+        $categoryId = $this->getCategorySource()->getCategoryId();
         $marketplaceId = $this->getMarketplace()->getId();
         $categoryFeatures = Mage::helper('M2ePro/Component_Ebay_Category_Ebay')
                                   ->getFeatures($categoryId, $marketplaceId);

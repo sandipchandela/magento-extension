@@ -15,7 +15,7 @@ class Ess_M2ePro_Helper_Component_Amazon extends Mage_Core_Helper_Abstract
     const MARKETPLACE_CA = 24;
     const MARKETPLACE_DE = 25;
     const MARKETPLACE_US = 29;
-    const MARKETPLACE_JP = 27;
+    const MARKETPLACE_JP = 42;
     const MARKETPLACE_CN = 32;
 
     const MAX_ALLOWED_FEED_REQUESTS_PER_HOUR = 30;
@@ -128,7 +128,7 @@ class Ess_M2ePro_Helper_Component_Amazon extends Mage_Core_Helper_Abstract
 
         $domain = $this->getCachedObject('Marketplace', $marketplaceId)->getUrl();
 
-        return 'https://sellercentral.'.$domain.'/gp/orders-v2/details/?orderID='.$orderId;
+        return 'https://sellercentral.'.$domain.'/orders-v3/order/'.$orderId;
     }
 
     //########################################
@@ -189,6 +189,39 @@ class Ess_M2ePro_Helper_Component_Amazon extends Mage_Core_Helper_Abstract
     {
         $collection = $this->getMarketplacesAvailableForApiCreation();
         return $collection->addFieldToFilter('is_new_asin_available', 1);
+    }
+
+    //########################################
+
+    public function getStatesList()
+    {
+        $collection = Mage::getResourceModel('directory/region_collection');
+        $collection->addCountryFilter('US');
+
+        $collection->addFieldToFilter(
+            'default_name',
+            array(
+                'nin' => array(
+                    'Armed Forces Africa',
+                    'Armed Forces Americas',
+                    'Armed Forces Canada',
+                    'Armed Forces Europe',
+                    'Armed Forces Middle East',
+                    'Armed Forces Pacific',
+                    'Federated States Of Micronesia',
+                    'Marshall Islands',
+                    'Palau'
+                )
+            )
+        );
+
+        $states = array();
+
+        foreach ($collection->getItems() as $state) {
+            $states[$state->getCode()] = $state->getName();
+        }
+
+        return $states;
     }
 
     //########################################

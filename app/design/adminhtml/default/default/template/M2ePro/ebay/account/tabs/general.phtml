@@ -30,16 +30,7 @@ $temp !== null && $formData['token_session'] = $temp;
 $temp = Mage::helper('M2ePro/Data_Session')->getValue('get_sell_api_token_account_token_session', true);
 $temp !== null && $formData['sell_api_token_session'] = $temp;
 
-$defaults = array(
-    'title' => '',
-    'user_id' => '',
-    'mode' => Ess_M2ePro_Model_Ebay_Account::MODE_PRODUCTION,
-    'token_session' => '',
-    'token_expired_date' => '',
-    'sell_api_token_session' => '',
-    'sell_api_token_expired_date' => '',
-    'other_listings_synchronization' => 1
-);
+$defaults = Mage::getModel('M2ePro/Ebay_Account_Builder')->getDefaultData();
 $formData = array_merge($defaults, $formData);
 
 $isEdit = !!$this->getRequest()->getParam('id');
@@ -94,7 +85,7 @@ if ($isEdit) {
     M2ePro.translator.add(<?php echo json_encode(array(
         'The specified Title is already used for other Account. Account Title must be unique.' => Mage::helper('M2ePro')->__('The specified Title is already used for other Account. Account Title must be unique.'),
         'No Customer entry is found for specified ID.' => Mage::helper('M2ePro')->__('No Customer entry is found for specified ID.'),
-        'If Yes is chosen, you must select at least one Attribute for Product Mapping.' => Mage::helper('M2ePro')->__('If Yes is chosen, you must select at least one Attribute for Product Mapping.'),
+        'If Yes is chosen, you must select at least one Attribute for Product Linking.' => Mage::helper('M2ePro')->__('If Yes is chosen, you must select at least one Attribute for Product Linking.'),
         'You should create at least one Response Template.' => Mage::helper('M2ePro')->__('You should create at least one Response Template.'),
         'on_delete_account_message' => Mage::helper('M2ePro')->__('Attention! By applying this action you delete the Account data only from current M2E Pro instance. It does not affect the Subscription status and Billing process for this Channel Account. <br><br>
                                                                    To delete Channel Account which you don\'t need to manage under M2E Pro Subscription Plan, go to the <a href="%url%" target="_blank">Clients Portal</a>.',
@@ -105,7 +96,7 @@ if ($isEdit) {
 
     Event.observe(window, 'load', function() {
         <?php echo $licenseMessage; ?>
-        EbayAccountHandlerObj = new EbayAccountHandler();
+        EbayAccountObj = new EbayAccount();
         editForm = new varienForm('edit_form', '<?php echo $this->getValidationUrl(); ?>');
     });
     //-----------------------------
@@ -211,10 +202,10 @@ if ($isEdit) {
                             <?php endif; ?>
                             <p class="note"><span>
                             <?php if (!$isEdit) {
-                                echo $helper->__('Choose \'Production (Live)\' to use an eBay Account to list for real on eBay Sites.<br/>
+                                echo $helper->__('Choose \'Production (Live)\' to use an eBay Account to list for real on Marketplaces.<br/>
                                                   Choose \'Sandbox (Test)\' to use an eBay Sandbox Account for testing purposes.');
                             } else {
-                                echo $helper->__('<b>Production (Live):</b> an eBay Account Listing for real on eBay Sites.<br/>
+                                echo $helper->__('<b>Production (Live):</b> an eBay Account Listing for real on Marketplaces.<br/>
                                                   <b>Sandbox (Test):</b> an eBay Sandbox Account for testing purposes.');
                             } ?>
                         </span></p>
@@ -386,10 +377,10 @@ if ($isEdit) {
                             <?php endif; ?>
                             <p class="note"><span>
                                 <?php if (!$isEdit) {
-                                    echo $helper->__('Choose \'Production (Live)\' to use an eBay Account to list for real on eBay Sites.<br/>
+                                    echo $helper->__('Choose \'Production (Live)\' to use an eBay Account to list for real on Marketplaces.<br/>
                                                       Choose \'Sandbox (Test)\' to use an eBay Sandbox Account for testing purposes.');
                                 } else {
-                                    echo $helper->__('<b>Production (Live):</b> an eBay Account Listing for real on eBay Sites.<br/>
+                                    echo $helper->__('<b>Production (Live):</b> an eBay Account Listing for real on Marketplaces.<br/>
                                                       <b>Sandbox (Test):</b> an eBay Sandbox Account for testing purposes.');
                                 } ?>
                             </span></p>

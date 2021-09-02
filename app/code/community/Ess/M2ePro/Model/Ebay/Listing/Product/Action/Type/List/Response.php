@@ -28,7 +28,6 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_Type_List_Response
         $data = $this->appendOnlinePriceValues($data);
         $data = $this->appendOnlineInfoDataValues($data);
 
-        $data = $this->appendOutOfStockValues($data);
         $data = $this->appendItemFeesValues($data, $response);
         $data = $this->appendStartDateEndDateValues($data, $response);
         $data = $this->appendGalleryImagesValues($data, $response);
@@ -40,6 +39,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_Type_List_Response
         $data = $this->appendIsVariationValue($data);
         $data = $this->appendIsAuctionType($data);
 
+        $data = $this->appendDescriptionValues($data);
         $data = $this->appendImagesValues($data);
         $data = $this->appendCategoriesValues($data);
         $data = $this->appendPaymentValues($data);

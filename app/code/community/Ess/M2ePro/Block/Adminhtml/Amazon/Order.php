@@ -32,26 +32,58 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Order extends Mage_Adminhtml_Block_Widge
         $this->removeButton('save');
         $this->removeButton('edit');
 
+        $this->_addButton(
+            'upload_by_user', array(
+                'label'     => Mage::helper('M2ePro')->__('Order Reimport'),
+                'onclick'   => 'UploadByUserObj.openPopup()',
+                'class'     => 'button_link'
+            )
+        );
+
         $url = $this->getUrl('*/adminhtml_amazon_account/index');
         $this->_addButton(
             'accounts', array(
-            'label'     => Mage::helper('M2ePro')->__('Accounts'),
-            'onclick'   => 'setLocation(\'' . $url .'\')',
-            'class'     => 'button_link'
+                'label'     => Mage::helper('M2ePro')->__('Accounts'),
+                'onclick'   => 'setLocation(\'' . $url .'\')',
+                'class'     => 'button_link'
             )
         );
 
         $url = $this->getUrl('*/adminhtml_amazon_log/order');
         $this->_addButton(
             'logs', array(
-            'label'     => Mage::helper('M2ePro')->__('Logs & Events'),
-            'onclick'   => 'window.open(\'' . $url .'\')',
-            'class'     => 'button_link'
+                'label'     => Mage::helper('M2ePro')->__('Logs & Events'),
+                'onclick'   => 'window.open(\'' . $url .'\')',
+                'class'     => 'button_link'
             )
         );
     }
 
     //########################################
+
+    protected function _prepareLayout()
+    {
+        parent::_prepareLayout();
+
+        $this->getLayout()->getBlock('head')->addJs('M2ePro/Order/UploadByUser.js');
+
+        Mage::helper('M2ePro/View')->getJsUrlsRenderer()->addControllerActions('adminhtml_order_uploadByUser');
+
+        Mage::helper('M2ePro/View')->getJsTranslatorRenderer()->addTranslations(
+            array(
+                'Order Reimport',
+                'Order importing in progress.',
+                'Order importing is canceled.'
+            )
+        );
+
+        Mage::helper('M2ePro/View')->getJsRenderer()->addOnReadyJs(<<<JS
+UploadByUserObj = new UploadByUser('amazon', 'orderUploadByUserPopupGrid');
+JS
+        );
+
+        return $this;
+    }
 
     public function getGridHtml()
     {
@@ -80,6 +112,14 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Order extends Mage_Adminhtml_Block_Widge
             )
         );
 
+        $invoiceCreditmemoFilterBlock = $this->getLayout()->createBlock(
+            'M2ePro/adminhtml_amazon_order_grid_invoiceCreditmemoFilter',
+            '',
+            array(
+                'controller' => 'adminhtml_amazon_order'
+            )
+        );
+
         $tempGridIds = array();
         Mage::helper('M2ePro/Component_Amazon')->isEnabled() && $tempGridIds[] = $this->getChild('grid')->getId();
 
@@ -99,6 +139,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Order extends Mage_Adminhtml_Block_Widge
             . $accountFilterBlock->toHtml()
             . $marketplaceFilterBlock->toHtml()
             . $orderStateSwitcherBlock->toHtml()
+            . $invoiceCreditmemoFilterBlock->toHtml()
             . '</div>'
             . parent::getGridHtml();
     }
@@ -114,7 +155,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Order extends Mage_Adminhtml_Block_Widge
         return <<<HTML
 <script type="text/javascript">
     setTimeout(function() {
-        OrderHandlerObj.initializeGrids();
+        OrderObj.initializeGrids();
     }, 50);
 </script>
 HTML;

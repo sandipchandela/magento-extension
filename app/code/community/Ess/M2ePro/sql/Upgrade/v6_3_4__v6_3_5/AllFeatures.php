@@ -18,7 +18,7 @@ class Ess_M2ePro_Sql_Upgrade_v6_3_4__v6_3_5_AllFeatures extends Ess_M2ePro_Model
 
             $installer->run(<<<SQL
 
-    CREATE TABLE m2epro_amazon_dictionary_category_product_data (
+    CREATE TABLE `{$this->_installer->getTable('m2epro_amazon_dictionary_category_product_data')}` (
         id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         marketplace_id INT(11) UNSIGNED NOT NULL,
         browsenode_id INT(11) UNSIGNED NOT NULL,
@@ -42,9 +42,9 @@ SQL
 
         $installer->run(<<<SQL
 
-    TRUNCATE TABLE `m2epro_amazon_dictionary_category`;
-    TRUNCATE TABLE `m2epro_amazon_dictionary_specific`;
-    TRUNCATE TABLE `m2epro_amazon_dictionary_marketplace`;
+    TRUNCATE TABLE `{$this->_installer->getTable('m2epro_amazon_dictionary_category')}`;
+    TRUNCATE TABLE `{$this->_installer->getTable('m2epro_amazon_dictionary_specific')}`;
+    TRUNCATE TABLE `{$this->_installer->getTable('m2epro_amazon_dictionary_marketplace')}`;
 
 SQL
         );
@@ -164,19 +164,10 @@ SQL
 
         // ---------------------------------------
 
-        $orderRepairTable = $installer->getTable('m2epro_order_repair');
-        $orderMatchingTable = $installer->getTable('m2epro_order_matching');
-
-        if ($installer->tableExists($orderMatchingTable) === false &&
-            $installer->tableExists($orderRepairTable) !== false) {
-
-            $installer->run(<<<SQL
-
-RENAME TABLE m2epro_order_repair TO m2epro_order_matching;
-
-SQL
-            );
-        }
+        $this->_installer->getTablesObject()->renameTable(
+            'm2epro_order_repair',
+            'm2epro_order_matching'
+        );
 
         // ---------------------------------------
 
@@ -255,7 +246,8 @@ SQL
 
             $installer->run(<<<SQL
 
-        INSERT INTO `m2epro_wizard` (`nick`, `view`, `status`, `step`, `type`, `priority`)
+        INSERT INTO `{$this->_installer->getTable('m2epro_wizard')}` 
+        (`nick`, `view`, `status`, `step`, `type`, `priority`)
         VALUES ('fullAmazonCategories', 'common', 0, NULL, 1, 8);
 SQL
             );
@@ -263,12 +255,12 @@ SQL
 
         $installer->run(<<<SQL
 
-    UPDATE `m2epro_wizard` as `mw`
+    UPDATE `{$this->_installer->getTable('m2epro_wizard')}` as `mw`
     SET `mw`.`status` = 3
     WHERE `mw`.`nick` = 'fullAmazonCategories'
     AND (
         (SELECT `mc`.`value`
-         FROM `m2epro_config` as `mc`
+         FROM `{$this->_installer->getTable('m2epro_config')}` as `mc`
          WHERE `mc`.`value` IS NOT NULL
          AND `mc`.`group` = '/component/amazon/'
          AND `mc`.`key` = 'mode'
@@ -277,7 +269,7 @@ SQL
          OR
 
         (SELECT `mc`.`value`
-         FROM `m2epro_config` as `mc`
+         FROM `{$this->_installer->getTable('m2epro_config')}` as `mc`
          WHERE `mc`.`value` IS NOT NULL
          AND `mc`.`group` = '/component/amazon/'
          AND `mc`.`key` = 'allowed'
@@ -285,7 +277,7 @@ SQL
 
          OR
 
-         (SELECT COUNT(`mm`.`id`) FROM `m2epro_marketplace` as `mm`
+         (SELECT COUNT(`mm`.`id`) FROM `{$this->_installer->getTable('m2epro_marketplace')}` as `mm`
           WHERE `mm`.`component_mode` = 'amazon'
           AND `mm`.`status` = 1) = 0
     );
@@ -401,9 +393,11 @@ SQL
                 $productDetails = json_encode($fieldsData['product_details']);
                 $productDetails = $connection->quote($productDetails);
 
-                $installer->run('UPDATE `m2epro_ebay_template_description`
-                         SET `product_details` = '.$productDetails.' '.
-                                $where);
+                $installer->run(<<<SQL
+                    UPDATE `{$this->_installer->getTable('m2epro_ebay_template_description')}`
+                    SET `product_details` = '.$productDetails.' '. $where
+SQL
+                );
             }
         }
 
@@ -446,40 +440,40 @@ SQL
 
         $installer->run(<<<SQL
 
-    UPDATE `m2epro_amazon_marketplace`
+    UPDATE `{$this->_installer->getTable('m2epro_amazon_marketplace')}`
     SET `default_currency` = 'CAD'
     WHERE `marketplace_id` = 24;
 
-    UPDATE `m2epro_ebay_marketplace`
+    UPDATE `{$this->_installer->getTable('m2epro_ebay_marketplace')}`
     SET `is_stp` = 1
     WHERE `marketplace_id` = 2
     OR `marketplace_id` = 19;
 
-    UPDATE `m2epro_synchronization_config`
+    UPDATE `{$this->_installer->getTable('m2epro_synchronization_config')}`
     SET `value` = '86400'
     WHERE `group` = '/amazon/other_listings/update/'
     AND `key` = 'interval';
 
-    UPDATE `m2epro_synchronization_config`
+    UPDATE `{$this->_installer->getTable('m2epro_synchronization_config')}`
     SET `value` = '86400'
     WHERE `group` = '/buy/other_listings/update/'
     AND `key` = 'interval';
 
-    UPDATE `m2epro_ebay_template_shipping`
+    UPDATE `{$this->_installer->getTable('m2epro_ebay_template_shipping')}`
     SET `postal_code_mode` = 1
     WHERE `postal_code_custom_value` != '';
 
-    UPDATE `m2epro_ebay_template_shipping`
+    UPDATE `{$this->_installer->getTable('m2epro_ebay_template_shipping')}`
     SET `address_mode` = 1
     WHERE `address_custom_value` != '';
 
-    UPDATE `m2epro_amazon_listing_product`
+    UPDATE `{$this->_installer->getTable('m2epro_amazon_listing_product')}`
     SET `online_qty` = NULL
     WHERE `online_qty` IS NOT NULL
     AND `is_variation_parent` = 0
     AND `is_afn_channel` = 1;
 
-    UPDATE `m2epro_amazon_listing_other`
+    UPDATE `{$this->_installer->getTable('m2epro_amazon_listing_other')}`
     SET `online_qty` = NULL
     WHERE `online_qty` IS NOT NULL
     AND `is_afn_channel` = 1;

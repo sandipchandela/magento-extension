@@ -23,8 +23,8 @@ class Ess_M2ePro_Adminhtml_MaintenanceController extends Mage_Adminhtml_Controll
             return $this->_redirect('adminhtml/dashboard');
         }
 
-        $isPreparedForMigration = (bool)Mage::helper('M2ePro/Primary')->getConfig()->getGroupValue(
-            '/migrationtomagento2/source/', 'is_prepared_for_migration'
+        $isPreparedForMigration = (bool)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(
+            Ess_M2ePro_Model_Upgrade_MigrationToMagento2_Runner::CONFIG_PREFIX, 'is_prepared_for_migration'
         );
 
         /** @var Mage_Adminhtml_Block_Template $block */

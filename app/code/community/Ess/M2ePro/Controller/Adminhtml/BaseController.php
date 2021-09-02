@@ -60,7 +60,6 @@ abstract class Ess_M2ePro_Controller_Adminhtml_BaseController
          *
          * The code below is the logical extension of the method \Ess_M2ePro_Controller_Router::addModule.
          */
-        // -----------------------------------------------------------------
         if (!Mage::getSingleton('admin/session')->isLoggedIn()) {
             $this->_isUnAuthorized = true;
 
@@ -84,23 +83,8 @@ abstract class Ess_M2ePro_Controller_Adminhtml_BaseController
             }
         }
 
-        // -----------------------------------------------------------------
-
-        if (Mage::helper('M2ePro/Module_Maintenance')->isEnabled()) {
-            return $this->_redirect('*/adminhtml_maintenance');
-        }
-
-        if (Mage::helper('M2ePro/Module')->isDisabled()) {
-            return $this->_redirect('adminhtml/dashboard');
-        }
-
-        if (Mage::helper('M2ePro/Component')->getEnabledComponents() === array()) {
-            return $this->_redirect('adminhtml/dashboard');
-        }
-
         Mage::helper('M2ePro/Module_Exception')->setFatalErrorHandler();
 
-        // flag that controller is loaded
         if (Mage::helper('M2ePro/Data_Global')->getValue('is_base_controller_loaded') === null) {
             Mage::helper('M2ePro/Data_Global')->setValue('is_base_controller_loaded', true);
         }
@@ -166,6 +150,18 @@ abstract class Ess_M2ePro_Controller_Adminhtml_BaseController
 
     protected function _preDispatch()
     {
+        if (Mage::helper('M2ePro/Module_Maintenance')->isEnabled()) {
+            return $this->_redirect('*/adminhtml_maintenance');
+        }
+
+        if (Mage::helper('M2ePro/Module')->isDisabled()) {
+            return $this->_redirect('adminhtml/dashboard');
+        }
+
+        if (Mage::helper('M2ePro/Component')->getEnabledComponents() === array()) {
+            return $this->_redirect('adminhtml/dashboard');
+        }
+
         return null;
     }
 
@@ -188,8 +184,10 @@ abstract class Ess_M2ePro_Controller_Adminhtml_BaseController
         if (Mage::helper('M2ePro/Module')->isDisabled()) {
             $message = Mage::helper('M2ePro')->__(
                 <<<HTML
-                M2E Pro is disabled. Inventory and Order synchronization is not running at this moment.
-                At any time, you can enable the Module under <b>System > Configuration > M2E Pro > Advanced.</b>
+                M2E Pro is disabled. Inventory and Order synchronization is not running. 
+                The Module interface is unavailable.<br>
+                You can enable the Module under <i>System > Configuration > M2E Pro > Module & Channels > Module
+                 > Module Interface and Automatic Synchronization</i>.
 HTML
             );
             $this->_getSession()->addError($message);
@@ -198,8 +196,9 @@ HTML
         if (Mage::helper('M2ePro/Component')->getEnabledComponents() === array()) {
             $message = Mage::helper('M2ePro')->__(
                 <<<HTML
-                Channel Integrations are disabled. To start working with M2E Pro, please go to 
-                <b>System > Configuration > M2E Pro > Channels</b> and enable at least one Channel Integration.
+                Channel Integrations are disabled. To start working with M2E Pro, go to 
+                <i>System > Configuration > M2E Pro > Module & Channels > Channels</i>
+                 and enable at least one Channel Integration.
 HTML
             );
             $this->_getSession()->addError($message);

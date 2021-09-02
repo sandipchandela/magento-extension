@@ -1,5 +1,4 @@
-BlockNotice = Class.create();
-BlockNotice.prototype = {
+window.BlockNotice = Class.create({
 
     storageKeys: {
         prefix: 'm2e_bn_',
@@ -76,6 +75,11 @@ BlockNotice.prototype = {
 
     // ---------------------------------------
 
+    toggleContent: function(id)
+    {
+        return this.isClosedContent(id) ? this.showContent(id) : this.hideContent(id);
+    },
+
     showContent: function(id)
     {
         var self = this;
@@ -86,7 +90,9 @@ BlockNotice.prototype = {
         }
 
         $$('#'+id+' div.block_notices_content').each(function(object) {
-            Effect.SlideDown(object, {duration:0.7});
+            if (!object.visible()) {
+                Effect.SlideDown(object, {duration:0.7});
+            }
         });
         $$('#'+id+' div.block_notices_header div.block_notices_header_left span.arrow').each(function(object) {
             object.innerHTML = '&uarr;';
@@ -110,7 +116,9 @@ BlockNotice.prototype = {
         }
 
         $$('#'+id+' div.block_notices_content').each(function(object) {
-            Effect.SlideUp(object, {duration:0.7});
+            if (object.visible()) {
+                Effect.SlideUp(object, {duration:0.7});
+            }
         });
         $$('#'+id+' div.block_notices_header div.block_notices_header_left span.arrow').each(function(object) {
             object.innerHTML = '&darr;';
@@ -257,10 +265,6 @@ BlockNotice.prototype = {
     getHeaderHtml: function(id,title,subtitle,collapseable,hideblock)
     {
         var isClosedContent = this.getHashedStorage(id + this.storageKeys.closed);
-        if (BLOCK_NOTICES_DISABLE_COLLAPSE) {
-            isClosedContent = 0;
-        }
-
         var titleHtml = '';
         if (title != '') {
             titleHtml = '<span class="title">'+title+'</span>';
@@ -315,10 +319,6 @@ BlockNotice.prototype = {
     getContentHtml: function(id,content,collapseable)
     {
         var isClosedContent = this.getHashedStorage(id + this.storageKeys.closed);
-        if (BLOCK_NOTICES_DISABLE_COLLAPSE) {
-            isClosedContent = 0;
-        }
-
         var contentHtml = '';
         if (collapseable && isClosedContent == '1') {
             contentHtml = '<div class="block_notices_content" style="display: none;">';
@@ -517,8 +517,8 @@ BlockNotice.prototype = {
             return;
         }
 
-        if ((IS_VIEW_INTEGRATION || IS_VIEW_WIZARD || IS_VIEW_CONFIGURATION) && !BLOCK_NOTICES_DISABLE_COLLAPSE
-            && !alwaysShow && this.collapseHelpBlockIntoIcon(object)) {
+        if ((IS_VIEW_INTEGRATION || IS_VIEW_WIZARD || IS_VIEW_CONFIGURATION) &&
+            !alwaysShow && this.collapseHelpBlockIntoIcon(object)) {
 
             object.remove();
             return;
@@ -535,7 +535,29 @@ BlockNotice.prototype = {
             this.setObjectState(object);
             this.setHashedStorage(id + this.storageKeys.expandedContent);
         }
+    },
+
+    // ---------------------------------------
+
+    isClosedContent: function(id)
+    {
+        return this.getHashedStorage(id + this.storageKeys.closed) == '1';
+    },
+
+    isHiddenBlock: function(id)
+    {
+        return this.getHashedStorage(id + this.storageKeys.hiddenContent) == '1';
+    },
+
+    // ---------------------------------------
+
+    prepareCollapseableArrow: function(id)
+    {
+        var arrow = this.isClosedContent(id) ? '&darr;' : '&uarr;';
+        $$('#'+id+' div.block_notices_header div.block_notices_header_left span.arrow').each(function(object) {
+            object.innerHTML = arrow;
+        });
     }
 
     // ---------------------------------------
-};
+});

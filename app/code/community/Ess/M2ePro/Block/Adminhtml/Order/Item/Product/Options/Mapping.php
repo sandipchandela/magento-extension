@@ -30,21 +30,15 @@ class Ess_M2ePro_Block_Adminhtml_Order_Item_Product_Options_Mapping extends Ess_
 
     public function getProductTypeHeader()
     {
-        switch ($this->_magentoProduct->getTypeId()) {
-            case Ess_M2ePro_Model_Magento_Product::TYPE_BUNDLE:
-                $title = Mage::helper('M2ePro')->__('Bundle Items');
-                break;
-            case Ess_M2ePro_Model_Magento_Product::TYPE_DOWNLOADABLE:
-                $title = Mage::helper('M2ePro')->__('Links');
-                break;
-            case Ess_M2ePro_Model_Magento_Product::TYPE_GROUPED:
-            case Ess_M2ePro_Model_Magento_Product::TYPE_CONFIGURABLE:
-                $title = Mage::helper('M2ePro')->__('Associated Products');
-                break;
-            case Ess_M2ePro_Model_Magento_Product::TYPE_SIMPLE:
-            default:
-                $title = Mage::helper('M2ePro')->__('Custom Options');
-                break;
+        $title = Mage::helper('M2ePro')->__('Custom Options');
+
+        if ($this->_magentoProduct->isBundleType()) {
+            $title = Mage::helper('M2ePro')->__('Bundle Items');
+        } elseif ($this->_magentoProduct->isGroupedType() ||
+            $this->_magentoProduct->isConfigurableType()) {
+            $title = Mage::helper('M2ePro')->__('Associated Products');
+        } elseif ($this->_magentoProduct->isDownloadableType()) {
+            $title = Mage::helper('M2ePro')->__('Links');
         }
 
         return $title;
@@ -149,7 +143,7 @@ class Ess_M2ePro_Block_Adminhtml_Order_Item_Product_Options_Mapping extends Ess_
             'id'      => 'product_options_mapping_submit_button',
             'label'   => Mage::helper('M2ePro')->__('Confirm'),
             'class'   => 'product_options_mapping_submit_button submit',
-            'onclick' => 'OrderEditItemHandlerObj.assignProductDetails();'
+            'onclick' => 'OrderEditItemObj.assignProductDetails();'
         );
         $buttonBlock = $this->getLayout()->createBlock('adminhtml/widget_button')->setData($data);
         $this->setChild('product_options_mapping_submit_button', $buttonBlock);

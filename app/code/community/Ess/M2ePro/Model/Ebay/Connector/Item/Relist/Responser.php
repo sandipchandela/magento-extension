@@ -13,7 +13,29 @@ class Ess_M2ePro_Model_Ebay_Connector_Item_Relist_Responser
 
     protected function getSuccessfulMessage()
     {
-        return 'Item was successfully Relisted';
+        $currency = Mage::app()->getLocale()->currency(
+            $this->_listingProduct->getMarketplace()->getChildObject()->getCurrency()
+        );
+
+        $onlineQty = $this->_listingProduct->getChildObject()->getOnlineQty() -
+                     $this->_listingProduct->getChildObject()->getOnlineQtySold();
+
+        if ($this->getRequestDataObject()->isVariationItem()) {
+            $calculateWithEmptyQty = $this->_listingProduct->getChildObject()->isOutOfStockControlEnabled();
+
+            return sprintf(
+                'Product was Relisted with QTY %d, Price %s - %s',
+                $onlineQty,
+                $currency->toCurrency($this->getRequestDataObject()->getVariationMinPrice($calculateWithEmptyQty)),
+                $currency->toCurrency($this->getRequestDataObject()->getVariationMaxPrice($calculateWithEmptyQty))
+            );
+        }
+
+        return sprintf(
+            'Product was Relisted with QTY %d, Price %s',
+            $onlineQty,
+            $currency->toCurrency($this->_listingProduct->getChildObject()->getOnlineCurrentPrice())
+        );
     }
 
     //########################################
@@ -102,20 +124,25 @@ class Ess_M2ePro_Model_Ebay_Connector_Item_Relist_Responser
         }
 
         if ($this->getStatusChanger() == Ess_M2ePro_Model_Listing_Product::STATUS_CHANGER_SYNCH &&
-            (!$this->getConfigurator()->isExcludingMode()) &&
-            $this->isNewRequiredSpecificNeeded($responseMessages)) {
-            $message = Mage::getModel('M2ePro/Connector_Connection_Response_Message');
-            $message->initFromPreparedData(
-                'eBay Category assigned to this Item requires the Product Identifier to be specified
+            $this->getConfigurator()->isIncludingMode()) {
+            /** @var Ess_M2ePro_Model_Ebay_Listing_Product_Action_Configurator $configurator */
+            $configurator = Mage::getModel('M2ePro/Ebay_Listing_Product_Action_Configurator');
+
+            if ($this->isProductIdentifierNeeded($responseMessages)) {
+                $message = Mage::getModel('M2ePro/Connector_Connection_Response_Message');
+                $message->initFromPreparedData(
+                    'eBay Category assigned to this Item requires the Product Identifier to be specified
                 (UPC, EAN, ISBN, etc.). The related data will be automatically submitted to the Channel based
                 on eBay Catalog Identifiers settings in the Description Policy.',
-                Ess_M2ePro_Model_Connector_Connection_Response_Message::TYPE_WARNING
-            );
+                    Ess_M2ePro_Model_Connector_Connection_Response_Message::TYPE_WARNING
+                );
 
-            $this->getLogger()->logListingProductMessage($this->_listingProduct, $message);
-
-            $configurator = Mage::getModel('M2ePro/Ebay_Listing_Product_Action_Configurator');
-            $this->processAdditionalAction($this->getActionType(), $configurator);
+                $this->getLogger()->logListingProductMessage($this->_listingProduct, $message);
+                $this->processAdditionalAction($this->getActionType(), $configurator);
+            } elseif ($this->isNewRequiredSpecificNeeded($responseMessages)) {
+                $configurator->allowCategories();
+                $this->processAdditionalAction($this->getActionType(), $configurator);
+            }
         }
 
         $additionalData = $this->_listingProduct->getAdditionalData();
@@ -124,7 +151,7 @@ class Ess_M2ePro_Model_Ebay_Connector_Item_Relist_Responser
             $this->getRequestDataObject()->hasVariations() &&
             !isset($additionalData['is_variation_mpn_filled'])
         ) {
-            $this->tryToResolveVariationMpnErrors();
+            $this->tryToResolveVariationErrors();
         }
 
         if ($message = $this->isDuplicateErrorByUUIDAppeared($responseMessages)) {
@@ -134,22 +161,6 @@ class Ess_M2ePro_Model_Ebay_Connector_Item_Relist_Responser
         if ($message = $this->isDuplicateErrorByEbayEngineAppeared($responseMessages)) {
             $this->processDuplicateByEbayEngine($message);
         }
-
-        $additionalData = $this->_listingProduct->getAdditionalData();
-        if (empty($additionalData['skipped_action_configurator_data'])) {
-            return;
-        }
-
-        $configurator = Mage::getModel('M2ePro/Ebay_Listing_Product_Action_Configurator');
-        $configurator->setData($additionalData['skipped_action_configurator_data']);
-
-        $scheduledActionManager = Mage::getModel('M2ePro/Listing_Product_ScheduledAction_Manager');
-        $scheduledActionManager->addReviseAction(
-            $this->_listingProduct, $configurator, false, $this->_params['params']
-        );
-
-        unset($additionalData['skipped_action_configurator_data']);
-        $this->_listingProduct->setSettings('additional_data', $additionalData)->save();
 
         parent::eventAfterExecuting();
     }

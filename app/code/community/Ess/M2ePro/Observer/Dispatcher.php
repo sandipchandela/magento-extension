@@ -84,9 +84,14 @@ class Ess_M2ePro_Observer_Dispatcher
         $this->process('Invoice', $eventObserver);
     }
 
-    public function salesOrderShipmentSaveAfter(Varien_Event_Observer $eventObserver)
+    public function salesOrderInvoiceSaveAfter(Varien_Event_Observer $eventObserver)
     {
-        $this->process('Shipment', $eventObserver);
+        $this->process('Invoice_Save_After', $eventObserver);
+    }
+
+    public function salesShipmentItemSaveAfter(Varien_Event_Observer $eventObserver)
+    {
+        $this->process('Shipment_Item', $eventObserver);
     }
 
     public function salesOrderShipmentTrackSaveAfter(Varien_Event_Observer $eventObserver)
@@ -128,19 +133,29 @@ class Ess_M2ePro_Observer_Dispatcher
         $this->process('Shipment_View_After', $eventObserver);
     }
 
+    public function orderNotification(Varien_Event_Observer $eventObserver)
+    {
+        $this->process('Order_Notification', $eventObserver);
+    }
+
     public function salesOrderCreditmemoRefund(Varien_Event_Observer $eventObserver)
     {
-        $this->process('CreditMemo', $eventObserver);
+        $this->process('Creditmemo', $eventObserver);
     }
 
-    public function magentoOrderCreate(Varien_Event_Observer $eventObserver)
+    public function salesOrderCreditmemoSaveAfter(Varien_Event_Observer $eventObserver)
     {
-        $this->process('Order', $eventObserver);
+        $this->process('Creditmemo_Save_After', $eventObserver);
     }
 
-    public function magentoOrderStatusChange(Varien_Event_Observer $eventObserver)
+    public function salesOrderSaveAfterStoreMagentoOrderId(Varien_Event_Observer $eventObserver)
     {
-        $this->process('Ebay_Order', $eventObserver);
+        $this->process('Order_Save_After_StoreMagentoOrderId', $eventObserver);
+    }
+
+    public function salesOrderSaveAfterSendPickupStoreNotifications(Varien_Event_Observer $eventObserver)
+    {
+        $this->process('Order_Save_After_SendPickupStoreNotifications', $eventObserver);
     }
 
     public function salesConvertQuoteItemToOrderItem(Varien_Event_Observer $eventObserver)
@@ -153,6 +168,11 @@ class Ess_M2ePro_Observer_Dispatcher
         $this->process('Order_View_Before', $eventObserver);
     }
 
+    public function salesOrderCancel(Varien_Event_Observer $eventObserver)
+    {
+        $this->process('Order_Cancel', $eventObserver);
+    }
+
     public function shipmentView(Varien_Event_Observer $eventObserver)
     {
         $this->process('Shipment_View', $eventObserver);
@@ -163,9 +183,9 @@ class Ess_M2ePro_Observer_Dispatcher
         $this->process('Invoice_View', $eventObserver);
     }
 
-    public function creditMemoView(Varien_Event_Observer $eventObserver)
+    public function creditmemoView(Varien_Event_Observer $eventObserver)
     {
-        $this->process('CreditMemo_View', $eventObserver);
+        $this->process('Creditmemo_View', $eventObserver);
     }
 
     //########################################

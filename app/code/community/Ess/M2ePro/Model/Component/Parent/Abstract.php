@@ -131,6 +131,10 @@ abstract class Ess_M2ePro_Model_Component_Parent_Abstract extends Ess_M2ePro_Mod
             return Mage::helper('M2ePro/Component_Amazon')->getTitle();
         }
 
+        if ($this->isComponentModeWalmart()) {
+            return Mage::helper('M2ePro/Component_Walmart')->getTitle();
+        }
+
         return '';
     }
 
@@ -215,45 +219,6 @@ abstract class Ess_M2ePro_Model_Component_Parent_Abstract extends Ess_M2ePro_Mod
         $this->_childMode   = null;
         $this->_childObject = null;
         return $temp;
-    }
-
-    //########################################
-
-    /**
-     * @param string $modelName
-     * @param string $fieldName
-     * @param bool $asObjects
-     * @param array $filters
-     * @param array $sort
-     * @return array
-     * @throws Ess_M2ePro_Model_Exception_Logic
-     */
-    protected function getRelatedComponentItems(
-        $modelName,
-        $fieldName,
-        $asObjects = false,
-        array $filters = array(),
-        array $sort = array()
-    ) {
-        if ($this->getId() === null) {
-            throw new Ess_M2ePro_Model_Exception_Logic('Method require loaded instance first');
-        }
-
-        $tempMode = null;
-
-        if ($this->_childMode !== null) {
-            $tempMode = $this->_childMode;
-        } else {
-            $tempMode = $this->getComponentMode();
-        }
-
-        $tempModel = Mage::helper('M2ePro/Component')->getComponentModel($tempMode, $modelName);
-
-        if ($tempModel === null || !($tempModel instanceof Ess_M2ePro_Model_Abstract)) {
-            return array();
-        }
-
-        return $this->getRelatedItems($tempModel, $fieldName, $asObjects, $filters, $sort);
     }
 
     //########################################

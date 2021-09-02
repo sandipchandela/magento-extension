@@ -53,10 +53,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Listing_Variation_Product_Manage_Tabs
     {
         parent::__construct();
 
-        // Initialization block
-        // ---------------------------------------
         $this->setId('amazonVariationProductManageTabs');
-        // ---------------------------------------
 
         $this->setTemplate('widget/tabshoriz.phtml');
         $this->setDestElementId('variation_product_manage_tabs_container');
@@ -73,6 +70,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Listing_Variation_Product_Manage_Tabs
             'content' => $this->getLayout()
                 ->createBlock('M2ePro/adminhtml_amazon_listing_variation_product_manage_tabs_variations')
                 ->setListingProductId($this->getListingProductId())
+                ->setListingProductIdForFilter($this->getRequest()->getParam('listing_product_id_filter'))
                 ->toHtml()
             )
         );
@@ -141,7 +139,7 @@ HTML;
         $data = array(
             'style' => 'float: right; margin-top: 7px; ',
             'label'   => Mage::helper('M2ePro')->__('Close'),
-            'onclick' => 'ListingGridHandlerObj.variationProductManageHandler.closeManageVariationsPopup()'
+            'onclick' => 'ListingGridObj.variationProductManageHandler.closeManageVariationsPopup()'
         );
         $closeBtn = $this->getLayout()->createBlock('adminhtml/widget_button')->setData($data);
 
@@ -153,7 +151,7 @@ HTML;
         amazonVariationProductManageTabsJsTabs.tabs[0].hide();
     }
 
-    ListingGridHandlerObj.variationProductManageHandler.loadVariationsGrid({$showChildProducts});
+    ListingGridObj.variationProductManageHandler.loadVariationsGrid({$showChildProducts});
 </script>
 HTML;
 

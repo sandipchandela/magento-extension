@@ -22,8 +22,8 @@ class Ess_M2ePro_Adminhtml_Amazon_SynchronizationController
              ->addCss('M2ePro/css/Plugin/ProgressBar.css')
              ->addJs('M2ePro/Plugin/AreaWrapper.js')
              ->addCss('M2ePro/css/Plugin/AreaWrapper.css')
-             ->addJs('M2ePro/SynchProgressHandler.js')
-             ->addJs('M2ePro/SynchronizationHandler.js');
+             ->addJs('M2ePro/SynchProgress.js')
+             ->addJs('M2ePro/Synchronization.js');
 
         $this->_initPopUp();
 
@@ -61,68 +61,6 @@ class Ess_M2ePro_Adminhtml_Amazon_SynchronizationController
         Mage::helper('M2ePro/Module')->getConfig()->setGroupValue(
             '/cron/task/amazon/listing/product/process_instructions/', 'mode',
             (int)$this->getRequest()->getParam('amazon_instructions_mode')
-        );
-    }
-
-    //########################################
-
-    public function synchCheckProcessingNowAction()
-    {
-        $warningMessages = array();
-
-        $amazonProcessing = Mage::getModel('M2ePro/Lock_Item')->getCollection()
-            ->addFieldToFilter('nick', array('like' => 'synchronization_amazon%'))
-            ->getSize();
-
-        if ($amazonProcessing > 0) {
-            $warningMessages[] = Mage::helper('M2ePro')->__(
-                'Data has been sent on Amazon. It is being processed now. You can continue working with M2E Pro.'
-            );
-        }
-
-        return $this->getResponse()->setBody(
-            Mage::helper('M2ePro')->jsonEncode(
-                array(
-                'messages' => $warningMessages
-                )
-            )
-        );
-    }
-
-    //########################################
-
-    public function runReviseAllAction()
-    {
-        $startDate = Mage::helper('M2ePro')->getCurrentGmtDate();
-
-        Mage::helper('M2ePro/Module')->getConfig()->setGroupValue('/listing/product/revise/total/amazon/', 'mode', '1');
-
-        $startDateRegistry = Mage::getModel('M2ePro/Registry')
-            ->load('/listing/product/revise/total/amazon/start_date/', 'key');
-        $startDateRegistry->setData('key', '/listing/product/revise/total/amazon/start_date/');
-        $startDateRegistry->setData('value', $startDate);
-        $startDateRegistry->save();
-
-        $endDateRegistry = Mage::getModel('M2ePro/Registry')
-            ->load('/listing/product/revise/total/amazon/end_date/', 'key');
-        if ($endDateRegistry->getId()) {
-            $endDateRegistry->delete();
-        }
-
-        $lastListingProductIdRegistry = Mage::getModel('M2ePro/Registry')
-            ->load('/listing/product/revise/total/amazon/last_listing_product_id/', 'key');
-        $lastListingProductIdRegistry->setData('key', '/listing/product/revise/total/amazon/last_listing_product_id/');
-        $lastListingProductIdRegistry->setData('value', 0);
-        $lastListingProductIdRegistry->save();
-
-        $format = Mage::app()->getLocale()->getDateTimeFormat(Mage_Core_Model_Locale::FORMAT_TYPE_MEDIUM);
-
-        $this->getResponse()->setBody(
-            Mage::helper('M2ePro')->jsonEncode(
-                array(
-                'start_date' => Mage::app()->getLocale()->date(strtotime($startDate))->toString($format)
-                )
-            )
         );
     }
 

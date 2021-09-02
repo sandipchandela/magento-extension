@@ -139,10 +139,11 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Product_RemovePotentialDuplicates
                     ->getCode();
 
                 $duplicatedItem = $this->getDuplicateItemFromPossible(
-                    $possibleDuplicates, array(
-                    'title' => $lastFailedActionData['native_request_data']['title'],
-                    'sku' => $lastFailedActionData['native_request_data']['sku'],
-                    'marketplace' => $marketplaceCode,
+                    $possibleDuplicates,
+                    array(
+                        'title' => $lastFailedActionData['native_request_data']['title'],
+                        'sku' => $lastFailedActionData['native_request_data']['sku'],
+                        'marketplace' => $marketplaceCode,
                     )
                 );
 
@@ -229,11 +230,16 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Product_RemovePotentialDuplicates
         is_object($timeFrom) && $timeFrom = $timeFrom->format('Y-m-d H:i:s');
         is_object($timeTo)   && $timeTo = $timeTo->format('Y-m-d H:i:s');
 
+        $inputData = array(
+            'since_time' => $timeFrom,
+            'to_time'    => $timeTo,
+            'realtime'   => true
+        );
+
         $dispatcherObj = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
         $connectorObj = $dispatcherObj->getVirtualConnector(
-            'item', 'get', 'all',
-            array('since_time'=>$timeFrom,
-                                                                  'to_time'=>$timeTo), null,
+            'inventory', 'get', 'items',
+            $inputData, null,
             null, $accountId
         );
 
@@ -296,8 +302,7 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Product_RemovePotentialDuplicates
             $logsActionId,
             Ess_M2ePro_Model_Listing_Log::ACTION_CHANNEL_CHANGE,
             $statusLogMessage,
-            Ess_M2ePro_Model_Log_Abstract::TYPE_SUCCESS,
-            Ess_M2ePro_Model_Log_Abstract::PRIORITY_LOW
+            Ess_M2ePro_Model_Log_Abstract::TYPE_SUCCESS
         );
 
         $additionalData = $listingProduct->getAdditionalData();
@@ -305,9 +310,9 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Product_RemovePotentialDuplicates
 
         $listingProduct->addData(
             array(
-            'status'          => $status,
-            'status_changer'  => Ess_M2ePro_Model_Listing_Product::STATUS_CHANGER_COMPONENT,
-            'additional_data' => Mage::helper('M2ePro')->jsonEncode($additionalData),
+                'status'          => $status,
+                'status_changer'  => Ess_M2ePro_Model_Listing_Product::STATUS_CHANGER_COMPONENT,
+                'additional_data' => Mage::helper('M2ePro')->jsonEncode($additionalData),
             )
         )->save();
 
@@ -328,8 +333,7 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Product_RemovePotentialDuplicates
             $logsActionId,
             Ess_M2ePro_Model_Listing_Log::ACTION_CHANNEL_CHANGE,
             $duplicateDeletedMessage,
-            Ess_M2ePro_Model_Log_Abstract::TYPE_WARNING,
-            Ess_M2ePro_Model_Log_Abstract::PRIORITY_LOW
+            Ess_M2ePro_Model_Log_Abstract::TYPE_WARNING
         );
     }
 
@@ -346,7 +350,7 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Product_RemovePotentialDuplicates
 
         if (!empty($statusChangedFrom) && !empty($statusChangedTo)) {
             $message = Mage::helper('M2ePro')->__(
-                'Item Status was successfully changed from "%from%" to "%to%" .',
+                'Item Status was changed from "%from%" to "%to%" .',
                 $statusChangedFrom,
                 $statusChangedTo
             );

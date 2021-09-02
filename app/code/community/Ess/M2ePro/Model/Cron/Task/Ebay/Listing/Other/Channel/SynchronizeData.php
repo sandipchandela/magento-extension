@@ -73,7 +73,7 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Other_Channel_SynchronizeData exte
                     $this->executeUpdateInventoryDataAccount($account);
                 } catch (Exception $exception) {
                     $message = Mage::helper('M2ePro')->__(
-                        'The "Update 3rd Party Listings" Action for eBay Account "%account%" was completed with error.',
+                        'The "Update Unmanaged Listings" Action for eBay Account "%account%" was completed with error.',
                         $account->getTitle()
                     );
 
@@ -83,8 +83,6 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Other_Channel_SynchronizeData exte
 
                 $this->getOperationHistory()->saveTimePoint(__METHOD__.'process'.$account->getId());
             }
-
-            $this->getLockItemManager()->activate();
         }
     }
 
@@ -127,7 +125,7 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Other_Channel_SynchronizeData exte
     {
         $nextSinceTime = new DateTime($sinceTime, new DateTimeZone('UTC'));
 
-        $operationHistory = $this->getOperationHistory()->getParentObject('synchronization');
+        $operationHistory = $this->getOperationHistory()->getParentObject('cron_runner');
         if ($operationHistory !== null) {
             $toTime = new DateTime($operationHistory->getData('start_date'), new DateTimeZone('UTC'));
         } else {
@@ -189,7 +187,7 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Other_Channel_SynchronizeData exte
     {
         $dispatcherObj = Mage::getModel('M2ePro/Ebay_Connector_Dispatcher');
         $connectorObj = $dispatcherObj->getVirtualConnector(
-            'item', 'get', 'changes',
+            'inventory', 'get', 'events',
             $paramsConnector, null,
             null, $account->getId()
         );
@@ -222,8 +220,7 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Other_Channel_SynchronizeData exte
 
             $this->getSynchronizationLog()->addMessage(
                 Mage::helper('M2ePro')->__($message->getText()),
-                $logType,
-                Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
+                $logType
             );
         }
     }

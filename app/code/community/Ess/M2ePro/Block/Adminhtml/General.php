@@ -36,9 +36,7 @@ class Ess_M2ePro_Block_Adminhtml_General extends Mage_Adminhtml_Block_Widget
         $this->setId('generalHtml');
         $this->setTemplate('M2ePro/general.phtml');
 
-        $this->block_notices_show = (bool)(int)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(
-            '/view/', 'show_block_notices'
-        );
+        $this->block_notices_show = (bool)Mage::helper('M2ePro/Module_Configuration')->getViewShowBlockNoticesMode();
 
         $this->_jsPhp        = Mage::getBlockSingleton('M2ePro/adminhtml_magento_renderer_jsPhp');
         $this->_jsTranslator = Mage::getBlockSingleton('M2ePro/adminhtml_magento_renderer_jsTranslator');
@@ -55,15 +53,14 @@ class Ess_M2ePro_Block_Adminhtml_General extends Mage_Adminhtml_Block_Widget
 
     protected function initRenderData()
     {
-        $this->_js->add(
-            <<<JS
+        $this->_js->add(<<<JS
 var M2ePro = {};
 
-M2ePro.url        = new UrlHandler();
-M2ePro.php        = new PhpHandler();
-M2ePro.translator = new TranslatorHandler();
+M2ePro.url        = new GeneralUrl();
+M2ePro.php        = new GeneralPhp();
+M2ePro.translator = new GeneralTranslator();
 
-ControlPanelHandlerObj = new ControlPanelHandler();
+ControlPanelObj = new ControlPanel();
 
 // backward compatibility
 M2ePro.text       = {};
@@ -76,12 +73,18 @@ JS
         $this->_jsUrls->add($this->getSkinUrl('M2ePro'), 'm2epro_skin_url');
         $this->_jsUrls->add($this->getUrl('M2ePro/adminhtml_controlPanel/index'), 'm2epro_control_panel');
 
+        $synchWarningMessage = 'Marketplace synchronization was completed with warnings. '
+            . '<a target="_blank" href="%url%">View Log</a> for the details.';
+        $synchErrorMessage = 'Marketplace synchronization was completed with errors. '
+            . '<a target="_blank" href="%url%">View Log</a> for the details.';
+
         $this->_jsTranslator->addTranslations(
             array(
                 'Are you sure?',
                 'Help',
                 'Assign',
                 'Attention',
+                'Set Attributes',
                 'Not Set',
                 'Hide Block',
                 'Show Tips',
@@ -94,6 +97,7 @@ JS
                 'None',
                 'Cancel',
                 'Confirm',
+                'Add',
                 'In Progress',
                 'Product(s)',
 
@@ -115,11 +119,34 @@ JS
                 'Creation of New Magento Attribute',
                 'Unauthorized! Please login again.',
 
+                'Settings have been saved.',
                 'Preparing to start. Please wait ...',
-                'Synchronization has successfully ended.',
-                'Synchronization ended with warnings. <a target="_blank" href="%url%">View Log</a> for details.',
-                'Synchronization ended with errors. <a target="_blank" href="%url%">View Log</a> for details.',
+                'Marketplace synchronization was completed.',
+                'Synchronization ended with errors.',
+                $synchWarningMessage,
+                $synchErrorMessage,
+
+                'Task completed. Please wait ...',
+                '"%task_title%" Task was completed.',
+                '"%task_title%" Task was submitted to be processed.',
+
+                'Show Advanced Filter',
+                'Hide Advanced Filter',
+
+                'Refresh Unmanaged Listings'
             )
+        );
+
+        $this->_jsTranslator->add(
+            '"%task_title%" Task was completed with warnings.
+            <a target="_blank" href="%url%">View Log</a> for the details.',
+            '"%task_title%" Task was completed with warnings.'
+        );
+
+        $this->_jsTranslator->add(
+            '"%task_title%" Task was completed with errors.
+            <a target="_blank" href="%url%">View Log</a> for the details.',
+            '"%task_title%" Task was completed with errors.'
         );
     }
 

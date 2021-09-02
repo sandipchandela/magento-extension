@@ -23,6 +23,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
             ChangeProcessorAbstract::INSTRUCTION_TYPE_PRODUCT_STATUS_DATA_POTENTIALLY_CHANGED,
             Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_OTHER,
             Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_LISTING,
+            Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_REMAP_FROM_LISTING,
             Ess_M2ePro_Model_Amazon_Listing_Product::INSTRUCTION_TYPE_CHANNEL_QTY_CHANGED,
             Ess_M2ePro_Model_Amazon_Listing_Product::INSTRUCTION_TYPE_CHANNEL_STATUS_CHANGED,
             Ess_M2ePro_Model_Amazon_Template_ChangeProcessor_Abstract::INSTRUCTION_TYPE_QTY_DATA_CHANGED,
@@ -50,16 +51,6 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
             return false;
         }
 
-        /** @var Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
-        $amazonListingProduct = $listingProduct->getChildObject();
-        $variationManager = $amazonListingProduct->getVariationManager();
-
-        if ($variationManager->isVariationProduct()) {
-            if ($variationManager->isRelationParentType()) {
-                return false;
-            }
-        }
-
         if ($scheduledAction = $this->_input->getScheduledAction()) {
             if ($scheduledAction->isActionTypeDelete() && $scheduledAction->isForce()) {
                 return false;
@@ -77,6 +68,8 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
         if ($scheduledAction === null) {
             $scheduledAction = Mage::getModel('M2ePro/Listing_Product_ScheduledAction');
         }
+
+        $variationManager = $this->_input->getListingProduct()->getChildObject()->getVariationManager();
 
         if ($this->_input->hasInstructionWithTypes($this->getStopInstructionTypes())) {
             if (!$this->isMeetStopRequirements()) {
@@ -118,9 +111,6 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
             return;
         }
 
-        /** @var Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
-        $amazonListingProduct = $this->_input->getListingProduct()->getChildObject();
-
         $configurator = Mage::getModel('M2ePro/Amazon_Listing_Product_Action_Configurator');
         $configurator->disableAll();
 
@@ -144,6 +134,12 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
 
         $tags = array_flip($tags);
 
+        if ($variationManager->isRelationParentType() &&
+            $this->_input->getListingProduct()->getChildObject()->getSku() === null
+        ) {
+            return false;
+        }
+
         if ($this->_input->hasInstructionWithTypes($this->getReviseQtyInstructionTypes())) {
             if ($this->isMeetReviseQtyRequirements()) {
                 $configurator->allowQty();
@@ -154,43 +150,35 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
             }
         }
 
-        if ($this->_input->hasInstructionWithTypes($this->getRevisePriceRegularInstructionTypes())) {
-            if ($this->isMeetRevisePriceRegularRequirements()) {
-                $configurator->allowRegularPrice();
-                $tags['price_regular'] = true;
-            } else {
-                $configurator->disallowRegularPrice();
-                unset($tags['price_regular']);
-            }
-        }
+        $priceInstructionTypes = array_merge(
+            $this->getRevisePriceRegularInstructionTypes(),
+            $this->getRevisePriceBusinessInstructionTypes()
+        );
 
-        if ($this->_input->hasInstructionWithTypes($this->getRevisePriceBusinessInstructionTypes())) {
-            if ($this->isMeetRevisePriceBusinessRequirements()) {
-                $configurator->allowBusinessPrice();
-                $tags['price_business'] = true;
-            } else {
-                $configurator->disallowBusinessPrice();
-                unset($tags['price_business']);
+        if ($this->_input->hasInstructionWithTypes($priceInstructionTypes)) {
+            if ($this->isMeetRevisePriceRegularRequirements() || $this->isMeetRevisePriceBusinessRequirements()) {
+                $configurator->allowRegularPrice()->allowBusinessPrice();
+                $tags['price'] = true;
             }
         }
 
         if ($this->_input->hasInstructionWithTypes($this->getReviseDetailsInstructionTypes())) {
             if ($this->isMeetReviseDetailsRequirements()) {
-                !$amazonListingProduct->isDetailsDataChanged() &&
-                $amazonListingProduct->setData('is_details_data_changed', true)->save();
+                $configurator->allowDetails();
+                $tags['details'] = true;
             } else {
-                $amazonListingProduct->isDetailsDataChanged() &&
-                $amazonListingProduct->setData('is_details_data_changed', false)->save();
+                $configurator->disallowDetails();
+                unset($tags['details']);
             }
         }
 
         if ($this->_input->hasInstructionWithTypes($this->getReviseImagesInstructionTypes())) {
             if ($this->isMeetReviseImagesRequirements()) {
-                !$amazonListingProduct->isImagesDataChanged() &&
-                $amazonListingProduct->setData('is_images_data_changed', true)->save();
+                $configurator->allowImages();
+                $tags['images'] = true;
             } else {
-                $amazonListingProduct->isImagesDataChanged() &&
-                $amazonListingProduct->setData('is_images_data_changed', false)->save();
+                $configurator->disallowImages();
+                unset($tags['images']);
             }
         }
 
@@ -235,7 +223,16 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
 
         /** @var Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
         $amazonListingProduct = $listingProduct->getChildObject();
+
+        if ($amazonListingProduct->isAfnChannel()) {
+            return false;
+        }
+
         $variationManager = $amazonListingProduct->getVariationManager();
+
+        if ($variationManager->isRelationParentType()) {
+            return false;
+        }
 
         $amazonSynchronizationTemplate = $amazonListingProduct->getAmazonSynchronizationTemplate();
         $variationResource = Mage::getResourceModel('M2ePro/Listing_Product_Variation');
@@ -278,48 +275,11 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
             }
         }
 
-        if ($amazonSynchronizationTemplate->isStopWhenQtyMagentoHasValue()) {
-            $productQty = (int)$amazonListingProduct->getQty(true);
-
-            $typeQty = (int)$amazonSynchronizationTemplate->getStopWhenQtyMagentoHasValueType();
-            $minQty = (int)$amazonSynchronizationTemplate->getStopWhenQtyMagentoHasValueMin();
-            $maxQty = (int)$amazonSynchronizationTemplate->getStopWhenQtyMagentoHasValueMax();
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_LESS &&
-                $productQty <= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_MORE &&
-                $productQty >= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_BETWEEN &&
-                $productQty >= $minQty && $productQty <= $maxQty) {
-                return true;
-            }
-        }
-
         if ($amazonSynchronizationTemplate->isStopWhenQtyCalculatedHasValue()) {
             $productQty = (int)$amazonListingProduct->getQty(false);
+            $minQty = (int)$amazonSynchronizationTemplate->getStopWhenQtyCalculatedHasValue();
 
-            $typeQty = (int)$amazonSynchronizationTemplate->getStopWhenQtyCalculatedHasValueType();
-            $minQty = (int)$amazonSynchronizationTemplate->getStopWhenQtyCalculatedHasValueMin();
-            $maxQty = (int)$amazonSynchronizationTemplate->getStopWhenQtyCalculatedHasValueMax();
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_LESS &&
-                $productQty <= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_MORE &&
-                $productQty >= $minQty) {
-                return true;
-            }
-
-            if ($typeQty == Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_BETWEEN &&
-                $productQty >= $minQty && $productQty <= $maxQty) {
+            if ($productQty <= $minQty) {
                 return true;
             }
         }
@@ -349,9 +309,12 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
 
         /** @var Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
         $amazonListingProduct = $listingProduct->getChildObject();
+        $variationManager = $amazonListingProduct->getVariationManager();
+        if ($variationManager->isRelationParentType()) {
+            return false;
+        }
 
         $amazonSynchronizationTemplate = $amazonListingProduct->getAmazonSynchronizationTemplate();
-
         if (!$amazonSynchronizationTemplate->isReviseUpdateQty() || $amazonListingProduct->isAfnChannel()) {
             return false;
         }
@@ -395,6 +358,10 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
 
         /** @var Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
         $amazonListingProduct = $listingProduct->getChildObject();
+        $variationManager = $amazonListingProduct->getVariationManager();
+        if ($variationManager->isRelationParentType()) {
+            return false;
+        }
 
         if (!$amazonListingProduct->isAllowedForRegularCustomers()) {
             return false;
@@ -414,8 +381,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
         $currentPrice = $amazonListingProduct->getRegularPrice();
         $onlinePrice  = $amazonListingProduct->getOnlineRegularPrice();
 
-        $isChanged = $amazonSynchronizationTemplate->isPriceChangedOverAllowedDeviation($onlinePrice, $currentPrice);
-        if ($isChanged) {
+        if ($currentPrice != $onlinePrice) {
             return true;
         }
 
@@ -442,11 +408,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
             return true;
         }
 
-        $isChanged = $amazonSynchronizationTemplate->isPriceChangedOverAllowedDeviation(
-            $onlineSalePrice, $currentSalePrice
-        );
-
-        if ($isChanged) {
+        if ($onlineSalePrice != $currentSalePrice) {
             return true;
         }
 
@@ -468,6 +430,10 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
 
         /** @var Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
         $amazonListingProduct = $listingProduct->getChildObject();
+        $variationManager = $amazonListingProduct->getVariationManager();
+        if ($variationManager->isRelationParentType()) {
+            return false;
+        }
 
         if (!$amazonListingProduct->isAllowedForBusinessCustomers()) {
             return false;
@@ -482,7 +448,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
         $currentPrice = $amazonListingProduct->getBusinessPrice();
         $onlinePrice  = $amazonListingProduct->getOnlineBusinessPrice();
 
-        if ($amazonSynchronizationTemplate->isPriceChangedOverAllowedDeviation($onlinePrice, $currentPrice)) {
+        if ($currentPrice != $onlinePrice) {
             return true;
         }
 
@@ -505,11 +471,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
 
             $onlineDiscount = $onlineDiscounts[$qty];
 
-            $isChanged = $amazonSynchronizationTemplate->isPriceChangedOverAllowedDeviation(
-                $onlineDiscount, $currentDiscount
-            );
-
-            if ($isChanged) {
+            if ($onlineDiscount != $currentDiscount) {
                 return true;
             }
         }
@@ -526,10 +488,19 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
         /** @var Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
         $amazonListingProduct = $listingProduct->getChildObject();
 
-        $detailsActionDataBuilder = Mage::getModel('M2ePro/Amazon_Listing_Product_Action_DataBuilder_Details');
-        $detailsActionDataBuilder->setListingProduct($listingProduct);
+        $amazonSynchronizationTemplate = $amazonListingProduct->getAmazonSynchronizationTemplate();
+        if (!$amazonSynchronizationTemplate->isReviseWhenChangeDetails()) {
+            return false;
+        }
 
-        if ($detailsActionDataBuilder->getData() != $amazonListingProduct->getOnlineDetailsData()) {
+        $actionDataBuilder = Mage::getModel('M2ePro/Amazon_Listing_Product_Action_DataBuilder_Details');
+        $actionDataBuilder->setListingProduct($listingProduct);
+
+        $hashDetailsData = Mage::helper('M2ePro')->hashString(
+            Mage::helper('M2ePro')->jsonEncode($actionDataBuilder->getData()),
+            'md5'
+        );
+        if ($hashDetailsData != $amazonListingProduct->getOnlineDetailsData()) {
             return true;
         }
 
@@ -545,10 +516,19 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Instruction_SynchronizationTemplat
         /** @var Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
         $amazonListingProduct = $listingProduct->getChildObject();
 
+        $amazonSynchronizationTemplate = $amazonListingProduct->getAmazonSynchronizationTemplate();
+        if (!$amazonSynchronizationTemplate->isReviseWhenChangeImages()) {
+            return false;
+        }
+
         $actionDataBuilder = Mage::getModel('M2ePro/Amazon_Listing_Product_Action_DataBuilder_Images');
         $actionDataBuilder->setListingProduct($listingProduct);
 
-        if ($actionDataBuilder->getData() != $amazonListingProduct->getOnlineImagesData()) {
+        $hashImagesData = Mage::helper('M2ePro')->hashString(
+            Mage::helper('M2ePro')->jsonEncode($actionDataBuilder->getData()),
+            'md5'
+        );
+        if ($hashImagesData != $amazonListingProduct->getOnlineImagesData()) {
             return true;
         }
 

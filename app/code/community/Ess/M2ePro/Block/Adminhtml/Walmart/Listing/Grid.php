@@ -134,25 +134,6 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Grid extends Ess_M2ePro_Block_A
         );
 
         $actions = array(
-
-            'editListingTitle' => array(
-                'caption' => $helper->__('Title'),
-                'group'   => 'edit_actions',
-                'confirm' => $helper->__('Are you sure?'),
-                'field'   => 'id',
-                'onclick_action' => 'EditListingTitleObj.openPopup'
-            ),
-
-            'editConfiguration' => array(
-                'caption' => $helper->__('Configuration'),
-                'group'   => 'edit_actions',
-                'field'   => 'id',
-                'url'     => array(
-                    'base'   => '*/adminhtml_walmart_listing/edit',
-                    'params' => array('back' => $backUrl)
-                )
-            ),
-
             'manageProducts' => array(
                 'caption' => $helper->__('Manage'),
                 'group'   => 'products_actions',
@@ -172,7 +153,7 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Grid extends Ess_M2ePro_Block_A
                     'params' => array(
                         'back' => $backUrl,
                         'step' => 2,
-                        'source' => Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Add_SourceMode::SOURCE_LIST
+                        'source' => Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Product_Add_SourceMode::SOURCE_LIST
                     )
                 )
             ),
@@ -186,7 +167,7 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Grid extends Ess_M2ePro_Block_A
                     'params' => array(
                         'back' => $backUrl,
                         'step' => 2,
-                        'source' => Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Add_SourceMode::SOURCE_CATEGORIES
+                        'source' => Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Product_Add_SourceMode::SOURCE_CATEGORIES
                     )
                 )
             ),
@@ -204,10 +185,28 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_Grid extends Ess_M2ePro_Block_A
                 )
             ),
 
+            'editListingTitle' => array(
+                'caption' => $helper->__('Title'),
+                'group'   => 'edit_actions',
+                'confirm' => $helper->__('Are you sure?'),
+                'field'   => 'id',
+                'onclick_action' => 'EditListingTitleObj.openPopup'
+            ),
+
+            'editConfiguration' => array(
+                'caption' => $helper->__('Configuration'),
+                'group'   => 'edit_actions',
+                'field'   => 'id',
+                'url'     => array(
+                    'base'   => '*/adminhtml_walmart_listing/edit',
+                    'params' => array('back' => $backUrl)
+                )
+            ),
+
             'viewLog' => array(
                 'caption' => $helper->__('Logs & Events'),
                 'group'   => 'other',
-                'field'   => 'id',
+                'field'   => 'listing_id',
                 'url'     => array(
                     'base'   => '*/adminhtml_walmart_log/listing',
                     'params' => array(

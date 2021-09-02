@@ -21,55 +21,34 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Category_Mode extends Ess_M2ePro_B
     {
         parent::__construct();
 
-        // Initialization block
-        // ---------------------------------------
         $this->setId('ebayListingCategoryMode');
-        // ---------------------------------------
+        $this->setTemplate('M2ePro/ebay/listing/category/mode.phtml');
 
-        // ---------------------------------------
-        $listingId = $this->getRequest()->getParam('listing_id');
-        $listing = Mage::helper('M2ePro/Component_Ebay')->getCachedObject('Listing', $listingId);
-
-        $additionalData = $listing->getSettings('additional_data');
-        // ---------------------------------------
-
-        $this->_headerText = Mage::helper('M2ePro')->__('Set Your eBay Categories');
-
-        $url = $this->getUrl('*/adminhtml_ebay_listing_productAdd', array('step' => 2, '_current' => true));
-
-        if (isset($additionalData['source']) && $additionalData['source'] == SourceModeBlock::SOURCE_OTHER) {
-            $url = $this->getUrl('*/adminhtml_ebay_listing_productAdd/deleteAll', array('_current' => true));
-        }
-
-        $productAddSessionData = Mage::helper('M2ePro/Data_Session')->getValue('ebay_listing_product_add');
-
-        if (isset($productAddSessionData['show_settings_step'])) {
-            !(bool)$productAddSessionData['show_settings_step'] &&
-                $url = $this->getUrl('*/adminhtml_ebay_listing_productAdd/deleteAll', array('_current' => true));
-        } elseif (isset($additionalData['show_settings_step'])) {
-            !(bool)$additionalData['show_settings_step'] &&
-                $url = $this->getUrl('*/adminhtml_ebay_listing_productAdd/deleteAll', array('_current' => true));
-        }
+        $this->_headerText = Mage::helper('M2ePro')->__('Set Category');
 
         if (!$this->getRequest()->getParam('without_back')) {
+            $url = $this->getUrl(
+                '*/adminhtml_ebay_listing_productAdd/deleteAll',
+                array('_current' => true)
+            );
+
             $this->_addButton(
                 'back', array(
-                'label'     => Mage::helper('M2ePro')->__('Back'),
-                'class'     => 'back',
-                'onclick'   => 'setLocation(\''.$url.'\');'
+                    'label'     => Mage::helper('M2ePro')->__('Back'),
+                    'class'     => 'back',
+                    'onclick'   => 'setLocation(\''.$url.'\');'
                 )
             );
         }
 
         $this->_addButton(
             'next', array(
-            'label'     => Mage::helper('M2ePro')->__('Continue'),
-            'class'     => 'scalable next',
-            'onclick'   => "$('categories_mode_form').submit();"
+                'id'        => 'next',
+                'label'     => Mage::helper('M2ePro')->__('Continue'),
+                'class'     => 'scalable next',
+                'onclick'   => "$('categories_mode_form').submit();"
             )
         );
-
-        $this->setTemplate('M2ePro/ebay/listing/category/mode.phtml');
     }
 
     //########################################

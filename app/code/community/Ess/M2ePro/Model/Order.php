@@ -8,6 +8,7 @@
 
 /**
  * @method Ess_M2ePro_Model_Amazon_Order|Ess_M2ePro_Model_Ebay_Order|Ess_M2ePro_Model_Walmart_Order getChildObject()
+ * @method void setStatusUpdateRequired($flag)
  */
 class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
 {
@@ -51,6 +52,10 @@ class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
             return false;
         }
 
+        Mage::getResourceModel('M2ePro/Order_Note_Collection')
+            ->addFieldToFilter('order_id', $this->getId())
+            ->walk('deleteInstance');
+
         foreach ($this->getItemsCollection()->getItems() as $item) {
             /** @var $item Ess_M2ePro_Model_Order_Item */
             $item->deleteInstance();
@@ -61,10 +66,6 @@ class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
         Mage::getResourceModel('M2ePro/Order_Change_Collection')
             ->addFieldToFilter('order_id', $this->getId())
             ->walk('deleteInstance');
-
-         Mage::getResourceModel('M2ePro/Order_Note_Collection')
-             ->addFieldToFilter('order_id', $this->getId())
-             ->walk('deleteInstance');
 
         $this->_account         = null;
         $this->_magentoOrder    = null;
@@ -289,7 +290,7 @@ class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
     // ---------------------------------------
 
     /**
-     * Check whether the order has items, listed by M2E Pro (also true for mapped 3rd party listings)
+     * Check whether the order has items, listed by M2E Pro (also true for mapped Unmanaged listings)
      *
      * @return bool
      */
@@ -301,7 +302,7 @@ class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
     }
 
     /**
-     * Check whether the order has items, listed by 3rd party software
+     * Check whether the order has items, listed by Unmanaged software
      *
      * @return bool
      */
@@ -323,7 +324,7 @@ class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
             $description = Mage::helper('M2ePro/Module_Log')->encodeDescription($description, $params, $links);
         }
 
-        $log->addMessage($this->getId(), $description, $type);
+        $log->addMessage($this, $description, $type);
     }
 
     public function addSuccessLog($description, array $params = array(), array $links = array())
@@ -440,13 +441,15 @@ class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
 
         if (!Mage::getStoreConfig('payment/m2epropayment/active', $store)) {
             throw new Ess_M2ePro_Model_Exception(
-                'Payment method "M2E Pro Payment" is disabled in Magento Configuration.'
+                'Payment method "M2E Pro Payment" is disabled under 
+                <i>System > Configuration > Sales > Payment Methods > M2E Pro Payment.</i>'
             );
         }
 
         if (!Mage::getStoreConfig('carriers/m2eproshipping/active', $store)) {
             throw new Ess_M2ePro_Model_Exception(
-                'Shipping method "M2E Pro Shipping" is disabled in Magento Configuration.'
+                'Shipping method "M2E Pro Shipping" is disabled under
+                <i>System > Configuration > Sales > Shipping Methods > M2E Pro Shipping.</i>'
             );
         }
     }
@@ -635,22 +638,21 @@ class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
 
             $this->addData(
                 array(
-                'magento_order_creation_failure'             => self::MAGENTO_ORDER_CREATION_FAILED_YES,
-                'magento_order_creation_fails_count'         => $this->getMagentoOrderCreationFailsCount() + 1,
-                'magento_order_creation_latest_attempt_date' => Mage::helper('M2ePro')->getCurrentGmtDate()
+                    'magento_order_creation_failure'             => self::MAGENTO_ORDER_CREATION_FAILED_YES,
+                    'magento_order_creation_fails_count'         => $this->getMagentoOrderCreationFailsCount() + 1,
+                    'magento_order_creation_latest_attempt_date' => Mage::helper('M2ePro')->getCurrentGmtDate()
                 )
             );
             $this->save();
 
-            $this->addErrorLog('Magento Order was not created. Reason: %msg%', array('msg' => $e->getMessage()));
-            Mage::helper('M2ePro/Module_Exception')->process($e, false);
+            $this->addErrorLog(
+                'Magento Order was not created. Reason: %msg%',
+                array('msg' => $e->getMessage())
+            );
 
-            // ---------------------------------------
             if ($this->isReservable()) {
                 $this->getReserve()->place();
             }
-
-            // ---------------------------------------
 
             throw $e;
         }
@@ -764,6 +766,17 @@ class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
 
     public function createShipment()
     {
+        if (!$this->getChildObject()->canCreateShipment()) {
+            if ($this->getMagentoOrder() && $this->getMagentoOrder()->getIsVirtual()) {
+                $this->addNoticeLog(
+                    'Magento Order was created without the Shipping Address since your Virtual Product ' .
+                    'has no weight and cannot be shipped.'
+                );
+            }
+            
+            return null;
+        }
+
         $shipment = null;
 
         try {
@@ -783,6 +796,20 @@ class Ess_M2ePro_Model_Order extends Ess_M2ePro_Model_Component_Parent_Abstract
         }
 
         return $shipment;
+    }
+
+    /**
+     * @return bool
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function isStatusUpdatingToShipped()
+    {
+        /** @var Ess_M2ePro_Model_Resource_Order_Change_Collection $changes */
+        $changes = Mage::getModel('M2ePro/Order_Change')->getCollection();
+        $changes->addFieldToFilter('order_id', $this->getId());
+        $changes->addFieldToFilter('action', Ess_M2ePro_Model_Order_Change::ACTION_UPDATE_SHIPPING);
+
+        return $this->getChildObject()->isSetProcessingLock('update_shipping_status') || $changes->getSize() > 0;
     }
 
     //########################################

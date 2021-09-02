@@ -14,6 +14,7 @@ class Ess_M2ePro_Model_Connector_Connection_Request
 
     protected $_infoRewrites = array();
     protected $_data         = array();
+    protected $_rawData      = null;
 
     //########################################
 
@@ -70,12 +71,10 @@ class Ess_M2ePro_Model_Connector_Connection_Request
                     'name' => Mage::helper('M2ePro/Magento')->getName().
                                 ' ('.Mage::helper('M2ePro/Magento')->getEditionName().')',
                     'version' => Mage::helper('M2ePro/Magento')->getVersion(),
-                    'revision' => Mage::helper('M2ePro/Magento')->getRevision(),
                 ),
                 'module' => array(
                     'name' => Mage::helper('M2ePro/Module')->getName(),
-                    'version' => Mage::helper('M2ePro/Module')->getVersion(),
-                    'revision' => Mage::helper('M2ePro/Module')->getRevision()
+                    'version' => Mage::helper('M2ePro/Module')->getPublicVersion(),
                 ),
                 'location' => array(
                     'domain' => Mage::helper('M2ePro/Client')->getDomain(),
@@ -95,9 +94,6 @@ class Ess_M2ePro_Model_Connector_Connection_Request
                 'name' => $this->_command[2]
             )
         );
-
-        $adminKey = Mage::helper('M2ePro/Server')->getAdminKey();
-        $adminKey !== null && $adminKey != '' && $data['auth']['admin_key'] = $adminKey;
 
         $applicationKey = Mage::helper('M2ePro/Server')->getApplicationKey();
         $applicationKey !== null && $applicationKey != '' && $data['auth']['application_key'] = $applicationKey;
@@ -128,6 +124,19 @@ class Ess_M2ePro_Model_Connector_Connection_Request
     public function getData()
     {
         return $this->_data;
+    }
+
+    // ---------------------------------------
+
+    public function setRawData($value)
+    {
+        $this->_rawData = $value;
+        return $this;
+    }
+
+    public function getRawData()
+    {
+        return $this->_rawData;
     }
 
     //########################################

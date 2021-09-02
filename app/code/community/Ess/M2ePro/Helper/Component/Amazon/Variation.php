@@ -153,19 +153,18 @@ class Ess_M2ePro_Helper_Component_Amazon_Variation extends Mage_Core_Helper_Abst
             $productToListingProductIds = array_flip($listingProductToProductIds);
 
             foreach ($productsData as $product) {
-                if ($product['type_id'] == Ess_M2ePro_Model_Magento_Product::TYPE_BUNDLE) {
+                if (Mage::helper('M2ePro/Magento_Product')->isBundleType($product['type_id'])) {
                     unset($productToListingProductIds[$product['entity_id']]);
                 }
 
-                if ($product['type_id'] == Ess_M2ePro_Model_Magento_Product::TYPE_DOWNLOADABLE &&
+                if (Mage::helper('M2ePro/Magento_Product')->isDownloadableType($product['type_id']) &&
                     $product['is_links_purchased_separately']) {
                     unset($productToListingProductIds[$product['entity_id']]);
                 }
 
-                if ($product['type_id'] == Ess_M2ePro_Model_Magento_Product::TYPE_SIMPLE &&
+                if (Mage::helper('M2ePro/Magento_Product')->isSimpleType($product['type_id']) &&
                     !empty($product['option_id']) && $product['option_is_require'] == 1 &&
-                    in_array($product['option_type'], array('drop_down', 'radio', 'multiple', 'checkbox')))
-                {
+                    in_array($product['option_type'], array('drop_down', 'radio', 'multiple', 'checkbox'))) {
                     unset($productToListingProductIds[$product['entity_id']]);
                 }
             }
@@ -253,10 +252,7 @@ class Ess_M2ePro_Helper_Component_Amazon_Variation extends Mage_Core_Helper_Abst
 
     public function increaseThemeUsageCount($theme, $marketplaceId)
     {
-        /** @var Ess_M2ePro_Model_Registry $registry */
-        $registry = Mage::getModel('M2ePro/Registry')->load(self::DATA_REGISTRY_KEY, 'key');
-
-        $data = $registry->getSettings('value');
+        $data = Mage::helper('M2ePro/Module')->getRegistry()->getValueFromJson(self::DATA_REGISTRY_KEY);
 
         if (empty($data[$marketplaceId][$theme])) {
             $data[$marketplaceId][$theme] = 0;
@@ -266,8 +262,7 @@ class Ess_M2ePro_Helper_Component_Amazon_Variation extends Mage_Core_Helper_Abst
 
         arsort($data[$marketplaceId]);
 
-        $registry->setData('key', self::DATA_REGISTRY_KEY);
-        $registry->setSettings('value', $data)->save();
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue(self::DATA_REGISTRY_KEY, $data);
 
         $this->removeThemeUsageDataCache();
     }
@@ -281,9 +276,7 @@ class Ess_M2ePro_Helper_Component_Amazon_Variation extends Mage_Core_Helper_Abst
             return $cacheData;
         }
 
-        /** @var Ess_M2ePro_Model_Registry $registry */
-        $registry = Mage::getModel('M2ePro/Registry')->load(self::DATA_REGISTRY_KEY, 'key');
-        $data = $registry->getSettings('value');
+        $data = Mage::helper('M2ePro/Module')->getRegistry()->getValueFromJson(self::DATA_REGISTRY_KEY);
 
         $this->setThemeUsageDataCache($data);
 

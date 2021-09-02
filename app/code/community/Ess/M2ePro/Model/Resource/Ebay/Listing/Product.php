@@ -21,34 +21,85 @@ class Ess_M2ePro_Model_Resource_Ebay_Listing_Product
 
     //########################################
 
-    public function getTemplateCategoryIds(array $listingProductIds)
+    public function getTemplateCategoryIds(array $listingProductIds, $columnName, $returnNull = false)
     {
-        $select = $this->_getReadAdapter()
-                       ->select()
-                       ->from(array('elp' => $this->getMainTable()))
-                       ->reset(Zend_Db_Select::COLUMNS)
-                       ->columns(array('template_category_id'))
-                       ->where('listing_product_id IN (?)', $listingProductIds)
-                       ->where('template_category_id IS NOT NULL');
+        $stmt = $this->_getReadAdapter()
+            ->select()
+            ->from(array('elp' => $this->getMainTable()))
+            ->reset(Zend_Db_Select::COLUMNS)
+            ->columns(array($columnName))
+            ->where('listing_product_id IN (?)', $listingProductIds);
 
-        $ids = $select->query()->fetchAll(PDO::FETCH_COLUMN);
+        !$returnNull && $stmt->where("{$columnName} IS NOT NULL");
 
-        return array_unique($ids);
+        foreach ($stmt->query()->fetchAll() as $row) {
+            $id = $row[$columnName] !== null ? (int)$row[$columnName] : null;
+            if (!$returnNull) {
+                continue;
+            }
+
+            $ids[$id] = $id;
+        }
+
+        return array_values($ids);
     }
 
-    public function getTemplateOtherCategoryIds(array $listingProductIds)
+    //########################################
+
+    public function assignTemplatesToProducts(
+        $productsIds,
+        $categoryTemplateId = null,
+        $categorySecondaryTemplateId = null,
+        $storeCategoryTemplateId = null,
+        $storeCategorySecondaryTemplateId = null
+    ) {
+        if (empty($productsIds)) {
+            return;
+        }
+
+        $bind = array(
+            'template_category_id'                 => $categoryTemplateId,
+            'template_category_secondary_id'       => $categorySecondaryTemplateId,
+            'template_store_category_id'           => $storeCategoryTemplateId,
+            'template_store_category_secondary_id' => $storeCategorySecondaryTemplateId
+        );
+        $bind = array_filter($bind);
+
+        $this->_getWriteAdapter()->update(
+            $this->getMainTable(),
+            $bind,
+            array('listing_product_id IN (?)' => $productsIds)
+        );
+    }
+
+    //########################################
+
+    public function mapChannelItemProduct(Ess_M2ePro_Model_Ebay_Listing_Product $listingProduct)
     {
-        $select = $this->_getReadAdapter()
-                       ->select()
-                       ->from(array('elp' => $this->getMainTable()))
-                       ->reset(Zend_Db_Select::COLUMNS)
-                       ->columns(array('template_other_category_id'))
-                       ->where('listing_product_id IN (?)', $listingProductIds)
-                       ->where('template_other_category_id IS NOT NULL');
+        /** @var Ess_M2ePro_Model_Ebay_Item $ebayItem */
+        $ebayItem = Mage::getModel('M2ePro/Ebay_Item')->load($listingProduct->getEbayItemId());
 
-        $ids = $select->query()->fetchAll(PDO::FETCH_COLUMN);
+        $ebayItemTable = Mage::getResourceModel('M2ePro/Ebay_Item')->getMainTable();
+        $existedRelation = Mage::getSingleton('core/resource')->getConnection('core_read')
+            ->select()
+            ->from(array('ei' => $ebayItemTable))
+            ->where('`account_id` = ?', $ebayItem->getAccountId())
+            ->where('`marketplace_id` = ?', $ebayItem->getMarketplaceId())
+            ->where('`item_id` = ?', $ebayItem->getItemId())
+            ->where('`product_id` = ?', $listingProduct->getParentObject()->getProductId())
+            ->where('`store_id` = ?', $ebayItem->getStoreId())
+            ->query()
+            ->fetchColumn();
 
-        return array_unique($ids);
+        if ($existedRelation) {
+            return;
+        }
+
+        $this->_getWriteAdapter()->update(
+            $ebayItemTable,
+            array('product_id' => $listingProduct->getParentObject()->getProductId()),
+            array('id = ?' => $listingProduct->getEbayItemId())
+        );
     }
 
     //########################################

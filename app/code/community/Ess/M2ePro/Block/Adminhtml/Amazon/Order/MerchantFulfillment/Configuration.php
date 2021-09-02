@@ -28,22 +28,18 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Order_MerchantFulfillment_Configuration
     {
         parent::_beforeToHtml();
 
-        // ---------------------------------------
         $breadcrumb = $this->getLayout()
             ->createBlock('M2ePro/adminhtml_amazon_order_merchantFulfillment_breadcrumb');
         $breadcrumb->setData('step', 1);
         $this->setChild('breadcrumb', $breadcrumb);
-        // ---------------------------------------
 
-        // ---------------------------------------
         $data = array(
             'class'   => 'next',
             'label'   => Mage::helper('M2ePro')->__('Continue'),
-            'onclick' => "OrderMerchantFulfillmentHandlerObj.getShippingServicesAction()",
+            'onclick' => "AmazonOrderMerchantFulfillmentObj.getShippingServicesAction()",
         );
         $buttonBlock = $this->getLayout()->createBlock('adminhtml/widget_button')->setData($data);
         $this->setChild('continue_button', $buttonBlock);
-        // ---------------------------------------
     }
 
     //########################################
@@ -110,8 +106,25 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Order_MerchantFulfillment_Configuration
 
     public function getUserData()
     {
-        $licenseFormDataRegistry = Mage::getModel('M2ePro/Registry')->load('/wizard/license_form_data/', 'key');
-        return $licenseFormDataRegistry->getValueFromJson();
+        return Mage::helper('M2ePro/Module')->getRegistry()->getValueFromJson('/wizard/license_form_data/');
+    }
+
+    public function canUseProductAttributes()
+    {
+        $orderItems = $this->getData('order_items');
+
+        if (empty($orderItems) || count($orderItems) !== 1) {
+            return false;
+        }
+
+        /** @var Ess_M2ePro_Model_Order_Item $item */
+        $item = array_shift($orderItems);
+
+        if ($item->getMagentoProduct() === null) {
+            return false;
+        }
+
+        return true;
     }
 
     //########################################

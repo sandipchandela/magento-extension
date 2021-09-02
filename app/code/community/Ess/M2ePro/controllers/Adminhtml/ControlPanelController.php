@@ -17,7 +17,10 @@ class Ess_M2ePro_Adminhtml_ControlPanelController
                 ->getLayout()
                 ->getBlock('head')
                 ->addJs('M2ePro/Plugin/DropDown.js')
+                ->addJs('M2ePro/ControlPanel/Inspection.js')
                 ->addCss('M2ePro/css/Plugin/DropDown.css');
+
+        $this->_initPopUp();
 
         return $this;
     }
@@ -61,16 +64,6 @@ class Ess_M2ePro_Adminhtml_ControlPanelController
         $this->getResponse()->setBody($blockHtml);
     }
 
-    public function aboutTabAction()
-    {
-        $blockHtml = $this->loadLayout()
-            ->getLayout()
-            ->createBlock('M2ePro/adminhtml_controlPanel_tabs_about')
-            ->toHtml();
-
-        $this->getResponse()->setBody($blockHtml);
-    }
-
     public function databaseTabAction()
     {
         $blockHtml = $this->loadLayout()
@@ -79,6 +72,17 @@ class Ess_M2ePro_Adminhtml_ControlPanelController
             ->toHtml();
 
         $this->getResponse()->setBody($blockHtml);
+    }
+
+    public function inspectionTabAction()
+    {
+        $blockHtml = $this->loadLayout()
+            ->getLayout()
+            ->createBlock('M2ePro/adminhtml_controlPanel_tabs_inspection')
+            ->toHtml();
+
+        $this->getResponse()->setBody($blockHtml);
+
     }
 
     //########################################

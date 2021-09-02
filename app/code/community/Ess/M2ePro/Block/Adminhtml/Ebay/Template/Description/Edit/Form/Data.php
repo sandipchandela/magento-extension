@@ -11,7 +11,6 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
     protected $_attributeSets = array();
 
     public $attributes = array();
-    public $generalAttributes = array();
     public $M2eProAttributes = array();
     public $attributesConfigurable = array();
 
@@ -30,7 +29,6 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
 
         $this->_attributeSets = Mage::helper('M2ePro/Data_Global')->getValue('ebay_attribute_sets');
         $this->attributes = Mage::helper('M2ePro/Magento_Attribute')->getAll();
-        $this->generalAttributes = Mage::helper('M2ePro/Magento_Attribute')->getGeneralFromAllAttributeSets();
         $this->attributesConfigurable = Mage::helper('M2ePro/Magento_Attribute')->getAllConfigurable();
 
         $this->M2eProAttributes = array(
@@ -85,7 +83,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
             ->setData(
                 array(
                 'label'   => Mage::helper('M2ePro')->__('Insert'),
-                'onclick' => 'EbayTemplateDescriptionHandlerObj.openInsertImageWindow();',
+                'onclick' => 'EbayTemplateDescriptionObj.openInsertImageWindow();',
                 'class' => 'insert_image_window_button'
                 )
             );
@@ -98,7 +96,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
             ->setData(
                 array(
                 'label'   => Mage::helper('M2ePro')->__('Insert'),
-                'onclick' => "AttributeHandlerObj.appendToText"
+                'onclick' => "AttributeObj.appendToText"
                 ."('select_attributes_for_subtitle', 'subtitle_template');",
                 'class' => 'add_subtitle_button'
                 )
@@ -112,7 +110,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
             ->setData(
                 array(
                 'label' => Mage::helper('M2ePro')->__('Insert'),
-                'onclick' => "AttributeHandlerObj.appendToText"
+                'onclick' => "AttributeObj.appendToText"
                 ."('select_attributes_for_title', 'title_template');",
                 'class' => 'select_attributes_for_title_button'
                 )
@@ -126,7 +124,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
             ->setData(
                 array(
                 'label'   => Mage::helper('M2ePro')->__('Insert'),
-                'onclick' => "AttributeHandlerObj.appendToText"
+                'onclick' => "AttributeObj.appendToText"
                 ."('select_attributes_for_condition_note', 'condition_note_template');",
                 'class' => 'add_condition_note_button'
                 )
@@ -153,7 +151,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
             ->setData(
                 array(
                 'label'   => Mage::helper('M2ePro')->__('Insert'),
-                'onclick' => "AttributeHandlerObj.appendToTextarea('#' + $('select_attributes').value + '#');",
+                'onclick' => "AttributeObj.appendToTextarea('#' + $('select_attributes').value + '#');",
                 'class'   => 'add_product_attribute_button',
                 )
             );
@@ -166,7 +164,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
             ->setData(
                 array(
                 'label'   => Mage::helper('M2ePro')->__('Insert'),
-                'onclick' => "AttributeHandlerObj.appendToTextarea"
+                'onclick' => "AttributeObj.appendToTextarea"
                 ."('#value[' + $('select_m2epro_attributes').value + ']#');",
                 'class' => 'add_product_attribute_button',
                 )
@@ -180,7 +178,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
             ->setData(
                 array(
                 'label'   => Mage::helper('M2ePro')->__('Insert'),
-                'onclick' => 'EbayTemplateDescriptionHandlerObj.insertGallery();',
+                'onclick' => 'EbayTemplateDescriptionObj.insertGallery();',
                 'class' => 'insert_gallery_button',
                 )
             );
@@ -194,7 +192,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
         ->setData(
             array(
                 'label'   => Mage::helper('M2ePro')->__('Preview'),
-                'onclick' => 'EbayTemplateDescriptionHandlerObj.preview_click(\''
+                'onclick' => 'EbayTemplateDescriptionObj.preview_click(\''
                              .implode(',', $this->_attributeSets) . '\')',
                 'class' => 'bt_preview',
             )
@@ -216,17 +214,30 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
         return false;
     }
 
+    public function isEdit()
+    {
+        $template = Mage::helper('M2ePro/Data_Global')->getValue('ebay_template_description');
+
+        if ($template === null || $template->getId() === null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    //########################################
+
     public function getTitle()
     {
         if ($this->isCustom()) {
             return isset($this->_data['custom_title']) ? $this->_data['custom_title'] : '';
         }
 
-        $template = Mage::helper('M2ePro/Data_Global')->getValue('ebay_template_description');
-
-        if ($template === null) {
+        if (!$this->isEdit()) {
             return '';
         }
+
+        $template = Mage::helper('M2ePro/Data_Global')->getValue('ebay_template_description');
 
         return $template->getTitle();
     }
@@ -235,12 +246,11 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
 
     public function getFormData()
     {
-        $template = Mage::helper('M2ePro/Data_Global')->getValue('ebay_template_description');
-
-        if ($template === null || $template->getId() === null) {
+        if (!$this->isEdit()) {
             return array();
         }
 
+        $template = Mage::helper('M2ePro/Data_Global')->getValue('ebay_template_description');
         $data = $template->getData();
 
         if (!empty($data['enhancement']) && is_string($data['enhancement'])) {
@@ -297,7 +307,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Template_Description_Edit_Form_Data extend
 
     public function getDefault()
     {
-        $default = Mage::getSingleton('M2ePro/Ebay_Template_Description')->getDefaultSettings();
+        $default = Mage::getModel('M2ePro/Ebay_Template_Description_Builder')->getDefaultData();
 
         $helper = Mage::helper('M2ePro');
 

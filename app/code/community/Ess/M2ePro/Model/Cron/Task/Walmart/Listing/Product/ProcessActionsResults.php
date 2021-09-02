@@ -88,7 +88,10 @@ class Ess_M2ePro_Model_Cron_Task_Walmart_Listing_Product_ProcessActionsResults
                     'errors' => array()
                 );
 
-                if (isset($resultData['data'][$action->getListingProductId().'-id'])) {
+                //worker may return different data structure
+                if (isset($resultData[$action->getListingProductId().'-id'])) {
+                    $resultActionData = $resultData[$action->getListingProductId().'-id'];
+                } elseif (isset($resultData['data'][$action->getListingProductId().'-id'])) {
                     $resultActionData = $resultData['data'][$action->getListingProductId().'-id'];
                 }
 
@@ -129,16 +132,7 @@ class Ess_M2ePro_Model_Cron_Task_Walmart_Listing_Product_ProcessActionsResults
 
             $processing->save();
         } catch (\Exception $exception) {
-            $this->getOperationHistory()->addContentData(
-                'exceptions', array(
-                'message' => $exception->getMessage(),
-                'file'    => $exception->getFile(),
-                'line'    => $exception->getLine(),
-                'trace'   => $exception->getTraceAsString(),
-                )
-            );
-
-            Mage::helper('M2ePro/Module_Exception')->process($exception, false);
+            $this->processTaskException($exception);
         }
 
         $action->deleteInstance();

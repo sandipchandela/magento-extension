@@ -27,8 +27,7 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Other_Channel_SynchronizeData_Resp
 
             $this->getSynchronizationLog()->addMessage(
                 Mage::helper('M2ePro')->__($message->getText()),
-                $logType,
-                Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
+                $logType
             );
         }
     }
@@ -54,8 +53,7 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Other_Channel_SynchronizeData_Resp
 
         $this->getSynchronizationLog()->addMessage(
             Mage::helper('M2ePro')->__($messageText),
-            Ess_M2ePro_Model_Log_Abstract::TYPE_ERROR,
-            Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
+            Ess_M2ePro_Model_Log_Abstract::TYPE_ERROR
         );
     }
 
@@ -67,39 +65,21 @@ class Ess_M2ePro_Model_Cron_Task_Ebay_Listing_Other_Channel_SynchronizeData_Resp
 
             /** @var $updatingModel Ess_M2ePro_Model_Ebay_Listing_Other_Updating */
             $updatingModel = Mage::getModel('M2ePro/Ebay_Listing_Other_Updating');
-            $updatingModel->initialize($this->getAccount());
-            $updatingModel->processResponseData($this->getPreparedResponseData());
-        } catch (Exception $exception) {
-            Mage::helper('M2ePro/Module_Exception')->process($exception);
-
-            $this->getSynchronizationLog()->addMessage(
-                Mage::helper('M2ePro')->__($exception->getMessage()),
-                Ess_M2ePro_Model_Log_Abstract::TYPE_ERROR,
-                Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
+            $updatingModel->initialize(
+                Mage::helper('M2ePro/Component_Ebay')->getObject('Account', $this->_params['account_id'])
             );
+            $updatingModel->processResponseData($this->getPreparedResponseData());
+        } catch (Exception $e) {
+            Mage::helper('M2ePro/Module_Exception')->process($e);
+            $this->getSynchronizationLog()->addMessageFromException($e);
         }
     }
 
     //########################################
 
     /**
-     * @return Ess_M2ePro_Model_Account
+     * @return Ess_M2ePro_Model_Synchronization_Log
      */
-    protected function getAccount()
-    {
-        return $this->getObjectByParam('Account', 'account_id');
-    }
-
-    /**
-     * @return Ess_M2ePro_Model_Marketplace
-     */
-    protected function getMarketplace()
-    {
-        return $this->getObjectByParam('Marketplace', 'marketplace_id');
-    }
-
-    // ---------------------------------------
-
     protected function getSynchronizationLog()
     {
         if ($this->_synchronizationLog !== null) {

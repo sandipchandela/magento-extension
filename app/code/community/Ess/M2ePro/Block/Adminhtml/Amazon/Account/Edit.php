@@ -22,6 +22,9 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Account_Edit extends Mage_Adminhtml_Bloc
         $this->_mode = 'edit';
         // ---------------------------------------
 
+        /** @var Ess_M2ePro_Model_Account $account */
+        $account = Mage::helper('M2ePro/Data_Global')->getValue('model_account');
+
         // Set header text
         // ---------------------------------------
         if (!Mage::helper('M2ePro/Component')->isSingleActiveComponent()) {
@@ -33,14 +36,9 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Account_Edit extends Mage_Adminhtml_Bloc
             $headerTextAdd = Mage::helper('M2ePro')->__("Add Account");
         }
 
-        if (Mage::helper('M2ePro/Data_Global')->getValue('temp_data') &&
-            Mage::helper('M2ePro/Data_Global')->getValue('temp_data')->getId()
-        ) {
+        if ($account && $account->getId()) {
             $this->_headerText = $headerTextEdit;
-            $this->_headerText .= ' "'.$this->escapeHtml(
-                Mage::helper('M2ePro/Data_Global')->getValue('temp_data')
-                ->getTitle()
-            ).'"';
+            $this->_headerText .= ' "'.$this->escapeHtml($account->getTitle()).'"';
         } else {
             $this->_headerText = $headerTextAdd;
         }
@@ -67,7 +65,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Account_Edit extends Mage_Adminhtml_Bloc
                 'save_and_continue',
                 array(
                     'label'   => Mage::helper('M2ePro')->__('Save And Continue Edit'),
-                    'onclick' => 'AmazonAccountHandlerObj.save_and_edit_click(\'\',\'amazonAccountEditTabs\')',
+                    'onclick' => 'AmazonAccountObj.save_and_edit_click(\'\',\'amazonAccountEditTabs\')',
                     'class'   => 'save'
                 )
             );
@@ -91,7 +89,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Account_Edit extends Mage_Adminhtml_Bloc
                     'close',
                     array(
                         'label'   => Mage::helper('M2ePro')->__('Complete This Step'),
-                        'onclick' => 'AmazonAccountHandlerObj.completeStep();',
+                        'onclick' => 'AmazonAccountObj.completeStep();',
                         'class'   => 'close'
                     )
                 );
@@ -104,7 +102,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Account_Edit extends Mage_Adminhtml_Bloc
                         'save',
                         array(
                             'label'   => Mage::helper('M2ePro')->__('Save And Close'),
-                            'onclick' => 'AmazonAccountHandlerObj.saveAndClose()',
+                            'onclick' => 'AmazonAccountObj.saveAndClose()',
                             'class'   => 'save'
                         )
                     );
@@ -113,7 +111,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Account_Edit extends Mage_Adminhtml_Bloc
                         'save_and_continue',
                         array(
                             'label'   => Mage::helper('M2ePro')->__('Save And Continue Edit'),
-                            'onclick' => 'AmazonAccountHandlerObj.save_and_edit_click(\'\',\'amazonAccountEditTabs\')',
+                            'onclick' => 'AmazonAccountObj.save_and_edit_click(\'\',\'amazonAccountEditTabs\')',
                             'class'   => 'save'
                         )
                     );
@@ -128,23 +126,21 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Account_Edit extends Mage_Adminhtml_Bloc
                 'back',
                 array(
                     'label'   => Mage::helper('M2ePro')->__('Back'),
-                    'onclick' => 'AmazonAccountHandlerObj.back_click(\'' . $url . '\')',
+                    'onclick' => 'AmazonAccountObj.back_click(\'' . $url . '\')',
                     'class'   => 'back'
                 )
             );
             // ---------------------------------------
 
             // ---------------------------------------
-            if (Mage::helper('M2ePro/Data_Global')->getValue('temp_data') &&
-                Mage::helper('M2ePro/Data_Global')->getValue('temp_data')->getId()
-            ) {
+            if ($account && $account->getId()) {
                 // ---------------------------------------
-                $accountId = Mage::helper('M2ePro/Data_Global')->getValue('temp_data')->getId();
+                $accountId = $account->getId();
                 $this->_addButton(
                     'delete',
                     array(
                         'label'   => Mage::helper('M2ePro')->__('Delete'),
-                        'onclick' => "AmazonAccountHandlerObj.delete_click({$accountId})",
+                        'onclick' => "AmazonAccountObj.delete_click({$accountId})",
                         'class'   => 'delete M2ePro_delete_button'
                     )
                 );
@@ -156,7 +152,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Account_Edit extends Mage_Adminhtml_Bloc
                 'save',
                 array(
                     'label'   => Mage::helper('M2ePro')->__('Save'),
-                    'onclick' => 'AmazonAccountHandlerObj.save_click()',
+                    'onclick' => 'AmazonAccountObj.save_click()',
                     'class'   => 'save'
                 )
             );
@@ -167,12 +163,38 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Account_Edit extends Mage_Adminhtml_Bloc
                 'save_and_continue',
                 array(
                     'label'   => Mage::helper('M2ePro')->__('Save And Continue Edit'),
-                    'onclick' => 'AmazonAccountHandlerObj.save_and_edit_click(\'\',\'amazonAccountEditTabs\')',
-                    'class'   => 'save'
+                    'onclick' => 'AmazonAccountObj.save_and_edit_click(\'\',\'amazonAccountEditTabs\')',
+                    'class'   => 'save',
+                    'id'      => 'save_and_continue',
                 )
             );
             // ---------------------------------------
         }
+    }
+
+    //########################################
+
+    protected function _prepareLayout()
+    {
+        Mage::helper('M2ePro/View')->getJsTranslatorRenderer()->addTranslations(
+            array(
+                'is_ready_for_document_generation' => Mage::helper('M2ePro')->__(<<<HTML
+    To use this option, <i>Store Name</i> and <i>Store Contact Information</i> must be provided under <i>System > 
+    Configuration > General > General > Store Information</i>. 
+    Read more <a href="%url%" target="_blank">here</a>.
+HTML
+                    ,
+                    Mage::helper('M2ePro/Module_Support')->getHowToGuideUrl('1602134')
+                )
+            )
+        );
+
+        Mage::helper('M2ePro/View')->getJsRenderer()->addOnReadyJs(<<<JS
+    AmazonAccountObj = new AmazonAccount();
+JS
+        );
+
+        return parent::_prepareLayout();
     }
 
     //########################################

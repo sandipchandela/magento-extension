@@ -15,19 +15,16 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Product extends Mage_Adminhtml_Blo
         parent::__construct();
 
         /** @var Ess_M2ePro_Model_Listing $listing */
-        $listing = Mage::helper('M2ePro/Component_Ebay')
-            ->getCachedObject('Listing', $this->getRequest()->getParam('listing_id'));
+        $listing = Mage::helper('M2ePro/Component_Ebay')->getCachedObject(
+            'Listing',
+            $this->getRequest()->getParam('listing_id')
+        );
 
-        // Initialization block
-        // ---------------------------------------
         $this->setId('ebayListingProduct');
         $this->_blockGroup = 'M2ePro';
         $this->_controller = 'adminhtml_ebay_listing_product_source';
         $this->_controller .= ucfirst($listing->getSetting('additional_data', 'source'));
-        // ---------------------------------------
 
-        // Set header text
-        // ---------------------------------------
         if (!Mage::helper('M2ePro/Component')->isSingleActiveComponent()) {
             $this->_headerText = Mage::helper('M2ePro')->__(
                 "%component_name% / Select Products",
@@ -37,66 +34,60 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Product extends Mage_Adminhtml_Blo
             $this->_headerText = Mage::helper('M2ePro')->__("Select Products");
         }
 
-        // ---------------------------------------
-
-        // Set buttons actions
-        // ---------------------------------------
         $this->removeButton('back');
         $this->removeButton('reset');
         $this->removeButton('delete');
         $this->removeButton('add');
         $this->removeButton('save');
         $this->removeButton('edit');
-        // ---------------------------------------
 
-        // ---------------------------------------
         $url = $this->getUrl('*/*/index', array('_current' => true, 'clear' => true));
-
         if ($backParam = $this->getRequest()->getParam('back')) {
             $url = Mage::helper('M2ePro')->getBackUrl();
         }
 
         $this->_addButton(
             'back', array(
-            'label'     => Mage::helper('M2ePro')->__('Back'),
-            'class'     => 'back',
-            'onclick'   => 'setLocation(\''.$url.'\')'
+                'label'     => Mage::helper('M2ePro')->__('Back'),
+                'class'     => 'back',
+                'onclick'   => 'setLocation(\''.$url.'\')'
             )
         );
-        // ---------------------------------------
 
-        // ---------------------------------------
         $this->_addButton(
             'auto_action', array(
-            'label'     => Mage::helper('M2ePro')->__('Auto Add/Remove Rules'),
-            'onclick'   => 'ListingAutoActionHandlerObj.loadAutoActionHtml();'
+                'label'     => Mage::helper('M2ePro')->__('Auto Add/Remove Rules'),
+                'onclick'   => 'ListingAutoActionObj.loadAutoActionHtml();'
             )
         );
 
-        // ---------------------------------------
-
-        // ---------------------------------------
         $this->_addButton(
             'continue', array(
-            'label'     => Mage::helper('M2ePro')->__('Continue'),
-            'class'     => 'scalable next',
-            'onclick'   => 'ListingProductAddHandlerObj.continue();'
+                'id'        => 'continue',
+                'label'     => Mage::helper('M2ePro')->__('Continue'),
+                'class'     => 'scalable next',
+                'onclick'   => 'ListingProductAddObj.continue();'
             )
         );
-        // ---------------------------------------
     }
+
+    //########################################
 
     public function getGridHtml()
     {
-        $listingId = (int)$this->getRequest()->getParam('listing_id');
-
-        $viewHeaderBlock = $this->getLayout()->createBlock(
-            'M2ePro/adminhtml_listing_view_header', '',
-            array('listing' => Mage::helper('M2ePro/Component_Ebay')->getCachedObject('Listing', $listingId))
+        /** @var Ess_M2ePro_Model_Listing $listing */
+        $listing = Mage::helper('M2ePro/Component_Ebay')->getCachedObject(
+            'Listing',
+            $this->getRequest()->getParam('listing_id')
         );
 
-        return $viewHeaderBlock->toHtml() .
-               parent::getGridHtml();
+        $viewHeaderBlock = $this->getLayout()->createBlock(
+            'M2ePro/adminhtml_listing_view_header',
+            '',
+            array('listing' => $listing)
+        );
+
+        return $viewHeaderBlock->toHtml() . parent::getGridHtml();
     }
 
     protected function _toHtml()
@@ -106,8 +97,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Product extends Mage_Adminhtml_Blo
                parent::_toHtml() .
                '</div>' .
                $this->getVideoTutorialHtml() .
-               $this->getAutoactionPopupHtml() .
-               $this->getSettingsPopupHtml();
+               $this->getAutoactionPopupHtml();
     }
 
     //########################################
@@ -130,18 +120,15 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Product extends Mage_Adminhtml_Blo
     </div>
 </div>
 HTML;
-
     }
-
-    //########################################
 
     protected function getAutoactionPopupHtml()
     {
         $helper = Mage::helper('M2ePro');
 
         $onclick = <<<JS
-ListingProductAddHandlerObj.autoactionPopup.close();
-ListingAutoActionHandlerObj.loadAutoActionHtml();
+ListingProductAddObj.autoactionPopup.close();
+ListingAutoActionObj.loadAutoActionHtml();
 JS;
         $data = array(
             'label'   => Mage::helper('M2ePro')->__('Start Configure'),
@@ -165,65 +152,10 @@ Click Start Configure to create a Rule<br/> or Cancel if you do not want to do i
 
     <div style="text-align: right">
         <a href="javascript:"
-            onclick="ListingProductAddHandlerObj.cancelAutoActionPopup();">{$helper->__('Cancel')}</a>
+            onclick="ListingProductAddObj.cancelAutoActionPopup();">{$helper->__('Cancel')}</a>
         &nbsp;&nbsp;&nbsp;&nbsp;
         {$startConfigureButton->toHtml()}
     </div>
-</div>
-HTML;
-    }
-
-    //########################################
-
-    protected function getSettingsPopupHtml()
-    {
-        $helper = Mage::helper('M2ePro');
-
-        // ---------------------------------------
-        $onclick = <<<JS
-ListingProductAddHandlerObj.settingsPopupYesClick();
-JS;
-        $data = array(
-            'label'   => Mage::helper('M2ePro')->__('Yes'),
-            'onclick' => $onclick
-        );
-        $yesButton = $this->getLayout()->createBlock('adminhtml/widget_button')->setData($data);
-        // ---------------------------------------
-
-        // ---------------------------------------
-        $onclick = <<<JS
-ListingProductAddHandlerObj.settingsPopupNoClick();
-JS;
-        $data = array(
-            'label'   => Mage::helper('M2ePro')->__('No'),
-            'onclick' => $onclick
-        );
-        $noButton = $this->getLayout()->createBlock('adminhtml/widget_button')->setData($data);
-        // ---------------------------------------
-
-        return <<<HTML
-<div id="settings_popup_content" style="display: none">
-    <div style="margin: 10px; height: 150px">
-        <h3>{$helper->__('Do you want to customize the M2E Pro Listing Settings for some Products?')}</h3>
-        <br/>
-        <p>{$helper->__('Choose <b>Yes</b> if you want to override the Default Settings for this M2E Pro Listing '.
-                        'and to choose Different Settings for certain Products.')}</p>
-    </div>
-
-    <div class="clear"></div>
-    <div class="left">
-        <div style="margin-left: 20px">
-            <input id="remember_checkbox" type="checkbox">
-            &nbsp;&nbsp;
-            <label for="remember_checkbox">{$helper->__('Remember my choice')}</label>
-        </div>
-    </div>
-    <div class="right">
-        {$yesButton->toHtml()}
-        <div style="display: inline-block;"></div>
-        {$noButton->toHtml()}
-    </div>
-    <div class="clear"></div>
 </div>
 HTML;
     }

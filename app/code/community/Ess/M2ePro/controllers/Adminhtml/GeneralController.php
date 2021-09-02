@@ -11,6 +11,26 @@ class Ess_M2ePro_Adminhtml_GeneralController
 {
     //########################################
 
+    public function isMarketplaceEnabledAction()
+    {
+        /** @var Ess_M2ePro_Model_Marketplace $marketplace */
+        $marketplace = Mage::helper('M2ePro/Component')->getUnknownObject(
+            'Marketplace', (int)$this->getRequest()->getParam('marketplace_id')
+        );
+
+        $this->loadLayout();
+        $this->getResponse()->setBody(
+            Mage::helper('M2ePro')->jsonEncode(
+                array(
+                    'status' => $marketplace->isStatusEnabled()
+                                && $marketplace->getResource()->isDictionaryExist($marketplace)
+                )
+            )
+        );
+    }
+
+    //########################################
+
     public function getAccountsAction()
     {
         $component = $this->getRequest()->getParam('component');
@@ -92,6 +112,7 @@ class Ess_M2ePro_Adminhtml_GeneralController
         $model = $this->getRequest()->getParam('model', '');
         $componentMode = $this->getRequest()->getParam('component_mode', '');
         $marketplaceId = $this->getRequest()->getParam('marketplace_id', '');
+        $isCustomTemplate = $this->getRequest()->getParam('is_custom_template', null);
 
         $idField = $this->getRequest()->getParam('id_field', 'id');
         $dataField = $this->getRequest()->getParam('data_field', '');
@@ -109,6 +130,7 @@ class Ess_M2ePro_Adminhtml_GeneralController
         }
 
         $marketplaceId != '' && $collection->addFieldToFilter('marketplace_id', $marketplaceId);
+        $isCustomTemplate != null && $collection->addFieldToFilter('is_custom_template', $isCustomTemplate);
 
         $collection->getSelect()->reset(Zend_Db_Select::COLUMNS)
                                 ->columns(array($idField, $dataField));
@@ -266,7 +288,7 @@ class Ess_M2ePro_Adminhtml_GeneralController
 
     public function requirementsPopupCloseAction()
     {
-        Mage::helper('M2ePro/Module')->getCacheConfig()->setGroupValue('/view/requirements/popup/', 'closed', 1);
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue('/view/requirements/popup/closed/', 1);
     }
 
     //########################################

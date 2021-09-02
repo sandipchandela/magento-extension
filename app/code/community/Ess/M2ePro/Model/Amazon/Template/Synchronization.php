@@ -45,19 +45,6 @@ class Ess_M2ePro_Model_Amazon_Template_Synchronization extends Ess_M2ePro_Model_
     //########################################
 
     /**
-     * @param bool $asObjects
-     * @param array $filters
-     * @return array
-     * @throws Ess_M2ePro_Model_Exception_Logic
-     */
-    public function getListings($asObjects = false, array $filters = array())
-    {
-        return $this->getRelatedComponentItems('Listing', 'template_synchronization_id', $asObjects, $filters);
-    }
-
-    //########################################
-
-    /**
      * @return bool
      */
     public function isListMode()
@@ -79,14 +66,6 @@ class Ess_M2ePro_Model_Amazon_Template_Synchronization extends Ess_M2ePro_Model_
     public function isListIsInStock()
     {
         return $this->getData('list_is_in_stock') != 0;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isListWhenQtyMagentoHasValue()
-    {
-        return $this->getData('list_qty_magento') != Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_NONE;
     }
 
     /**
@@ -150,63 +129,6 @@ class Ess_M2ePro_Model_Amazon_Template_Synchronization extends Ess_M2ePro_Model_
     // ---------------------------------------
 
     /**
-     * @return int
-     */
-    public function getReviseUpdatePriceMaxAllowedDeviationMode()
-    {
-        return (int)$this->getData('revise_update_price_max_allowed_deviation_mode');
-    }
-
-    /**
-     * @return bool
-     */
-    public function isReviseUpdatePriceMaxAllowedDeviationModeOn()
-    {
-        return $this->getReviseUpdatePriceMaxAllowedDeviationMode() == 1;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isReviseUpdatePriceMaxAllowedDeviationModeOff()
-    {
-        return $this->getReviseUpdatePriceMaxAllowedDeviationMode() == 0;
-    }
-
-    // ---------------------------------------
-
-    /**
-     * @return int
-     */
-    public function getReviseUpdatePriceMaxAllowedDeviation()
-    {
-        return (int)$this->getData('revise_update_price_max_allowed_deviation');
-    }
-
-    // ---------------------------------------
-
-    public function isPriceChangedOverAllowedDeviation($onlinePrice, $currentPrice)
-    {
-        if ((float)$onlinePrice == (float)$currentPrice) {
-            return false;
-        }
-
-        if ((float)$onlinePrice <= 0) {
-            return true;
-        }
-
-        if ($this->isReviseUpdatePriceMaxAllowedDeviationModeOff()) {
-            return true;
-        }
-
-        $deviation = round(abs($onlinePrice - $currentPrice) / $onlinePrice * 100, 2);
-
-        return $deviation > $this->getReviseUpdatePriceMaxAllowedDeviation();
-    }
-
-    // ---------------------------------------
-
-    /**
      * @return bool
      */
     public function isReviseUpdateQty()
@@ -220,6 +142,22 @@ class Ess_M2ePro_Model_Amazon_Template_Synchronization extends Ess_M2ePro_Model_
     public function isReviseUpdatePrice()
     {
         return $this->getData('revise_update_price') != 0;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isReviseWhenChangeDetails()
+    {
+        return $this->getData('revise_update_details') != 0;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isReviseWhenChangeImages()
+    {
+        return $this->getData('revise_update_images') != 0;
     }
 
     // ---------------------------------------
@@ -254,14 +192,6 @@ class Ess_M2ePro_Model_Amazon_Template_Synchronization extends Ess_M2ePro_Model_
     public function isRelistIsInStock()
     {
         return $this->getData('relist_is_in_stock') != 0;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isRelistWhenQtyMagentoHasValue()
-    {
-        return $this->getData('relist_qty_magento') != Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_NONE;
     }
 
     /**
@@ -315,14 +245,6 @@ class Ess_M2ePro_Model_Amazon_Template_Synchronization extends Ess_M2ePro_Model_
     /**
      * @return bool
      */
-    public function isStopWhenQtyMagentoHasValue()
-    {
-        return $this->getData('stop_qty_magento') != Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_NONE;
-    }
-
-    /**
-     * @return bool
-     */
     public function isStopWhenQtyCalculatedHasValue()
     {
         return $this->getData('stop_qty_calculated') != Ess_M2ePro_Model_Template_Synchronization::QTY_MODE_NONE;
@@ -344,104 +266,19 @@ class Ess_M2ePro_Model_Amazon_Template_Synchronization extends Ess_M2ePro_Model_
 
     //########################################
 
-    public function getListWhenQtyMagentoHasValueType()
-    {
-        return $this->getData('list_qty_magento');
-    }
-
-    public function getListWhenQtyMagentoHasValueMin()
-    {
-        return $this->getData('list_qty_magento_value');
-    }
-
-    public function getListWhenQtyMagentoHasValueMax()
-    {
-        return $this->getData('list_qty_magento_value_max');
-    }
-
-    // ---------------------------------------
-
-    public function getListWhenQtyCalculatedHasValueType()
-    {
-        return $this->getData('list_qty_calculated');
-    }
-
-    public function getListWhenQtyCalculatedHasValueMin()
+    public function getListWhenQtyCalculatedHasValue()
     {
         return $this->getData('list_qty_calculated_value');
     }
 
-    public function getListWhenQtyCalculatedHasValueMax()
-    {
-        return $this->getData('list_qty_calculated_value_max');
-    }
-
-    // ---------------------------------------
-
-    public function getRelistWhenQtyMagentoHasValueType()
-    {
-        return $this->getData('relist_qty_magento');
-    }
-
-    public function getRelistWhenQtyMagentoHasValueMin()
-    {
-        return $this->getData('relist_qty_magento_value');
-    }
-
-    public function getRelistWhenQtyMagentoHasValueMax()
-    {
-        return $this->getData('relist_qty_magento_value_max');
-    }
-
-    // ---------------------------------------
-
-    public function getRelistWhenQtyCalculatedHasValueType()
-    {
-        return $this->getData('relist_qty_calculated');
-    }
-
-    public function getRelistWhenQtyCalculatedHasValueMin()
+    public function getRelistWhenQtyCalculatedHasValue()
     {
         return $this->getData('relist_qty_calculated_value');
     }
 
-    public function getRelistWhenQtyCalculatedHasValueMax()
-    {
-        return $this->getData('relist_qty_calculated_value_max');
-    }
-
-    // ---------------------------------------
-
-    public function getStopWhenQtyMagentoHasValueType()
-    {
-        return $this->getData('stop_qty_magento');
-    }
-
-    public function getStopWhenQtyMagentoHasValueMin()
-    {
-        return $this->getData('stop_qty_magento_value');
-    }
-
-    public function getStopWhenQtyMagentoHasValueMax()
-    {
-        return $this->getData('stop_qty_magento_value_max');
-    }
-
-    // ---------------------------------------
-
-    public function getStopWhenQtyCalculatedHasValueType()
-    {
-        return $this->getData('stop_qty_calculated');
-    }
-
-    public function getStopWhenQtyCalculatedHasValueMin()
+    public function getStopWhenQtyCalculatedHasValue()
     {
         return $this->getData('stop_qty_calculated_value');
-    }
-
-    public function getStopWhenQtyCalculatedHasValueMax()
-    {
-        return $this->getData('stop_qty_calculated_value_max');
     }
 
     //########################################

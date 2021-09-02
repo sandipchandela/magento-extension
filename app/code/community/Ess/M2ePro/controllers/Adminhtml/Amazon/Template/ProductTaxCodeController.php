@@ -18,9 +18,9 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ProductTaxCodeController
              ->_title(Mage::helper('M2ePro')->__('Product Tax Code Policies'));
 
         $this->getLayout()->getBlock('head')
-            ->addJs('M2ePro/Template/EditHandler.js')
-            ->addJs('M2ePro/Amazon/Template/EditHandler.js')
-            ->addJs('M2ePro/Amazon/Template/ProductTaxCodeHandler.js');
+            ->addJs('M2ePro/Template/Edit.js')
+            ->addJs('M2ePro/Amazon/Template/Edit.js')
+            ->addJs('M2ePro/Amazon/Template/ProductTaxCode.js');
 
         $this->_initPopUp();
 
@@ -81,31 +81,13 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ProductTaxCodeController
 
         $id = $this->getRequest()->getParam('id');
 
-        // Base prepare
-        // ---------------------------------------
-        $data = array();
-
-        $keys = array(
-            'title',
-
-            'product_tax_code_mode',
-            'product_tax_code_value',
-            'product_tax_code_attribute',
-        );
-
-        foreach ($keys as $key) {
-            if (isset($post[$key])) {
-                $data[$key] = $post[$key];
-            }
-        }
-
         $model = Mage::getModel('M2ePro/Amazon_Template_ProductTaxCode')->load($id);
 
         $snapshotBuilder = Mage::getModel('M2ePro/Amazon_Template_ProductTaxCode_SnapshotBuilder');
         $snapshotBuilder->setModel($model);
         $oldData = $snapshotBuilder->getSnapshot();
 
-        $model->addData($data)->save();
+        Mage::getModel('M2ePro/Amazon_Template_ProductTaxCode_Builder')->build($model, $post);
 
         $snapshotBuilder = Mage::getModel('M2ePro/Amazon_Template_ProductTaxCode_SnapshotBuilder');
         $snapshotBuilder->setModel($model);
@@ -123,7 +105,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ProductTaxCodeController
             $diff, $affectedListingsProducts->getData(array('id', 'status'), array('only_physical_units' => true))
         );
 
-        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Policy was successfully saved'));
+        $this->_getSession()->addSuccess(Mage::helper('M2ePro')->__('Policy was saved'));
         return $this->_redirectUrl(
             Mage::helper('M2ePro')->getBackUrl(
                 '*/adminhtml_amazon_template/index', array(),
@@ -159,7 +141,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ProductTaxCodeController
             }
         }
 
-        $tempString = Mage::helper('M2ePro')->__('%amount% record(s) were successfully deleted.', $deleted);
+        $tempString = Mage::helper('M2ePro')->__('%amount% record(s) were deleted.', $deleted);
         $deleted && $this->_getSession()->addSuccess($tempString);
 
         $tempString  = Mage::helper('M2ePro')->__('%amount% record(s) are used in Listing(s).', $locked) . ' ';
@@ -273,31 +255,11 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ProductTaxCodeController
         if (!empty($productsIdsLocked)) {
             $messages[] = array(
                 'type' => 'success',
-                'text' => Mage::helper('M2ePro')->__('Product Tax Code Policy was successfully assigned.')
+                'text' => Mage::helper('M2ePro')->__('Product Tax Code Policy was assigned.')
             );
 
             $this->setProductTaxCodeTemplateForProducts($productsIdsLocked, $templateId);
             $this->runProcessorForParents($productsIdsLocked);
-
-            $template = Mage::getModel('M2ePro/Amazon_Template_ProductTaxCode')->load($templateId);
-
-            $snapshotBuilder = Mage::getModel('M2ePro/Amazon_Template_ProductTaxCode_SnapshotBuilder');
-            $snapshotBuilder->setModel($template);
-            $newData = $snapshotBuilder->getSnapshot();
-
-            $diff = Mage::getModel('M2ePro/Amazon_Template_ProductTaxCode_Diff');
-            $diff->setNewSnapshot($newData);
-            $diff->setOldSnapshot(array());
-
-            $affectedListingsProducts = Mage::getModel(
-                'M2ePro/Amazon_Template_ProductTaxCode_AffectedListingsProducts'
-            );
-            $affectedListingsProducts->setModel($template);
-
-            $changeProcessor = Mage::getModel('M2ePro/Amazon_Template_ProductTaxCode_ChangeProcessor');
-            $changeProcessor->process(
-                $diff, $affectedListingsProducts->getData(array('id', 'status'), array('only_physical_units' => true))
-            );
         }
 
         return $this->getResponse()->setBody(
@@ -337,7 +299,7 @@ class Ess_M2ePro_Adminhtml_Amazon_Template_ProductTaxCodeController
         if (!empty($productsIdsLocked)) {
             $messages[] = array(
                 'type' => 'success',
-                'text' => Mage::helper('M2ePro')->__('Product Tax Code Policy was successfully unassigned.')
+                'text' => Mage::helper('M2ePro')->__('Product Tax Code Policy was unassigned.')
             );
 
             $this->setProductTaxCodeTemplateForProducts($productsIdsLocked, null);

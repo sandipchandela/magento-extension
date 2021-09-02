@@ -84,18 +84,45 @@ class Ess_M2ePro_Model_Walmart_Listing_Product extends Ess_M2ePro_Model_Componen
 
     //########################################
 
+    /**
+     * @return bool
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function isVariationMode()
+    {
+        if ($this->hasData(__METHOD__)) {
+            return $this->getData(__METHOD__);
+        }
+
+        $result = $this->getMagentoProduct()->isProductWithVariations();
+
+        if ($this->getParentObject()->isGroupedProductModeSet()) {
+            $result = false;
+        }
+
+        $this->setData(__METHOD__, $result);
+
+        return $result;
+    }
+
+    /**
+     * @throws Ess_M2ePro_Model_Exception
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     public function afterSaveNewEntity()
     {
         /** @var Ess_M2ePro_Model_Walmart_Listing_Product_Variation_Manager $variationManager */
         $variationManager = $this->getVariationManager();
-        $magentoProduct = $this->getMagentoProduct();
-
-        if ($magentoProduct->isProductWithVariations() && !$variationManager->isVariationProduct()) {
-            $this->getParentObject()->setData('is_variation_product', 1);
-            $variationManager->setRelationParentType();
-            $variationManager->getTypeModel()->resetProductAttributes(false);
-            $variationManager->getTypeModel()->getProcessor()->process();
+        if ($variationManager->isVariationProduct() || !$this->isVariationMode()) {
+            return null;
         }
+
+        // m1 need to be added to parent
+        $this->getParentObject()->setData('is_variation_product', 1);
+
+        $variationManager->setRelationParentType();
+        $variationManager->getTypeModel()->resetProductAttributes(false);
+        $variationManager->getTypeModel()->getProcessor()->process();
     }
 
     //########################################
@@ -246,7 +273,8 @@ class Ess_M2ePro_Model_Walmart_Listing_Product extends Ess_M2ePro_Model_Componen
         }
 
         if ($this->getMagentoProduct()->isConfigurableType() ||
-            $this->getMagentoProduct()->isGroupedType()) {
+            $this->getMagentoProduct()->isGroupedType() &&
+            !$this->getParentObject()->isGroupedProductModeSet()) {
             $variations = $this->getVariations(true);
             if (empty($variations)) {
                 throw new Ess_M2ePro_Model_Exception_Logic(
@@ -322,12 +350,11 @@ class Ess_M2ePro_Model_Walmart_Listing_Product extends Ess_M2ePro_Model_Componen
     /**
      * @param bool $asObjects
      * @param array $filters
-     * @param bool $tryToGetFromStorage
-     * @return array
+     * @return Ess_M2ePro_Model_Listing_Product_Variation[]|array
      */
-    public function getVariations($asObjects = false, array $filters = array(), $tryToGetFromStorage = true)
+    public function getVariations($asObjects = false, array $filters = array())
     {
-        return $this->getParentObject()->getVariations($asObjects, $filters, $tryToGetFromStorage);
+        return $this->getParentObject()->getVariations($asObjects, $filters);
     }
 
     //########################################
@@ -425,16 +452,6 @@ class Ess_M2ePro_Model_Walmart_Listing_Product extends Ess_M2ePro_Model_Componen
     /**
      * @return string
      */
-    public function getChannelUrl()
-    {
-        return $this->getData('channel_url');
-    }
-
-    // ---------------------------------------
-
-    /**
-     * @return string
-     */
     public function getPublishStatus()
     {
         return $this->getData('publish_status');
@@ -481,7 +498,7 @@ class Ess_M2ePro_Model_Walmart_Listing_Product extends Ess_M2ePro_Model_Componen
      */
     public function getOnlinePromotions()
     {
-        return $this->getSettings('online_promotions');
+        return $this->getData('online_promotions');
     }
 
     // ---------------------------------------
@@ -509,15 +526,7 @@ class Ess_M2ePro_Model_Walmart_Listing_Product extends Ess_M2ePro_Model_Componen
      */
     public function getOnlineDetailsData()
     {
-        return $this->getSettings('online_details_data');
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDetailsDataChanged()
-    {
-        return (bool)$this->getData('is_details_data_changed');
+        return $this->getData('online_details_data');
     }
 
     // ---------------------------------------
@@ -755,32 +764,9 @@ class Ess_M2ePro_Model_Walmart_Listing_Product extends Ess_M2ePro_Model_Componen
 
     //########################################
 
-    public function listAction(array $params = array())
+    public function mapChannelItemProduct()
     {
-        return $this->processDispatcher(Ess_M2ePro_Model_Listing_Product::ACTION_LIST, $params);
-    }
-
-    public function relistAction(array $params = array())
-    {
-        return $this->processDispatcher(Ess_M2ePro_Model_Listing_Product::ACTION_RELIST, $params);
-    }
-
-    public function reviseAction(array $params = array())
-    {
-        return $this->processDispatcher(Ess_M2ePro_Model_Listing_Product::ACTION_REVISE, $params);
-    }
-
-    public function stopAction(array $params = array())
-    {
-        return $this->processDispatcher(Ess_M2ePro_Model_Listing_Product::ACTION_STOP, $params);
-    }
-
-    // ---------------------------------------
-
-    protected function processDispatcher($action, array $params = array())
-    {
-        $dispatcherObject = Mage::getModel('M2ePro/Walmart_Connector_Product_Dispatcher');
-        return $dispatcherObject->process($action, $this->getId(), $params);
+        $this->getResource()->mapChannelItemProduct($this);
     }
 
     //########################################

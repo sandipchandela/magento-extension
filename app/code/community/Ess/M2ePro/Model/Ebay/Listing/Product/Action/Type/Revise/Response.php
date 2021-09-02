@@ -27,7 +27,6 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_Type_Revise_Response
         $data = $this->appendOnlinePriceValues($data);
         $data = $this->appendOnlineInfoDataValues($data);
 
-        $data = $this->appendOutOfStockValues($data);
         $data = $this->appendItemFeesValues($data, $response);
         $data = $this->appendStartDateEndDateValues($data, $response);
         $data = $this->appendGalleryImagesValues($data, $response);
@@ -38,6 +37,7 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_Type_Revise_Response
         $data = $this->appendIsVariationValue($data);
         $data = $this->appendIsAuctionType($data);
 
+        $data = $this->appendDescriptionValues($data);
         $data = $this->appendImagesValues($data);
         $data = $this->appendCategoriesValues($data);
         $data = $this->appendPaymentValues($data);
@@ -78,88 +78,6 @@ class Ess_M2ePro_Model_Ebay_Listing_Product_Action_Type_Revise_Response
         $data['additional_data'] = Mage::helper('M2ePro')->jsonEncode($data['additional_data']);
 
         $this->getListingProduct()->addData($data)->save();
-    }
-
-    //########################################
-
-    /**
-     * @return string
-     */
-    public function getSuccessfulMessage()
-    {
-        if ($this->getConfigurator()->isExcludingMode()) {
-            return 'Item was successfully Revised';
-        }
-
-        $sequenceStrings = array();
-        $isPlural = false;
-
-        if ($this->getConfigurator()->isVariationsAllowed() && $this->getRequestData()->isVariationItem()) {
-            $sequenceStrings[] = 'Variations';
-            $isPlural = true;
-        } else {
-            if ($this->getConfigurator()->isQtyAllowed()) {
-                $sequenceStrings[] = 'QTY';
-            }
-
-            if ($this->getConfigurator()->isPriceAllowed()) {
-                $sequenceStrings[] = 'Price';
-            }
-        }
-
-        if ($this->getConfigurator()->isTitleAllowed()) {
-            $sequenceStrings[] = 'Title';
-        }
-
-        if ($this->getConfigurator()->isSubtitleAllowed()) {
-            $sequenceStrings[] = 'Subtitle';
-        }
-
-        if ($this->getConfigurator()->isDescriptionAllowed()) {
-            $sequenceStrings[] = 'Description';
-        }
-
-        if ($this->getConfigurator()->isImagesAllowed()) {
-            $sequenceStrings[] = 'Images';
-            $isPlural = true;
-        }
-
-        if ($this->getConfigurator()->isCategoriesAllowed()) {
-            $sequenceStrings[] = 'Categories / Specifics';
-            $isPlural = true;
-        }
-
-        if ($this->getConfigurator()->isPaymentAllowed()) {
-            $sequenceStrings[] = 'Payment';
-        }
-
-        if ($this->getConfigurator()->isShippingAllowed()) {
-            $sequenceStrings[] = 'Shipping';
-        }
-
-        if ($this->getConfigurator()->isReturnAllowed()) {
-            $sequenceStrings[] = 'Return';
-        }
-
-        if ($this->getConfigurator()->isOtherAllowed()) {
-            $sequenceStrings[] = 'Condition, Condition Note, Tax, Best Offer, Donation';
-            $isPlural = true;
-        }
-
-        if (empty($sequenceStrings)) {
-            return 'Item was successfully Revised';
-        }
-
-        if (count($sequenceStrings) == 1) {
-            $verb = 'was';
-            if ($isPlural) {
-                $verb = 'were';
-            }
-
-            return ucfirst($sequenceStrings[0]).' '.$verb.' successfully Revised';
-        }
-
-        return ucfirst(implode(', ', $sequenceStrings)).' were successfully Revised';
     }
 
     //########################################

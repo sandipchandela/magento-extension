@@ -132,7 +132,19 @@ class Ess_M2ePro_Helper_Component_Walmart extends Mage_Core_Helper_Abstract
 
         $domain = $this->getCachedObject('Marketplace', $marketplaceId)->getUrl();
 
-        return 'https://'.$domain.'/ip/'.$productItemId;
+        return 'https://www.'.$domain.'/ip/'.$productItemId;
+    }
+
+    public function getIdentifierForItemUrl($marketplaceId)
+    {
+        switch ($marketplaceId) {
+            case Ess_M2ePro_Helper_Component_Walmart::MARKETPLACE_US:
+                return 'item_id';
+            case Ess_M2ePro_Helper_Component_Walmart::MARKETPLACE_CA:
+                return 'wpid';
+            default:
+                throw new Ess_M2ePro_Model_Exception_Logic('Unknown Marketplace ID.');
+        }
     }
 
     //########################################
@@ -160,10 +172,17 @@ class Ess_M2ePro_Helper_Component_Walmart extends Mage_Core_Helper_Abstract
     public function getCarriers()
     {
         return array(
-            'usps'  => 'USPS',
-            'ups'   => 'UPS',
-            'fedex' => 'FedEx',
-            'dhl'   => 'DHL',
+            'ups'      => 'UPS',
+            'usps'     => 'USPS',
+            'fedex'    => 'FedEx',
+            'airborne' => 'Airborne',
+            'ontrac'   => 'OnTrac',
+            'dhl'      => 'DHL',
+            'ng'       => 'NG',
+            'ls'       => 'LS',
+            'uds'      => 'UDS',
+            'upsmi'    => 'UPSMI',
+            'fdx'      => 'FDX'
         );
     }
 

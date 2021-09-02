@@ -18,14 +18,18 @@ class Ess_M2ePro_Model_Cron_Task_Listing_Product_InspectDirectChanges extends Es
 
     //########################################
 
+    protected function isModeEnabled()
+    {
+        if (!parent::isModeEnabled()) {
+            return false;
+        }
+
+        return Mage::helper('M2ePro/Module_Configuration')->isEnableListingProductInspectorMode();
+    }
+
     protected function performActions()
     {
-        $components = Mage::helper('M2ePro/Component')->getEnabledComponents();
-
-        foreach ($components as $component) {
-            if (!$this->isEnabled()) {
-                continue;
-            }
+        foreach (Mage::helper('M2ePro/Component')->getEnabledComponents() as $component) {
 
             $allowedListingsProductsCount = $this->calculateAllowedListingsProductsCount($component);
             if ($allowedListingsProductsCount <= 0) {
@@ -64,8 +68,8 @@ class Ess_M2ePro_Model_Cron_Task_Listing_Product_InspectDirectChanges extends Es
         );
 
         /** @var Ess_M2ePro_Model_Resource_Listing_Product_Instruction_Collection $collection */
-        $currentInstructionsCount = Mage::getResourceModel('M2ePro/Listing_Product_Instruction_Collection')
-            ->applySkipUntilFilter()
+        $collection = Mage::getResourceModel('M2ePro/Listing_Product_Instruction_Collection');
+        $currentInstructionsCount = $collection->applySkipUntilFilter()
             ->addFieldToFilter('component', $component)
             ->addFieldToFilter('initiator', self::INSTRUCTION_INITIATOR)
             ->getSize();
@@ -90,16 +94,11 @@ class Ess_M2ePro_Model_Cron_Task_Listing_Product_InspectDirectChanges extends Es
 
     //########################################
 
-    protected function isEnabled()
-    {
-        return (bool)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(self::KEY_PREFIX.'/', 'mode');
-    }
-
-    // ---------------------------------------
-
     protected function getLastListingProductId($component)
     {
-        $configValue = $this->getRegistryValue(self::KEY_PREFIX.'/'.$component.'/last_listing_product_id/');
+        $configValue = Mage::helper('M2ePro/Module')->getRegistry()->getValue(
+            self::KEY_PREFIX.'/'.$component.'/last_listing_product_id/'
+        );
 
         if ($configValue === null) {
             return 0;
@@ -110,7 +109,10 @@ class Ess_M2ePro_Model_Cron_Task_Listing_Product_InspectDirectChanges extends Es
 
     protected function setLastListingProductId($component, $listingProductId)
     {
-        $this->setRegistryValue(self::KEY_PREFIX.'/'.$component.'/last_listing_product_id/', (int)$listingProductId);
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue(
+            self::KEY_PREFIX.'/'.$component.'/last_listing_product_id/',
+            (int)$listingProductId
+        );
     }
 
     //########################################

@@ -453,11 +453,7 @@ abstract class Ess_M2ePro_Model_Listing_Product_PriceCalculator
             }
 
             if ($this->isSourceModeAttribute()) {
-                $isConvertEnabled = (bool)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(
-                    '/magento/attribute/', 'price_type_converting'
-                );
-
-                if ($isConvertEnabled &&
+                if (Mage::helper('M2ePro/Module_Configuration')->isEnableMagentoAttributePriceTypeConvertingMode() &&
                     $this->getSource('attribute') == Ess_M2ePro_Helper_Magento_Attribute::PRICE_CODE
                 ) {
                     $value = $this->convertValueFromStoreToMarketplace($value);
@@ -821,32 +817,38 @@ abstract class Ess_M2ePro_Model_Listing_Product_PriceCalculator
 
     // ---------------------------------------
 
+    /**
+     * @param Ess_M2ePro_Model_Magento_Product $product
+     *
+     * @return double
+     * @throws Ess_M2ePro_Model_Exception
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     protected function getGroupedProductValue(Ess_M2ePro_Model_Magento_Product $product)
     {
         $value = 0;
-
-        /** @var $productTypeInstance Mage_Catalog_Model_Product_Type_Grouped */
-        $productTypeInstance = $product->getTypeInstance();
-
-        foreach ($productTypeInstance->getAssociatedProducts() as $childProduct) {
-
-            /** @var $childProduct Ess_M2ePro_Model_Magento_Product */
-            $childProduct = Mage::getModel('M2ePro/Magento_Product')->setProduct($childProduct);
+        foreach ($product->getTypeInstance()->getAssociatedProducts() as $childProduct) {
+            /** @var Mage_Catalog_Model_Product $childProduct */
 
             $variationValue = (float)$childProduct->getSpecialPrice();
             $variationValue <= 0 && $variationValue = (float)$childProduct->getPrice();
 
-            if ($variationValue < $value || $value == 0) {
+            if ($this->getProduct()->isGroupedProductModeSet()) {
+                $defaultQty = $childProduct->getQty();
+                if ($defaultQty <= 0 || $variationValue <= 0) {
+                    continue;
+                }
+
+                $variationValue *= $defaultQty;
+                $value += $variationValue;
+
+            } elseif ($variationValue < $value || $value === 0) {
                 $value = $variationValue;
             }
         }
 
         if ($this->isSourceModeAttribute()) {
-            $isConvertEnabled = (bool)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(
-                '/magento/attribute/', 'price_type_converting'
-            );
-
-            if ($isConvertEnabled &&
+            if (Mage::helper('M2ePro/Module_Configuration')->isEnableMagentoAttributePriceTypeConvertingMode() &&
                 ($this->getSource('attribute') == Ess_M2ePro_Helper_Magento_Attribute::PRICE_CODE ||
                 $this->getSource('attribute') == Ess_M2ePro_Helper_Magento_Attribute::SPECIAL_PRICE_CODE)
             ) {
@@ -885,11 +887,7 @@ abstract class Ess_M2ePro_Model_Listing_Product_PriceCalculator
         }
 
         if ($this->isSourceModeAttribute()) {
-            $isConvertEnabled = (bool)Mage::helper('M2ePro/Module')->getConfig()->getGroupValue(
-                '/magento/attribute/', 'price_type_converting'
-            );
-
-            if ($isConvertEnabled &&
+            if (Mage::helper('M2ePro/Module_Configuration')->isEnableMagentoAttributePriceTypeConvertingMode() &&
                 ($this->getSource('attribute') == Ess_M2ePro_Helper_Magento_Attribute::PRICE_CODE ||
                  $this->getSource('attribute') == Ess_M2ePro_Helper_Magento_Attribute::SPECIAL_PRICE_CODE)
             ) {

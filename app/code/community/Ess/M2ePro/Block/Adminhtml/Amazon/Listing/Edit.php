@@ -8,23 +8,19 @@
 
 class Ess_M2ePro_Block_Adminhtml_Amazon_Listing_Edit extends Mage_Adminhtml_Block_Widget_Form_Container
 {
+    /** @var Ess_M2ePro_Model_Listing */
+    protected $_listing = null;
+
     //########################################
 
     public function __construct()
     {
         parent::__construct();
 
-        // Initialization block
-        // ---------------------------------------
         $this->setId('amazonListingEdit');
         $this->_blockGroup = 'M2ePro';
         $this->_controller = 'adminhtml_amazon_listing';
         $this->_mode = 'edit';
-        // ---------------------------------------
-
-        // Set header text
-        // ---------------------------------------
-        $listingData = Mage::helper('M2ePro/Data_Global')->getValue('temp_data');
 
         if (!Mage::helper('M2ePro/Component')->isSingleActiveComponent()) {
             $componentName = Mage::helper('M2ePro/Component_Amazon')->getTitle();
@@ -32,123 +28,93 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Listing_Edit extends Mage_Adminhtml_Bloc
             $this->_headerText = Mage::helper('M2ePro')->__(
                 'Edit %component_name% Listing Settings "%listing_title%"',
                 $componentName,
-                $this->escapeHtml($listingData['title'])
+                $this->escapeHtml($this->getListing()->getTitle())
             );
         } else {
             $this->_headerText = Mage::helper('M2ePro')->__(
                 'Edit Listing Settings "%listing_title%"',
-                $this->escapeHtml($listingData['title'])
+                $this->escapeHtml($this->getListing()->getTitle())
             );
         }
 
-        // ---------------------------------------
-
-        // Set buttons actions
-        // ---------------------------------------
         $this->removeButton('back');
         $this->removeButton('reset');
         $this->removeButton('delete');
         $this->removeButton('add');
         $this->removeButton('save');
         $this->removeButton('edit');
-        // ---------------------------------------
 
         if ($this->getRequest()->getParam('back') !== null) {
-            // ---------------------------------------
             $url = Mage::helper('M2ePro')->getBackUrl(
                 '*/adminhtml_amazon_listing/index'
             );
             $this->_addButton(
-                'back', array(
+                'back',
+                array(
                     'label'   => Mage::helper('M2ePro')->__('Back'),
-                    'onclick' => 'AmazonListingSettingsHandlerObj.back_click(\'' . $url . '\')',
+                    'onclick' => 'AmazonListingSettingsObj.back_click(\'' . $url . '\')',
                     'class'   => 'back'
                 )
             );
-            // ---------------------------------------
         }
 
-        // ---------------------------------------
         $this->_addButton(
-            'auto_action', array(
+            'auto_action',
+            array(
                 'label'   => Mage::helper('M2ePro')->__('Auto Add/Remove Rules'),
-                'onclick' => 'ListingAutoActionHandlerObj.loadAutoActionHtml();'
+                'onclick' => 'ListingAutoActionObj.loadAutoActionHtml();'
             )
         );
-        // ---------------------------------------
 
         $backUrl = Mage::helper('M2ePro')->getBackUrlParam('list');
 
-        // ---------------------------------------
         $url = $this->getUrl(
             '*/adminhtml_amazon_listing/save',
             array(
-                'id'    => $listingData['id'],
-                'back'  => $backUrl
+                'id'   => $this->getListing()->getId(),
+                'back' => $backUrl
             )
         );
         $this->_addButton(
-            'save', array(
+            'save',
+            array(
                 'label'   => Mage::helper('M2ePro')->__('Save'),
-                'onclick' => 'AmazonListingSettingsHandlerObj.save_click(\'' . $url . '\')',
+                'onclick' => 'AmazonListingSettingsObj.save_click(\'' . $url . '\')',
                 'class'   => 'save'
             )
         );
-        // ---------------------------------------
 
-        // ---------------------------------------
         $this->_addButton(
-            'save_and_continue', array(
+            'save_and_continue',
+            array(
                 'label'   => Mage::helper('M2ePro')->__('Save And Continue Edit'),
-                'onclick' => 'AmazonListingSettingsHandlerObj.save_and_edit_click(\'' . $url . '\', 1)',
+                'onclick' => 'AmazonListingSettingsObj.save_and_edit_click(\'' . $url . '\', 1)',
                 'class'   => 'save'
             )
         );
-        // ---------------------------------------
     }
 
     //########################################
 
-    protected function _beforeToHtml()
+    protected function _prepareLayout()
     {
-        parent::_beforeToHtml();
-
-        // ---------------------------------------
         $tabs = $this->getLayout()->createBlock('M2ePro/adminhtml_amazon_listing_edit_tabs');
         $this->setChild('tabs', $tabs);
-        // ---------------------------------------
 
-        return $this;
-    }
-
-    //########################################
-
-    public function getFormHtml()
-    {
-        $listing = Mage::helper('M2ePro/Component_Amazon')->getCachedObject(
-            'Listing', $this->getRequest()->getParam('id')
-        );
-
-        $viewHeaderBlock = $this->getLayout()->createBlock(
-            'M2ePro/adminhtml_listing_view_header', '',
-            array('listing' => $listing)
-        );
-
-        $tabs = $this->getChild('tabs');
-
-        $urls = Mage::helper('M2ePro')->getControllerActions(
-            'adminhtml_amazon_listing_autoAction',
-            array(
-                'listing_id' => $this->getRequest()->getParam('id'),
-                'component' => Ess_M2ePro_Helper_Component_Amazon::NICK
+        Mage::helper('M2ePro/View')->getJsUrlsRenderer()->addUrls(
+            Mage::helper('M2ePro')->getControllerActions(
+                'adminhtml_amazon_listing_autoAction',
+                array(
+                    'listing_id' => $this->getListing()->getId(),
+                    'component'  => Ess_M2ePro_Helper_Component_Amazon::NICK
+                )
             )
         );
-        $urls = Mage::helper('M2ePro')->jsonEncode($urls);
 
         /** @var $helper Ess_M2ePro_Helper_Data */
         $helper = Mage::helper('M2ePro');
 
-        $translations = Mage::helper('M2ePro')->jsonEncode(
+        Mage::helper('M2ePro/View')->getJsTranslatorRenderer()->addTranslations(
             array(
                 'Auto Add/Remove Rules'                    => $helper->__('Auto Add/Remove Rules'),
                 'Based on Magento Categories'              => $helper->__('Based on Magento Categories'),
@@ -157,18 +123,42 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Listing_Edit extends Mage_Adminhtml_Bloc
             )
         );
 
-        $js = <<<HTML
-<script type="text/javascript">
+        Mage::helper('M2ePro/View')->getJsRenderer()->addOnReadyJs(
+            <<<JS
+    ListingAutoActionObj = new AmazonListingAutoAction();
+JS
+        );
 
-    M2ePro.url.add({$urls});
-    M2ePro.translator.add({$translations});
+        return parent::_prepareLayout();
+    }
 
-    ListingAutoActionHandlerObj = new AmazonListingAutoActionHandler();
+    //########################################
 
-</script>
-HTML;
+    public function getFormHtml()
+    {
+        $viewHeaderBlock = $this->getLayout()->createBlock(
+            'M2ePro/adminhtml_listing_view_header',
+            '',
+            array('listing' => $this->getListing())
+        );
 
-        return $viewHeaderBlock->toHtml() . $tabs->toHtml() . parent::getFormHtml() . $js;
+        $tabs = $this->getChild('tabs');
+
+        return $viewHeaderBlock->toHtml() . $tabs->toHtml() . parent::getFormHtml();
+    }
+
+    //########################################
+
+    protected function getListing()
+    {
+        if ($this->_listing === null && $this->getRequest()->getParam('id')) {
+            $this->_listing = Mage::helper('M2ePro/Component_Amazon')->getCachedObject(
+                'Listing',
+                $this->getRequest()->getParam('id')
+            );
+        }
+
+        return $this->_listing;
     }
 
     //########################################

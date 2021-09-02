@@ -147,10 +147,6 @@ abstract class Ess_M2ePro_Model_Listing_Product_QtyCalculator
     protected function getClearProductValue()
     {
         switch ($this->getSource('mode')) {
-            case Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_SINGLE:
-                $value = 1;
-                break;
-
             case Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_NUMBER:
                 $value = (int)$this->getSource('value');
                 break;
@@ -222,10 +218,6 @@ abstract class Ess_M2ePro_Model_Listing_Product_QtyCalculator
     protected function getOptionBaseValue(Ess_M2ePro_Model_Listing_Product_Variation_Option $option)
     {
         switch ($this->getSource('mode')) {
-            case Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_SINGLE:
-                $value = 1;
-                break;
-
             case Ess_M2ePro_Model_Template_SellingFormat::QTY_MODE_NUMBER:
                 $value = (int)$this->getSource('value');
                 break;
@@ -277,8 +269,8 @@ abstract class Ess_M2ePro_Model_Listing_Product_QtyCalculator
             return $value;
         }
 
-        $roundingFunction = (bool)(int)Mage::helper('M2ePro/Module')->getConfig()
-                ->getGroupValue('/qty/percentage/', 'rounding_greater') ? 'ceil' : 'floor';
+        $roundingFunction = (bool)Mage::helper('M2ePro/Module_Configuration')
+            ->getQtyPercentageRoundingGreater() ? 'ceil' : 'floor';
 
         return (int)$roundingFunction(($value/100) * $percents);
     }

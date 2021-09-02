@@ -7,7 +7,7 @@
  */
 
 abstract class Ess_M2ePro_Model_Walmart_Connector_Product_Responser
-    extends Ess_M2ePro_Model_Walmart_Connector_Command_Pending_Responser
+    extends Ess_M2ePro_Model_Connector_Command_Pending_Responser
 {
     /**
      * @var Ess_M2ePro_Model_Listing_Product $_listingProduct
@@ -42,9 +42,8 @@ abstract class Ess_M2ePro_Model_Walmart_Connector_Product_Responser
     {
         parent::__construct($params, $response);
 
-        $listingProductId      = $this->_params['product']['id'];
         $this->_listingProduct = Mage::helper('M2ePro/Component_Walmart')
-                                     ->getObject('Listing_Product', $listingProductId);
+                                     ->getObject('Listing_Product', $this->_params['product']['id']);
     }
 
     //########################################
@@ -61,14 +60,18 @@ abstract class Ess_M2ePro_Model_Walmart_Connector_Product_Responser
 
         $this->getLogger()->logListingProductMessage(
             $this->_listingProduct,
-            $message,
-            Ess_M2ePro_Model_Log_Abstract::PRIORITY_HIGH
+            $message
         );
     }
 
     public function eventAfterExecuting()
     {
+        if ($this->isTemporaryErrorAppeared($this->getResponse()->getMessages()->getEntities())) {
+            $this->getResponseObject()->throwRepeatActionInstructions();
+        }
+
         parent::eventAfterExecuting();
+
         $this->processParentProcessor();
     }
 
@@ -155,14 +158,10 @@ abstract class Ess_M2ePro_Model_Walmart_Connector_Product_Responser
         $hasError = false;
 
         foreach ($messages as $message) {
-
             /** @var Ess_M2ePro_Model_Connector_Connection_Response_Message $message */
 
             !$hasError && $hasError = $message->isError();
-
-            $this->getLogger()->logListingProductMessage(
-                $this->_listingProduct, $message
-            );
+            $this->getLogger()->logListingProductMessage($this->_listingProduct, $message);
         }
 
         return !$hasError;
@@ -178,9 +177,9 @@ abstract class Ess_M2ePro_Model_Walmart_Connector_Product_Responser
             Ess_M2ePro_Model_Connector_Connection_Response_Message::TYPE_SUCCESS
         );
 
-        $this->getLogger()->logListingProductMessage(
-            $this->_listingProduct, $message
-        );
+        if ($message->getText() !== null) {
+            $this->getLogger()->logListingProductMessage($this->_listingProduct, $message);
+        }
 
         $this->_isSuccess = true;
     }
@@ -297,23 +296,10 @@ abstract class Ess_M2ePro_Model_Walmart_Connector_Product_Responser
 
     //########################################
 
-    /**
-     * @return Ess_M2ePro_Model_Account
-     */
-    protected function getAccount()
+    protected function getAccountId()
     {
-        return $this->getObjectByParam('Account', 'account_id');
+        return (int)$this->_params['account_id'];
     }
-
-    /**
-     * @return Ess_M2ePro_Model_Marketplace
-     */
-    protected function getMarketplace()
-    {
-        return $this->getAccount()->getChildObject()->getMarketplace();
-    }
-
-    //---------------------------------------
 
     protected function getActionType()
     {
@@ -362,6 +348,29 @@ abstract class Ess_M2ePro_Model_Walmart_Connector_Product_Responser
         }
 
         throw new Ess_M2ePro_Model_Exception('Wrong Action type');
+    }
+
+    //########################################
+
+    /**
+     * @param Ess_M2ePro_Model_Connector_Connection_Response_Message[] $messages
+     * @return Ess_M2ePro_Model_Connector_Connection_Response_Message|bool
+     *
+     * TODO ERROR CODEs
+     */
+    protected function isTemporaryErrorAppeared(array $messages)
+    {
+        $errorCodes = array(
+            /* TODO ERROR CODEs */
+        );
+
+        foreach ($messages as $message) {
+            if (in_array($message->getCode(), $errorCodes, true)) {
+                return $message;
+            }
+        }
+
+        return false;
     }
 
     //########################################

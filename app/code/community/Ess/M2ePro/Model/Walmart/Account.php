@@ -65,12 +65,16 @@ class Ess_M2ePro_Model_Walmart_Account extends Ess_M2ePro_Model_Component_Child_
      */
     protected $_marketplaceModel = null;
 
+    /** @var Ess_M2ePro_Model_ActiveRecord_Factory */
+    protected $_activeRecordFactory;
+
     //########################################
 
     public function _construct()
     {
         parent::_construct();
         $this->_init('M2ePro/Walmart_Account');
+        $this->_activeRecordFactory = Mage::getSingleton('M2ePro/ActiveRecord_Factory');
     }
 
     //########################################
@@ -81,8 +85,9 @@ class Ess_M2ePro_Model_Walmart_Account extends Ess_M2ePro_Model_Component_Child_
             return false;
         }
 
-        $items = $this->getWalmartItems(true);
-        foreach ($items as $item) {
+        $itemCollection = $this->_activeRecordFactory->getObjectCollection('Walmart_Item');
+        $itemCollection->addFieldToFilter('account_id', $this->getId());
+        foreach ($itemCollection->getItems() as $item) {
             $item->deleteInstance();
         }
 
@@ -91,13 +96,6 @@ class Ess_M2ePro_Model_Walmart_Account extends Ess_M2ePro_Model_Component_Child_
         $this->delete();
 
         return true;
-    }
-
-    //########################################
-
-    public function getWalmartItems($asObjects = false, array $filters = array())
-    {
-        return $this->getRelatedSimpleItems('Walmart_Item', 'account_id', $asObjects, $filters);
     }
 
     //########################################
@@ -144,6 +142,11 @@ class Ess_M2ePro_Model_Walmart_Account extends Ess_M2ePro_Model_Component_Child_
         return $this->getData('consumer_id');
     }
 
+    public function getPrivateKey()
+    {
+        return $this->getData('private_key');
+    }
+
     public function getClientId()
     {
         return $this->getData('client_id');
@@ -186,6 +189,14 @@ class Ess_M2ePro_Model_Walmart_Account extends Ess_M2ePro_Model_Component_Child_
     public function getOtherListingsSynchronization()
     {
         return (int)$this->getData('other_listings_synchronization');
+    }
+
+    /**
+     * @return string
+     */
+    public function getInventoryLastSynchronization()
+    {
+        return $this->getData('inventory_last_synchronization');
     }
 
     /**
@@ -641,30 +652,12 @@ class Ess_M2ePro_Model_Walmart_Account extends Ess_M2ePro_Model_Component_Child_
     // ---------------------------------------
 
     /**
-     * @return bool
+     * @return string
      */
-    public function isMagentoOrdersNumberPrefixEnable()
-    {
-        $setting = $this->getSetting('magento_orders_settings', array('number', 'prefix', 'mode'), 0);
-        return $setting === 1;
-    }
-
     public function getMagentoOrdersNumberRegularPrefix()
     {
         $settings = $this->getSetting('magento_orders_settings', array('number', 'prefix'));
         return isset($settings['prefix']) ? $settings['prefix'] : '';
-    }
-
-    // ---------------------------------------
-
-    /**
-     * @return int
-     */
-    public function getQtyReservationDays()
-    {
-        $setting = $this->getSetting('magento_orders_settings', array('qty_reservation', 'days'));
-
-        return (int)$setting;
     }
 
     // ---------------------------------------
@@ -854,40 +847,34 @@ class Ess_M2ePro_Model_Walmart_Account extends Ess_M2ePro_Model_Component_Child_
 
     // ---------------------------------------
 
+    /**
+     * @return bool
+     */
+    public function isRefundEnabled()
+    {
+        $setting = $this->getSetting('magento_orders_settings', array('refund_and_cancellation', 'refund_mode'));
+        return (bool)$setting;
+    }
+
+    // ---------------------------------------
+
     public function isMagentoOrdersInvoiceEnabled()
     {
-        if ($this->isMagentoOrdersStatusMappingDefault()) {
-            return true;
-        }
-
-        return $this->getSetting('magento_orders_settings', 'invoice_mode') == 1;
+        return (bool)$this->getData('create_magento_invoice');
     }
 
     public function isMagentoOrdersShipmentEnabled()
     {
-        if ($this->isMagentoOrdersStatusMappingDefault()) {
-            return true;
-        }
-
-        return $this->getSetting('magento_orders_settings', 'shipment_mode') == 1;
-    }
-
-    //########################################
-
-    /**
-     * @return bool
-     */
-    public function isVatCalculationServiceEnabled()
-    {
-        return (bool)$this->getData('is_vat_calculation_service_enabled');
+        return (bool)$this->getData('create_magento_shipment');
     }
 
     /**
-     * @return bool
+     * @return array
+     * @throws Ess_M2ePro_Model_Exception_Logic
      */
-    public function isMagentoInvoiceCreationDisabled()
+    public function getOtherCarriers()
     {
-        return (bool)$this->getData('is_magento_invoice_creation_disabled');
+        return $this->getSettings('other_carriers');
     }
 
     //########################################

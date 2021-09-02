@@ -23,15 +23,15 @@
 
     M2ePro.translator.add(<?php echo json_encode(array(
         'Should be between 2 and 80 characters long.' => Mage::helper('M2ePro')->__('Should be between 2 and 80 characters long.'),
-        'Feedback has been successfully sent.' => Mage::helper('M2ePro')->__('Feedback has been successfully sent.'),
+        'Feedback has been sent.' => Mage::helper('M2ePro')->__('Feedback has been sent.'),
         'Feedback was not sent.' => Mage::helper('M2ePro')->__('Feedback was not sent.')
     )); ?>);
 
     Event.observe(window, 'load', function() {
-        EbayFeedbackHandlerObj = new EbayFeedbackHandler();
+        EbayFeedbackObj = new EbayFeedback();
         editForm = new varienForm('edit_form', '<?php echo $this->getValidationUrl(); ?>');
 
-        $('feedback_template').observe('change', EbayFeedbackHandlerObj.feedback_template_change);
+        $('feedback_template').observe('change', EbayFeedbackObj.feedback_template_change);
     });
 
 </script>
@@ -110,7 +110,7 @@
                         <td class="value">
                             <?php echo $this->getChildHtml('send_feedback');?>
                             &nbsp;
-                            <a href="javascript:void(0);" onclick="EbayFeedbackHandlerObj.cancelFeedback();"><?php echo Mage::helper('M2ePro')->__('Cancel'); ?></a>
+                            <a href="javascript:void(0);" onclick="EbayFeedbackObj.cancelFeedback();"><?php echo Mage::helper('M2ePro')->__('Cancel'); ?></a>
                         </td>
                     </tr>
 

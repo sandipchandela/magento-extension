@@ -9,23 +9,33 @@
 class Ess_M2ePro_Model_Ebay_Connector_Order_Update_Shipping
     extends Ess_M2ePro_Model_Ebay_Connector_Order_Update_Abstract
 {
-    protected $_carrierCode    = null;
+    protected $_carrierCode = null;
     protected $_trackingNumber = null;
 
     //########################################
 
+    /**
+     * @param $action
+     * @return $this|Ess_M2ePro_Model_Ebay_Connector_Order_Update_Abstract
+     */
     public function setAction($action)
     {
         parent::setAction($action);
 
         if ($this->_action == Ess_M2ePro_Model_Ebay_Connector_Order_Dispatcher::ACTION_SHIP_TRACK) {
-            $this->_carrierCode    = $this->_params['carrier_code'];
+            $this->_carrierCode = $this->_params['carrier_code'];
             $this->_trackingNumber = $this->_params['tracking_number'];
         }
+
+        return $this;
     }
 
     //########################################
 
+    /**
+     * @return bool
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     protected function isNeedSendRequest()
     {
         if (!$this->_order->getChildObject()->canUpdateShippingStatus($this->_params)) {
@@ -37,6 +47,10 @@ class Ess_M2ePro_Model_Ebay_Connector_Order_Update_Shipping
 
     //########################################
 
+    /**
+     * @return array
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     public function getRequestData()
     {
         $requestData = parent::getRequestData();
@@ -51,11 +65,18 @@ class Ess_M2ePro_Model_Ebay_Connector_Order_Update_Shipping
 
     //########################################
 
+    /**
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     protected function prepareResponseData()
     {
         if ($this->getResponse()->isResultError()) {
             return;
         }
+
+        /** @var Ess_M2ePro_Model_Order_Change $orderChange */
+        $orderChange = Mage::getModel('M2ePro/Order_Change')->load($this->getOrderChangeId());
+        $this->_order->getLog()->setInitiator($orderChange->getCreatorType());
 
         $responseData = $this->getResponse()->getData();
 
@@ -69,7 +90,8 @@ class Ess_M2ePro_Model_Ebay_Connector_Order_Update_Shipping
 
         if ($this->_action == Ess_M2ePro_Model_Ebay_Connector_Order_Dispatcher::ACTION_SHIP_TRACK) {
             $this->_order->addSuccessLog(
-                'Tracking number "%num%" for "%code%" has been sent to eBay.', array(
+                'Tracking number "%num%" for "%code%" has been sent to eBay.',
+                array(
                     '!num'  => $this->_trackingNumber,
                     '!code' => $this->_carrierCode
                 )
@@ -78,13 +100,11 @@ class Ess_M2ePro_Model_Ebay_Connector_Order_Update_Shipping
 
         if (!$this->_order->getChildObject()->isShippingCompleted()) {
             $this->_order->addSuccessLog(
-                'Shipping Status for eBay Order was updated to Shipped.'
+                'Shipping status [Shipped] was sent to eBay.'
             );
         }
 
-        if ($this->getOrderChangeId() !== null) {
-            Mage::getResourceModel('M2ePro/Order_Change')->deleteByIds(array($this->getOrderChangeId()));
-        }
+        $orderChange->deleteInstance();
     }
 
     //########################################

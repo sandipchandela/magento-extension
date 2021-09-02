@@ -10,9 +10,9 @@ use Ess_M2ePro_Model_Ebay_Template_Description_Source as DescriptionSource;
 
 class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Block_Abstract
 {
-    const NEXT = 0;
+    const NEXT     = 0;
     const PREVIOUS = 1;
-    const CURRENT = 3;
+    const CURRENT  = 3;
 
     /** @var Ess_M2ePro_Model_Ebay_Listing_Product $_ebayListingProduct */
     protected $_ebayListingProduct;
@@ -26,7 +26,8 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
         $id = $this->getRequest()->getParam('currentProductId');
 
         $this->_ebayListingProduct = Mage::helper('M2ePro/Component_Ebay')->getObject(
-            'Listing_Product', $id
+            'Listing_Product',
+            $id
         )->getChildObject();
 
         $this->setTemplate('M2ePro/ebay/listing/preview.phtml');
@@ -58,16 +59,18 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
         /** @var Ess_M2ePro_Model_Ebay_Listing_Product $tempEbayListingProduct */
 
         $tempEbayListingProduct = Mage::helper('M2ePro/Component_Ebay')->getObject(
-            'Listing_Product', current($parsedProductIds)
+            'Listing_Product',
+            current($parsedProductIds)
         )->getChildObject();
 
         return array(
             'title' => $tempEbayListingProduct->getMagentoProduct()->getName(),
-            'id' => $tempEbayListingProduct->getMagentoProduct()->getProductId(),
-            'url' => $this->getUrl(
-                '*/adminhtml_ebay_listing/previewItems', array(
-                'currentProductId' => current($parsedProductIds),
-                'productIds' => $productIds,
+            'id'    => $tempEbayListingProduct->getMagentoProduct()->getProductId(),
+            'url'   => $this->getUrl(
+                '*/adminhtml_ebay_listing/previewItems',
+                array(
+                    'currentProductId' => current($parsedProductIds),
+                    'productIds'       => $productIds,
                 )
             )
         );
@@ -112,7 +115,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
     public function getPrice(array $variations)
     {
         $data = array(
-            'price' => null,
+            'price'     => null,
             'price_stp' => null,
             'price_map' => null
         );
@@ -124,7 +127,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
                 $this->_ebayListingProduct->getPriceDiscountStp() > $this->_ebayListingProduct->getFixedPrice()) {
                 $data['price_stp'] = number_format($this->_ebayListingProduct->getPriceDiscountStp(), 2);
             } elseif ($this->_ebayListingProduct->isPriceDiscountMap() &&
-                      $this->_ebayListingProduct->getPriceDiscountMap() > $this->_ebayListingProduct->getFixedPrice()) {
+                $this->_ebayListingProduct->getPriceDiscountMap() > $this->_ebayListingProduct->getFixedPrice()) {
                 $data['price_map'] = number_format($this->_ebayListingProduct->getPriceDiscountMap(), 2);
             }
         } else {
@@ -216,8 +219,8 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
             $options = $productVariation->getOptions(true);
 
             $variationData = array(
-                'price' => number_format($productVariation->getPrice(), 2),
-                'qty' => $variationQty,
+                'price'     => number_format($productVariation->getPrice(), 2),
+                'qty'       => $variationQty,
                 'price_stp' => null,
                 'price_map' => null
             );
@@ -241,7 +244,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
             }
 
             $variationData = array(
-                'data' => $variationData,
+                'data'      => $variationData,
                 'specifics' => $variationSpecifics
             );
 
@@ -318,6 +321,19 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
         return $attributeLabels;
     }
 
+    protected function getBundleImagesAttributeLabels()
+    {
+        $variations = $this->_ebayListingProduct->getMagentoProduct()
+            ->getVariationInstance()
+            ->getVariationsTypeStandard();
+
+        if (!empty($variations['set'])) {
+            return array((string)key($variations['set']));
+        }
+
+        return array();
+    }
+
     protected function getImagesDataByAttributeLabels(array $attributeLabels)
     {
         $images = array();
@@ -357,8 +373,8 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
 
                 $attributeLabel = $foundAttributeLabel;
                 $optionImages = $this->_ebayListingProduct->getEbayDescriptionTemplate()
-                                                          ->getSource($option->getMagentoProduct())
-                                                          ->getVariationImages();
+                    ->getSource($option->getMagentoProduct())
+                    ->getVariationImages();
 
                 foreach ($optionImages as $image) {
                     if (!$image->getUrl()) {
@@ -403,6 +419,10 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
                 $attributeLabels = array(Ess_M2ePro_Model_Magento_Product_Variation::GROUPED_PRODUCT_ATTRIBUTE_LABEL);
             }
 
+            if ($this->_ebayListingProduct->getMagentoProduct()->isBundleType()) {
+                $attributeLabels = $this->getBundleImagesAttributeLabels();
+            }
+
             if (!empty($attributeLabels)) {
                 $images['variations'] = $this->getImagesDataByAttributeLabels($attributeLabels);
             }
@@ -418,6 +438,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
         }
 
         $images['gallery'] = $links;
+
         return $images;
     }
 
@@ -426,13 +447,13 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
     public function getCategory()
     {
         $finalCategory = '';
-        $marketplaceId = $this->_ebayListingProduct->getMarketplace()->getMarketplaceId();
+        $marketplaceId = $this->_ebayListingProduct->getMarketplace()->getId();
 
         if ($this->_ebayListingProduct->getCategoryTemplateSource() === null) {
             return $finalCategory;
         }
 
-        $categoryId = $this->_ebayListingProduct->getCategoryTemplateSource()->getMainCategory();
+        $categoryId = $this->_ebayListingProduct->getCategoryTemplateSource()->getCategoryId();
         $categoryTitle = Mage::helper('M2ePro/Component_Ebay_Category_Ebay')->getPath($categoryId, $marketplaceId);
 
         if (!$categoryTitle) {
@@ -446,41 +467,52 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
 
     public function getOtherCategories()
     {
-        $otherCategoriesFinalTitles = array();
+        $categoriesTitles = array();
 
-        $marketplaceId = $this->_ebayListingProduct->getMarketplace()->getMarketplaceId();
+        $marketplaceId = $this->_ebayListingProduct->getMarketplace()->getId();
         $accountId = $this->_ebayListingProduct->getEbayAccount()->getId();
 
-        $otherCategoryTemplateSource = $this->_ebayListingProduct->getOtherCategoryTemplateSource();
-
-        if ($otherCategoryTemplateSource === null) {
-            return $otherCategoriesFinalTitles;
-        }
-
-        $otherCategoriesIds = array(
-            'secondary' => $otherCategoryTemplateSource->getSecondaryCategory(),
-            'primary_store' => $otherCategoryTemplateSource->getStoreCategoryMain(),
-            'secondary_store' => $otherCategoryTemplateSource->getStoreCategorySecondary()
-        );
-
-        $otherCategoriesTitles = array(
-            'secondary' => Mage::helper('M2ePro/Component_Ebay_Category_Ebay')
-                ->getPath($otherCategoriesIds['secondary'], $marketplaceId),
-            'primary_store' => Mage::helper('M2ePro/Component_Ebay_Category_Store')
-                ->getPath($otherCategoriesIds['primary_store'], $accountId),
-            'secondary_store' => Mage::helper('M2ePro/Component_Ebay_Category_Store')
-                ->getPath($otherCategoriesIds['secondary_store'], $accountId)
-        );
-
-        foreach ($otherCategoriesTitles as $otherCategoryType => $otherCategoryTitle) {
-            if ($otherCategoryTitle) {
-                $otherCategoriesFinalTitles[$otherCategoryType] =
-                    '<a>' . str_replace('>', '</a> > <a>', $otherCategoryTitle)
-                    . '</a> (' . $otherCategoriesIds[$otherCategoryType] . ')';
+        $source = $this->_ebayListingProduct->getCategorySecondaryTemplateSource();
+        if ($source !== null) {
+            $title = Mage::helper('M2ePro/Component_Ebay_Category_Ebay')->getPath(
+                $source->getCategoryId(),
+                $marketplaceId
+            );
+            if (empty($title)) {
+                $categoriesTitles['secondary'] = array($source->getCategoryId(), $title);
             }
         }
 
-        return $otherCategoriesFinalTitles;
+        $source = $this->_ebayListingProduct->getStoreCategoryTemplateSource();
+        if ($source !== null) {
+            $title = Mage::helper('M2ePro/Component_Ebay_Category_Store')->getPath(
+                $source->getCategoryId(),
+                $accountId
+            );
+            if (empty($title)) {
+                $categoriesTitles['primary_store'] = array($source->getCategoryId(), $title);
+            }
+        }
+
+        $source = $this->_ebayListingProduct->getStoreCategorySecondaryTemplateSource();
+        if ($source !== null) {
+            $title = Mage::helper('M2ePro/Component_Ebay_Category_Store')->getPath(
+                $source->getCategoryId(),
+                $accountId
+            );
+            if (empty($title)) {
+                $categoriesTitles['secondary_store'] = array($source->getCategoryId(), $title);
+            }
+        }
+
+        foreach ($categoriesTitles as $categoryType => &$categoryData) {
+            list($id, $title) = $categoryData;
+            $categoryData = '<a>' . str_replace('>', '</a> > <a>', $title) . '</a> (' . $id . ')';
+        }
+
+        unset($categoryData);
+
+        return $categoriesTitles;
     }
 
     public function getSpecifics()
@@ -514,7 +546,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
             }
 
             $data[] = array(
-                'name' => $tempAttributeLabel,
+                'name'  => $tempAttributeLabel,
                 'value' => $values
             );
         }
@@ -527,25 +559,25 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
     protected function getConditionHumanTitle($code)
     {
         $codes = array(
-            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NEW =>
+            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NEW                   =>
                 Mage::helper('M2ePro')->__('New'),
-            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NEW_OTHER =>
+            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NEW_OTHER             =>
                 Mage::helper('M2ePro')->__('New Other'),
-            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NEW_WITH_DEFECT =>
+            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NEW_WITH_DEFECT       =>
                 Mage::helper('M2ePro')->__('New With Defects'),
-            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_MANUFACTURER_REFURBISHED =>
-                Mage::helper('M2ePro')->__('Manufacturer Refurbished'),
+            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_CERTIFIED_REFURBISHED =>
+                Mage::helper('M2ePro')->__('Certified Refurbished'),
             Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_SELLER_REFURBISHED =>
                 Mage::helper('M2ePro')->__('Seller Refurbished, Re-manufactured'),
-            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_USED =>
+            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_USED                  =>
                 Mage::helper('M2ePro')->__('Used'),
-            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_VERY_GOOD =>
+            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_VERY_GOOD             =>
                 Mage::helper('M2ePro')->__('Very Good'),
-            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_GOOD =>
+            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_GOOD                  =>
                 Mage::helper('M2ePro')->__('Good'),
-            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_ACCEPTABLE =>
+            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_ACCEPTABLE            =>
                 Mage::helper('M2ePro')->__('Acceptable'),
-            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NOT_WORKING =>
+            Ess_M2ePro_Model_Ebay_Template_Description::CONDITION_EBAY_NOT_WORKING           =>
                 Mage::helper('M2ePro')->__('For Parts or Not Working')
         );
 
@@ -620,7 +652,8 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
             $this->_ebayListingProduct->getShippingTemplateSource()->getAddress(),
             $this->getCountryHumanTitle($this->_ebayListingProduct->getShippingTemplateSource()->getCountry())
         );
-        return implode($itemLocation, ', ');
+
+        return implode(', ', $itemLocation);
     }
 
     public function getShippingDispatchTime()
@@ -655,7 +688,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
     {
         if ($this->_ebayListingProduct->getShippingTemplate()->isLocalShippingCalculatedEnabled()) {
             return $this->_ebayListingProduct->getShippingTemplate()->getCalculatedShipping()
-                                             ->getLocalHandlingCost();
+                ->getLocalHandlingCost();
         }
 
         return 0;
@@ -665,7 +698,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
     {
         if ($this->_ebayListingProduct->getShippingTemplate()->isLocalShippingCalculatedEnabled()) {
             return $this->_ebayListingProduct->getShippingTemplate()->getCalculatedShipping()
-                                             ->getInternationalHandlingCost();
+                ->getInternationalHandlingCost();
         }
 
         return 0;
@@ -761,7 +794,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
             }
 
             $tempDataMethod = array(
-                'service' => $this->getShippingServiceHumanTitle($service->getShippingValue()),
+                'service'   => $this->getShippingServiceHumanTitle($service->getShippingValue()),
                 'locations' => implode(', ', $this->getShippingLocationHumanTitle($service->getLocations()))
             );
 
@@ -918,7 +951,8 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
     public function isDomesticReturnsAccepted()
     {
         $template = $this->_ebayListingProduct->getReturnTemplate();
-        return $template->getAccepted() === Ess_M2ePro_Model_Ebay_Template_Return::RETURNS_ACCEPTED;
+
+        return $template->getAccepted() === Ess_M2ePro_Model_Ebay_Template_ReturnPolicy::RETURNS_ACCEPTED;
     }
 
     public function isInternationalReturnsAccepted()
@@ -926,7 +960,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
         $template = $this->_ebayListingProduct->getReturnTemplate();
 
         return $this->isDomesticReturnsAccepted() &&
-               $template->getInternationalAccepted() === Ess_M2ePro_Model_Ebay_Template_Return::RETURNS_ACCEPTED;
+            $template->getInternationalAccepted() === Ess_M2ePro_Model_Ebay_Template_ReturnPolicy::RETURNS_ACCEPTED;
     }
 
     //########################################
@@ -934,6 +968,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
     protected function getDictionaryInfo($key)
     {
         $returnPolicyInfo = $this->_ebayListingProduct->getEbayMarketplace()->getReturnPolicyInfo();
+
         return !empty($returnPolicyInfo[$key]) ? $returnPolicyInfo[$key] : array();
     }
 
@@ -941,8 +976,8 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Listing_Preview extends Mage_Adminhtml_Blo
     {
         $returnPolicyInfo = $this->_ebayListingProduct->getEbayMarketplace()->getReturnPolicyInfo();
 
-        if (!empty($returnPolicyInfo['international_'.$key])) {
-            return $returnPolicyInfo['international_'.$key];
+        if (!empty($returnPolicyInfo['international_' . $key])) {
+            return $returnPolicyInfo['international_' . $key];
         }
 
         return $this->getDictionaryInfo($key);

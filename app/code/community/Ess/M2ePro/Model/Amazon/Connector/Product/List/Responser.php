@@ -17,7 +17,29 @@ class Ess_M2ePro_Model_Amazon_Connector_Product_List_Responser
 
     protected function getSuccessfulMessage()
     {
-        return 'Item was successfully Listed';
+        $currency = Mage::app()->getLocale()->currency(
+            $this->_listingProduct->getMarketplace()->getChildObject()->getCurrency()
+        );
+        
+        /** @var  Ess_M2ePro_Model_Amazon_Listing_Product $amazonListingProduct */
+        $amazonListingProduct = $this->_listingProduct->getChildObject(); 
+        $parts = array();
+        
+        if ($amazonListingProduct->getVariationManager()->isRelationParentType()) {
+            $parts[] = 'Parent Product was Listed'; 
+        } else {
+            $parts[] = sprintf('Product was Listed with QTY %d', $amazonListingProduct->getOnlineQty());
+        }
+        
+        if ($regularPrice = $amazonListingProduct->getOnlineRegularPrice()) {
+            $parts[] = sprintf('Regular Price %s', $currency->toCurrency($regularPrice));
+        }
+
+        if ($businessPrice = $amazonListingProduct->getOnlineBusinessPrice()) {
+            $parts[] = sprintf('Business Price %s', $currency->toCurrency($businessPrice));
+        }
+
+        return implode(', ', $parts);
     }
 
     //########################################
@@ -38,12 +60,7 @@ class Ess_M2ePro_Model_Amazon_Connector_Product_List_Responser
                 Ess_M2ePro_Model_Connector_Connection_Response_Message::TYPE_ERROR
             );
 
-            $this->getLogger()->logListingProductMessage(
-                $this->_listingProduct,
-                $message,
-                Ess_M2ePro_Model_Log_Abstract::PRIORITY_MEDIUM
-            );
-
+            $this->getLogger()->logListingProductMessage($this->_listingProduct, $message);
             return;
         }
 

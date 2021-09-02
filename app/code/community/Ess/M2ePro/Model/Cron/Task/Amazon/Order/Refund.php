@@ -10,6 +10,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Refund
     extends Ess_M2ePro_Model_Cron_Task_Abstract
 {
     const NICK = 'amazon/order/refund';
+    const ORDER_CHANGES_PER_ACCOUNT = 300;
 
     //####################################
 
@@ -75,13 +76,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Refund
                 $this->processTaskException($exception);
             }
 
-            // ---------------------------------------
             $this->getOperationHistory()->saveTimePoint(__METHOD__.'process'.$account->getId());
-            // ---------------------------------------
-
-            // ---------------------------------------
-            $this->getLockItemManager()->activate();
-            // ---------------------------------------
         }
     }
 
@@ -160,7 +155,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Refund
         /** @var Ess_M2ePro_Model_Resource_Order_Change_Collection $changesCollection */
         $changesCollection = Mage::getModel('M2ePro/Order_Change')->getCollection();
         $changesCollection->addAccountFilter($account->getId());
-        $changesCollection->addProcessingAttemptDateFilter(10);
+        $changesCollection->addProcessingAttemptDateFilter();
         $changesCollection->addFieldToFilter('component', Ess_M2ePro_Helper_Component_Amazon::NICK);
         $changesCollection->addFieldToFilter('action', Ess_M2ePro_Model_Order_Change::ACTION_REFUND);
         $changesCollection->getSelect()->joinLeft(
@@ -169,6 +164,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Refund
             array()
         );
         $changesCollection->addFieldToFilter('pl.id', array('null' => true));
+        $changesCollection->getSelect()->limit(self::ORDER_CHANGES_PER_ACCOUNT);
         $changesCollection->getSelect()->group(array('order_id'));
 
         return $changesCollection->getItems();

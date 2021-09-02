@@ -17,7 +17,7 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
     const OWNER_LISTING = 'listing';
     const OWNER_LISTING_PRODUCT = 'listing_product';
 
-    const TEMPLATE_RETURN          = 'return';
+    const TEMPLATE_RETURN_POLICY   = 'return_policy';
     const TEMPLATE_PAYMENT         = 'payment';
     const TEMPLATE_SHIPPING        = 'shipping';
     const TEMPLATE_DESCRIPTION     = 'description';
@@ -105,7 +105,7 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
     public function getAllTemplates()
     {
         return array(
-            self::TEMPLATE_RETURN,
+            self::TEMPLATE_RETURN_POLICY,
             self::TEMPLATE_SHIPPING,
             self::TEMPLATE_PAYMENT,
             self::TEMPLATE_DESCRIPTION,
@@ -130,7 +130,7 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
     public function getFlatTemplates()
     {
         return array(
-            self::TEMPLATE_RETURN,
+            self::TEMPLATE_RETURN_POLICY,
             self::TEMPLATE_SHIPPING,
             self::TEMPLATE_PAYMENT,
         );
@@ -176,8 +176,13 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
         return array(
             self::TEMPLATE_PAYMENT,
             self::TEMPLATE_SHIPPING,
-            self::TEMPLATE_RETURN,
+            self::TEMPLATE_RETURN_POLICY,
         );
+    }
+
+    public function getNotMarketplaceDependentTemplates()
+    {
+        return array_diff($this->getAllTemplates(), $this->getMarketplaceDependentTemplates());
     }
 
     //########################################
@@ -193,14 +198,6 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
     /**
      * @return string
      */
-    public function getCustomIdColumnName()
-    {
-        return self::COLUMN_PREFIX.'_'.$this->getTemplate().'_custom_id';
-    }
-
-    /**
-     * @return string
-     */
     public function getTemplateIdColumnName()
     {
         return self::COLUMN_PREFIX.'_'.$this->getTemplate().'_id';
@@ -208,35 +205,13 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
 
     //########################################
 
-    /**
-     * @param int $mode
-     * @return null|string
-     */
-    public function getIdColumnNameByMode($mode)
-    {
-        $name = null;
-
-        switch ($mode) {
-            case self::MODE_TEMPLATE:
-                $name = $this->getTemplateIdColumnName();
-                break;
-            case self::MODE_CUSTOM:
-                $name = $this->getCustomIdColumnName();
-                break;
-        }
-
-        return $name;
-    }
-
     public function getIdColumnValue()
     {
-        $idColumnName = $this->getIdColumnNameByMode($this->getModeValue());
-
-        if ($idColumnName === null) {
+        if ($this->isModeParent()) {
             return null;
         }
 
-        return $this->getOwnerObject()->getData($idColumnName);
+        return $this->getOwnerObject()->getData($this->getTemplateIdColumnName());
     }
 
     //########################################
@@ -244,11 +219,6 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
     public function getModeValue()
     {
         return $this->getOwnerObject()->getData($this->getModeColumnName());
-    }
-
-    public function getCustomIdValue()
-    {
-        return $this->getOwnerObject()->getData($this->getCustomIdColumnName());
     }
 
     public function getTemplateIdValue()
@@ -272,17 +242,6 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
         return $manager->getResultObject();
     }
 
-    public function getCustomResultObject()
-    {
-        $id = $this->getCustomIdValue();
-
-        if ($id === null) {
-            return null;
-        }
-
-        return $this->makeResultObject($id);
-    }
-
     public function getTemplateResultObject()
     {
         $id = $this->getTemplateIdValue();
@@ -298,16 +257,13 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
 
     protected function makeResultObject($id)
     {
-        $modelName = 'Template_';
-        $modelName .= $this->getTemplate() == self::TEMPLATE_SELLING_FORMAT ?
-                    'SellingFormat' : ucfirst($this->getTemplate());
+        $modelName = $this->getTemplateModelName();
 
         if ($this->isHorizontalTemplate()) {
             $object = Mage::helper('M2ePro/Component_Ebay')->getCachedObject(
                 $modelName, $id, null, array('template')
             );
         } else {
-            $modelName = 'Ebay_'.$modelName;
             $object = Mage::helper('M2ePro')->getCachedObject(
                 $modelName, $id, null, array('template')
             );
@@ -350,15 +306,9 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
             return $this->_resultObject;
         }
 
-        if ($this->isModeParent()) {
+        if ($this->isListingProductOwner() && $this->isModeParent()) {
             $this->_resultObject = $this->getParentResultObject();
-        }
-
-        if ($this->isModeCustom()) {
-            $this->_resultObject = $this->getCustomResultObject();
-        }
-
-        if ($this->isModeTemplate()) {
+        } else {
             $this->_resultObject = $this->getTemplateResultObject();
         }
 
@@ -386,8 +336,8 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
             case self::TEMPLATE_SHIPPING:
                 $name = 'Ebay_Template_Shipping';
                 break;
-            case self::TEMPLATE_RETURN:
-                $name = 'Ebay_Template_Return';
+            case self::TEMPLATE_RETURN_POLICY:
+                $name = 'Ebay_Template_ReturnPolicy';
                 break;
             case self::TEMPLATE_SELLING_FORMAT:
                 $name = 'Template_SellingFormat';
@@ -414,7 +364,7 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
         switch ($this->getTemplate()) {
             case self::TEMPLATE_PAYMENT:
             case self::TEMPLATE_SHIPPING:
-            case self::TEMPLATE_RETURN:
+            case self::TEMPLATE_RETURN_POLICY:
                 $model = Mage::getModel('M2ePro/'.$this->getTemplateModelName());
                 break;
 
@@ -447,7 +397,7 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
         switch ($this->getTemplate()) {
             case self::TEMPLATE_PAYMENT:
             case self::TEMPLATE_SHIPPING:
-            case self::TEMPLATE_RETURN:
+            case self::TEMPLATE_RETURN_POLICY:
                 $collection = $this->getTemplateModel()->getCollection();
                 break;
 
@@ -479,8 +429,8 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
             case self::TEMPLATE_SHIPPING:
                 $model = Mage::getModel('M2ePro/Ebay_Template_Shipping_Builder');
                 break;
-            case self::TEMPLATE_RETURN:
-                $model = Mage::getModel('M2ePro/Ebay_Template_Return_Builder');
+            case self::TEMPLATE_RETURN_POLICY:
+                $model = Mage::getModel('M2ePro/Ebay_Template_ReturnPolicy_Builder');
                 break;
             case self::TEMPLATE_SELLING_FORMAT:
                 $model = Mage::getModel('M2ePro/Ebay_Template_SellingFormat_Builder');
@@ -513,16 +463,17 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
     {
         /* @var $collection Mage_Core_Model_Resource_Db_Collection_Abstract */
         $collection = Mage::helper('M2ePro/Component_Ebay')->getCollection($ownerObjectModel);
-
-        $where = "({$this->getModeColumnName()} = " . Ess_M2ePro_Model_Ebay_Template_Manager::MODE_CUSTOM;
-        $where .= " AND {$this->getCustomIdColumnName()} = " . (int)$templateId . ")";
-
-        $where .= ' OR ';
-
-        $where .= "({$this->getModeColumnName()} = " . Ess_M2ePro_Model_Ebay_Template_Manager::MODE_TEMPLATE;
-        $where .= " AND {$this->getTemplateIdColumnName()} = " . (int)$templateId . ")";
-
-        $collection->getSelect()->where($where);
+        if ($ownerObjectModel === self::OWNER_LISTING) {
+            $collection->getSelect()->where(
+                "{$this->getTemplateIdColumnName()} = (?)",
+                array($templateId)
+            );
+        } else {
+            $collection->getSelect()->where(
+                "{$this->getModeColumnName()} IN (?) AND {$this->getTemplateIdColumnName()} = {$templateId}",
+                array(self::MODE_CUSTOM, self::MODE_TEMPLATE)
+            );
+        }
 
         if (is_array($columns) && !empty($columns)) {
             $collection->getSelect()->reset(Zend_Db_Select::COLUMNS);
@@ -543,10 +494,9 @@ class Ess_M2ePro_Model_Ebay_Template_Manager
 
             if ($templateMode == self::MODE_PARENT) {
                 $listing = Mage::helper('M2ePro/Component_Ebay')->getCachedObject('Listing', $data['listing_id']);
-                $templateMode = $listing->getData($this->getModeColumnName());
-                $templateId   = $listing->getData($this->getIdColumnNameByMode($templateMode));
+                $templateId   = $listing->getData($this->getTemplateIdColumnName());
             } else {
-                $templateId = $data[$this->getIdColumnNameByMode($templateMode)];
+                $templateId = $data[$this->getTemplateIdColumnName()];
             }
 
             $templateModelName = $this->getTemplateModelName();

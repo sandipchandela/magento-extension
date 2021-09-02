@@ -16,26 +16,12 @@ class Ess_M2ePro_Model_Upgrade_Tables
     /** @var Varien_Db_Adapter_Pdo_Mysql */
     protected $_connection = null;
 
-    /**
-     * @var string[]
-     */
-    protected $_entities = array();
-
     //########################################
 
     public function __construct(Ess_M2ePro_Model_Upgrade_MySqlSetup $installer)
     {
         $this->_installer  = $installer;
         $this->_connection = $installer->getConnection();
-
-        $this->init();
-    }
-
-    public function init()
-    {
-        foreach (Mage::helper('M2ePro/Module_Database_Structure')->getMysqlTables() as $tableName) {
-            $this->_entities[str_replace(self::PREFIX, '', $tableName)] = $tableName;
-        }
     }
 
     //########################################
@@ -68,24 +54,6 @@ class Ess_M2ePro_Model_Upgrade_Tables
 
     //########################################
 
-    public function getAllEntities()
-    {
-        return $this->_entities;
-    }
-
-    public function getCurrentEntities()
-    {
-        $result = array();
-
-        foreach (Mage::helper('M2ePro/Module_Database_Structure')->getModuleTables() as $table) {
-            $result[$table] = $this->_entities[$table];
-        }
-
-        return $result;
-    }
-
-    //########################################
-
     public function isExists($tableName)
     {
         return $this->getInstaller()->tableExists($this->getFullName($tableName));
@@ -93,11 +61,29 @@ class Ess_M2ePro_Model_Upgrade_Tables
 
     public function getFullName($tableName)
     {
-        if (strpos(self::PREFIX, $tableName) === false) {
+        if (strpos($tableName, self::PREFIX) === false) {
             $tableName = self::PREFIX . $tableName;
         }
 
         return $this->getInstaller()->getTable($tableName);
+    }
+
+    //########################################
+
+    public function renameTable($oldTable, $newTable)
+    {
+        $oldTable = $this->getFullName($oldTable);
+        $newTable = $this->getFullName($newTable);
+
+        if ($this->_installer->tableExists($oldTable) && !$this->_installer->tableExists($newTable)) {
+            $this->getConnection()->query(<<<SQL
+    RENAME TABLE `{$oldTable}` TO `{$newTable}`
+SQL
+            );
+            return true;
+        }
+
+        return false;
     }
 
     //########################################

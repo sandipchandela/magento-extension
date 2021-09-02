@@ -1,0 +1,23 @@
+<?php
+/*
+ * @author     M2E Pro Developers Team
+ * @copyright  M2E LTD
+ * @license    Commercial use is forbidden
+ */
+
+// @codingStandardsIgnoreFile
+
+/** @var $this Ess_M2ePro_Block_Adminhtml_Amazon_Listing_Product_Add_SearchAsin_SearchSettings */
+
+?>
+<?php echo $this->getChildHtml('help_block'); ?>
+<form id="<?php echo $this->getForm()->getId(); ?>" action="<?php echo $this->getForm()->getData('action'); ?>" method="post" enctype="multipart/form-data">
+
+    <input name="form_key" value="<?php echo $this->getFormKey(); ?>" type="hidden" />
+
+    <?php echo $this->getChildHtml('content'); ?>
+
+</form>
+
+<?php echo $this->getChildHtml('save_search_settings'); ?>
+<a id="close_search_settings" style="float: right; margin: 0 5px 7px 5px;" href="javascript:void(0)" onclick="ListingGridObj.closeSearchSettings()"><?php echo Mage::helper('M2ePro')->__('Cancel'); ?></a>

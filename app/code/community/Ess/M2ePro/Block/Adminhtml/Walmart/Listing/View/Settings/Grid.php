@@ -9,18 +9,18 @@
 class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
     extends Ess_M2ePro_Block_Adminhtml_Magento_Product_Grid_Abstract
 {
+    /** @var Ess_M2ePro_Model_Listing */
+    protected $_listing;
+
     //########################################
 
     public function __construct()
     {
         parent::__construct();
 
-        $listingData = Mage::helper('M2ePro/Data_Global')->getValue('temp_data');
+        $this->_listing = Mage::helper('M2ePro/Data_Global')->getValue('temp_data');
 
-        // Initialization block
-        // ---------------------------------------
-        $this->setId('walmartListingViewSettingsGrid'.$listingData['id']);
-        // ---------------------------------------
+        $this->setId('walmartListingViewGrid' . $this->_listing->getId());
 
         $this->_showAdvancedFilterProductsOption = false;
     }
@@ -44,26 +44,18 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
 
     protected function _prepareCollection()
     {
-        $listingData = Mage::helper('M2ePro/Data_Global')->getValue('temp_data');
-
-        // Get collection
-        // ---------------------------------------
         /** @var $collection Ess_M2ePro_Model_Resource_Magento_Product_Collection */
         $collection = Mage::getConfig()->getModelInstance(
             'Ess_M2ePro_Model_Resource_Magento_Product_Collection',
             Mage::getModel('catalog/product')->getResource()
         );
         $collection->setListingProductModeOn();
-        $collection->setListing($listingData['id']);
-        $collection->setStoreId($listingData['store_id']);
-
-        if ($this->isFilterOrSortByPriceIsUsed(null, 'walmart_online_price')) {
-            $collection->setIsNeedToUseIndexerParent(true);
-        }
+        $collection->setListing($this->_listing->getId());
+        $collection->setStoreId($this->_listing->getStoreId());
 
         $collection->addAttributeToSelect('name')
-                   ->addAttributeToSelect('sku')
-                   ->joinStockItem();
+            ->addAttributeToSelect('sku')
+            ->joinStockItem();
 
         $collection->joinTable(
             array('lp' => 'M2ePro/Listing_Product'),
@@ -71,34 +63,32 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
             array(
                 'id'              => 'id',
                 'component_mode'  => 'component_mode',
-                'walmart_status'  => 'status',
+                'status'          => 'status',
                 'additional_data' => 'additional_data'
             ),
             array(
-                'listing_id' => (int)$listingData['id']
+                'listing_id' => (int)$this->_listing->getId()
             )
         );
         $collection->joinTable(
             array('wlp' => 'M2ePro/Walmart_Listing_Product'),
             'listing_product_id=id',
             array(
-                'template_category_id'           => 'template_category_id',
-                'variation_child_statuses'       => 'variation_child_statuses',
-                'walmart_sku'                    => 'sku',
-                'gtin'                           => 'gtin',
-                'upc'                            => 'upc',
-                'ean'                            => 'ean',
-                'isbn'                           => 'isbn',
-                'wpid'                           => 'wpid',
-                'channel_url'                    => 'channel_url',
-                'item_id'                        => 'item_id',
-                'online_qty'                     => 'online_qty',
-                'online_price'                   => 'online_price',
-                'is_variation_parent'            => 'is_variation_parent',
-                'is_details_data_changed'        => 'is_details_data_changed',
-                'is_online_price_invalid'        => 'is_online_price_invalid',
-                'online_start_date'              => 'online_start_date',
-                'online_end_date'                => 'online_end_date',
+                'template_category_id'     => 'template_category_id',
+                'variation_child_statuses' => 'variation_child_statuses',
+                'walmart_sku'              => 'sku',
+                'gtin'                     => 'gtin',
+                'upc'                      => 'upc',
+                'ean'                      => 'ean',
+                'isbn'                     => 'isbn',
+                'wpid'                     => 'wpid',
+                'item_id'                  => 'item_id',
+                'online_qty'               => 'online_qty',
+                'online_price'             => 'online_price',
+                'is_variation_parent'      => 'is_variation_parent',
+                'is_online_price_invalid'  => 'is_online_price_invalid',
+                'online_start_date'        => 'online_start_date',
+                'online_end_date'          => 'online_end_date',
             ),
             '{{table}}.variation_parent_id is NULL'
         );
@@ -113,92 +103,102 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
             'left'
         );
 
-        if ($collection->isNeedUseIndexerParent()) {
+        if ($this->isFilterOrSortByPriceIsUsed(null, 'walmart_online_price')) {
             $collection->joinIndexerParent();
         }
 
         $this->setCollection($collection);
-        $result = parent::_prepareCollection();
 
-        return $result;
+        return parent::_prepareCollection();
     }
 
     protected function _prepareColumns()
     {
         $this->addColumn(
-            'product_id', array(
-            'header'    => Mage::helper('M2ePro')->__('Product ID'),
-            'align'     => 'right',
-            'width'     => '100px',
-            'type'      => 'number',
-            'index'     => 'entity_id',
-            'filter_index' => 'entity_id',
-            'frame_callback' => array($this, 'callbackColumnListingProductId')
+            'product_id',
+            array(
+                'header'       => Mage::helper('M2ePro')->__('Product ID'),
+                'align'        => 'right',
+                'width'        => '100px',
+                'type'         => 'number',
+                'index'        => 'entity_id',
+                'filter_index' => 'entity_id',
+                'store_id'     => $this->_listing->getStoreId(),
+                'renderer'     => 'M2ePro/adminhtml_grid_column_renderer_productId'
             )
         );
 
         $this->addColumn(
-            'name', array(
-            'header'    => Mage::helper('M2ePro')->__('Product Title / Product SKU'),
-            'align'     => 'left',
-            'type'      => 'text',
-            'index'     => 'name',
-            'filter_index' => 'name',
-            'frame_callback' => array($this, 'callbackColumnProductTitle'),
-            'filter_condition_callback' => array($this, 'callbackFilterTitle')
+            'name',
+            array(
+                'header'                    => Mage::helper('M2ePro')->__('Product Title / Product SKU'),
+                'align'                     => 'left',
+                'type'                      => 'text',
+                'index'                     => 'name',
+                'filter_index'              => 'name',
+                'frame_callback'            => array($this, 'callbackColumnProductTitle'),
+                'filter_condition_callback' => array($this, 'callbackFilterTitle')
             )
         );
 
         $this->addColumn(
-            'sku', array(
-            'header' => Mage::helper('M2ePro')->__('SKU'),
-            'align' => 'left',
-            'width' => '150px',
-            'type' => 'text',
-            'index' => 'walmart_sku',
-            'filter_index' => 'walmart_sku',
-            'frame_callback' => array($this, 'callbackColumnWalmartSku')
+            'sku',
+            array(
+                'header'        => Mage::helper('M2ePro')->__('SKU'),
+                'align'         => 'left',
+                'width'         => '150px',
+                'type'          => 'text',
+                'index'         => 'walmart_sku',
+                'filter_index'  => 'walmart_sku',
+                'show_edit_sku' => false,
+                'renderer'      => 'M2ePro/adminhtml_walmart_grid_column_renderer_sku',
             )
         );
 
         $this->addColumn(
-            'gtin', array(
-            'header' => Mage::helper('M2ePro')->__('GTIN'),
-            'align' => 'left',
-            'width' => '150px',
-            'type' => 'text',
-            'index' => 'gtin',
-            'filter_index' => 'gtin',
-            'frame_callback' => array($this, 'callbackColumnGtin'),
-            'filter_condition_callback' => array($this, 'callbackFilterGtin')
+            'gtin',
+            array(
+                'header'                    => Mage::helper('M2ePro')->__('GTIN'),
+                'align'                     => 'left',
+                'width'                     => '150px',
+                'type'                      => 'text',
+                'index'                     => 'gtin',
+                'filter_index'              => 'gtin',
+                'show_edit_identifier'      => false,
+                'marketplace_id'            => $this->_listing->getMarketplaceId(),
+                'renderer'                  => 'M2ePro/adminhtml_walmart_grid_column_renderer_gtin',
+                'filter_condition_callback' => array($this, 'callbackFilterGtin')
             )
         );
 
         $this->addColumn(
-            'category_template', array(
-            'header' => Mage::helper('M2ePro')->__('Category Policy'),
-            'align' => 'left',
-            'width' => '250px',
-            'type' => 'text',
-            'index' => 'template_category_title',
-            'filter_index' => 'template_category_title',
-            'frame_callback' => array($this, 'callbackColumnTemplateCategory')
+            'category_template',
+            array(
+                'header'         => Mage::helper('M2ePro')->__('Category Policy'),
+                'align'          => 'left',
+                'width'          => '250px',
+                'type'           => 'text',
+                'index'          => 'template_category_title',
+                'filter_index'   => 'template_category_title',
+                'frame_callback' => array($this, 'callbackColumnTemplateCategory')
             )
         );
 
         $this->addColumn(
-            'actions', array(
-            'header'    => Mage::helper('M2ePro')->__('Actions'),
-            'align'     => 'left',
-            'width'     => '100px',
-            'type'      => 'action',
-            'index'     => 'actions',
-            'filter'    => false,
-            'sortable'  => false,
-            'renderer'  => 'M2ePro/adminhtml_grid_column_renderer_action',
-            'field' => 'id',
-            'no_link'  => true,
-            'actions'     => $this->getColumnActionsItems()
+            'actions',
+            array(
+                'header'   => Mage::helper('M2ePro')->__('Actions'),
+                'align'    => 'left',
+                'width'    => '100px',
+                'type'     => 'action',
+                'index'    => 'actions',
+                'filter'   => false,
+                'sortable' => false,
+                'renderer' => 'M2ePro/adminhtml_grid_column_renderer_action',
+                'field'    => 'id',
+                'no_link'  => true,
+                'group_order' => $this->getGroupOrder(),
+                'actions'  => $this->getColumnActionsItems()
             )
         );
 
@@ -207,17 +207,33 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
 
     //########################################
 
+    protected function getGroupOrder()
+    {
+        return array(
+            'edit_template_category' => Mage::helper('M2ePro')->__('Category Policy'),
+            'other' => Mage::helper('M2ePro')->__('Other')
+        );
+    }
+
     protected function getColumnActionsItems()
     {
         $helper = Mage::helper('M2ePro');
 
         $actions = array(
             'assignTemplateDescription' => array(
-                'caption' => $helper->__('Use Another Category Policy'),
-                'group'   => 'edit_template_category',
-                'field'   => 'id',
-                'onclick_action' => 'ListingGridHandlerObj.actions[\'changeTemplateCategoryIdAction\']'
+                'caption'        => $helper->__('Use Another Category Policy'),
+                'group'          => 'edit_template_category',
+                'field'          => 'id',
+                'onclick_action' => 'ListingGridObj.actions[\'changeTemplateCategoryIdAction\']'
             )
+        );
+
+        $actions['remapProduct'] = array(
+            'caption'            => $helper->__('Link to another Magento Product'),
+            'group'              => 'other',
+            'field'              => 'id',
+            'only_remap_product' => true,
+            'onclick_action'     => 'ListingGridObj.actions[\'remapProductAction\']'
         );
 
         return $actions;
@@ -227,24 +243,9 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
 
     protected function _prepareMassaction()
     {
-        $listingData = Mage::helper('M2ePro/Data_Global')->getValue('temp_data');
-
-        /** @var Ess_M2ePro_Model_Account $account */
-        $account = Mage::helper('M2ePro/Component_Walmart')->getCachedObject(
-            'Account', (int)$listingData['account_id']
-        );
-
-        /** @var Ess_M2ePro_Model_Marketplace $marketplace */
-        $marketplace = $account->getChildObject()->getMarketplace();
-
-        // Set massaction identifiers
-        // ---------------------------------------
         $this->setMassactionIdField('id');
         $this->setMassactionIdFieldOnlyIndexValue(true);
-        // ---------------------------------------
 
-        // Set mass-action
-        // ---------------------------------------
         $groups = array(
             'category_policy' => Mage::helper('M2ePro')->__('Category Policy'),
             'other'           => Mage::helper('M2ePro')->__('Other'),
@@ -253,28 +254,35 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
         $this->getMassactionBlock()->setGroups($groups);
 
         $this->getMassactionBlock()->addItem(
-            'changeTemplateCategoryId', array(
-            'label'    => Mage::helper('M2ePro')->__('Use Another'),
-            'url'      => '',
-            'confirm'  => Mage::helper('M2ePro')->__('Are you sure?')
-            ), 'category_policy'
+            'changeTemplateCategoryId',
+            array(
+                'label'   => Mage::helper('M2ePro')->__('Use Another'),
+                'url'     => '',
+                'confirm' => Mage::helper('M2ePro')->__('Are you sure?')
+            ),
+            'category_policy'
         );
 
         $this->getMassactionBlock()->addItem(
-            'moving', array(
-            'label'    => Mage::helper('M2ePro')->__('Move Item(s) to Another Listing'),
-            'url'      => '',
-            'confirm'  => Mage::helper('M2ePro')->__('Are you sure?')
-            ), 'other'
+            'moving',
+            array(
+                'label'   => Mage::helper('M2ePro')->__('Move Item(s) to Another Listing'),
+                'url'     => '',
+                'confirm' => Mage::helper('M2ePro')->__('Are you sure?')
+            ),
+            'other'
         );
 
         $this->getMassactionBlock()->addItem(
-            'duplicate', array(
-            'label'    => Mage::helper('M2ePro')->__('Duplicate'),
-            'url'      => '',
-            'confirm'  => Mage::helper('M2ePro')->__('Are you sure?')
-            ), 'other'
+            'duplicate',
+            array(
+                'label'   => Mage::helper('M2ePro')->__('Duplicate'),
+                'url'     => '',
+                'confirm' => Mage::helper('M2ePro')->__('Are you sure?')
+            ),
+            'other'
         );
+
         // ---------------------------------------
 
         return parent::_prepareMassaction();
@@ -282,50 +290,11 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
 
     //########################################
 
-    public function callbackColumnListingProductId($value, $row, $column, $isExport)
-    {
-        $listingData = Mage::helper('M2ePro/Data_Global')->getValue('temp_data');
-
-        $storeId = (int)$listingData['store_id'];
-
-        $withoutImageHtml = '<a href="'
-            .$this->getUrl(
-                'adminhtml/catalog_product/edit',
-                array('id' => $value)
-            )
-            .'" target="_blank">'.$value.'</a>';
-
-        $showProductsThumbnails = (bool)(int)Mage::helper('M2ePro/Module')->getConfig()
-            ->getGroupValue(
-                '/view/',
-                'show_products_thumbnails'
-            );
-        if (!$showProductsThumbnails) {
-            return $withoutImageHtml;
-        }
-
-        /** @var $magentoProduct Ess_M2ePro_Model_Magento_Product */
-        $magentoProduct = Mage::getModel('M2ePro/Magento_Product');
-        $magentoProduct->setProductId($value);
-        $magentoProduct->setStoreId($storeId);
-
-        $imageResized = $magentoProduct->getThumbnailImage();
-        if ($imageResized === null) {
-            return $withoutImageHtml;
-        }
-
-        $imageHtml = $value.'<hr style="border: 1px solid silver; border-bottom: none;"><img src="'.
-            $imageResized->getUrl().'" style="max-width: 100px; max-height: 100px;" />';
-        $withImageHtml = str_replace('>'.$value.'<', '>'.$imageHtml.'<', $withoutImageHtml);
-
-        return $withImageHtml;
-    }
-
     public function callbackColumnProductTitle($productTitle, $row, $column, $isExport)
     {
         $productTitle = Mage::helper('M2ePro')->escapeHtml($productTitle);
 
-        $value = '<span>'.$productTitle.'</span>';
+        $value = '<span>' . $productTitle . '</span>';
 
         $tempSku = $row->getData('sku');
 
@@ -333,8 +302,8 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
             $tempSku = Mage::getModel('M2ePro/Magento_Product')->setProductId($row->getData('entity_id'))->getSku();
         }
 
-        $value .= '<br/><strong>'.Mage::helper('M2ePro')->__('SKU') .
-            ':</strong> '.Mage::helper('M2ePro')->escapeHtml($tempSku) . '<br/>';
+        $value .= '<br/><strong>' . Mage::helper('M2ePro')->__('SKU') .
+            ':</strong> ' . Mage::helper('M2ePro')->escapeHtml($tempSku) . '<br/>';
 
         $listingProductId = (int)$row->getData('id');
         /** @var Ess_M2ePro_Model_Listing_Product $listingProduct */
@@ -362,11 +331,13 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
                     if (in_array($attribute, array_keys($virtualProductAttributes))) {
                         $attributesStr .= '<span style="border-bottom: 2px dotted grey">' . $attribute .
                             ' (' . $virtualProductAttributes[$attribute] . ')</span>, ';
-                    } else if (in_array($attribute, array_keys($virtualChannelAttributes))) {
-                        $attributesStr .= '<span>' . $attribute .
-                            ' (' . $virtualChannelAttributes[$attribute] . ')</span>, ';
                     } else {
-                        $attributesStr .= $attribute . ', ';
+                        if (in_array($attribute, array_keys($virtualChannelAttributes))) {
+                            $attributesStr .= '<span>' . $attribute .
+                                ' (' . $virtualChannelAttributes[$attribute] . ')</span>, ';
+                        } else {
+                            $attributesStr .= $attribute . ', ';
+                        }
                     }
                 }
 
@@ -394,91 +365,6 @@ class Ess_M2ePro_Block_Adminhtml_Walmart_Listing_View_Settings_Grid
         return $value;
     }
 
-    public function callbackColumnWalmartSku($value, $row, $column, $isExport)
-    {
-        if ($value === null || $value === '') {
-            $value = Mage::helper('M2ePro')->__('N/A');
-        }
-
-        return $value;
-    }
-
-    // ---------------------------------------
-
-    public function callbackColumnGtin($gtin, $row, $column, $isExport)
-    {
-        if (empty($gtin)) {
-            return Mage::helper('M2ePro')->__('N/A');
-        }
-
-        $gtinHtml = Mage::helper('M2ePro')->escapeHtml($gtin);
-        $channelUrl = $row->getData('channel_url');
-
-        if (!empty($channelUrl)) {
-            $gtinHtml = <<<HTML
-<a href="{$channelUrl}" target="_blank">{$gtin}</a>
-HTML;
-        }
-
-        $html = <<<HTML
-<div class="walmart-identifiers-gtin">{$gtinHtml}</div>
-HTML;
-
-        $identifiers = array(
-            'UPC'        => $row->getData('upc'),
-            'EAN'        => $row->getData('ean'),
-            'ISBN'       => $row->getData('isbn'),
-            'Walmart ID' => $row->getData('wpid'),
-            'Item ID'    => $row->getData('item_id')
-        );
-
-        $htmlAdditional = '';
-        foreach ($identifiers as $title => $value) {
-            if (empty($value)) {
-                continue;
-            }
-
-            if (($row->getData('upc') || $row->getData('ean') || $row->getData('isbn')) &&
-                ($row->getData('wpid') || $row->getData('item_id')) && $title == 'Walmart ID')
-            {
-                $htmlAdditional .= "<div class='separator-line'></div>";
-            }
-
-            $identifierCode  = Mage::helper('M2ePro')->__($title);
-            $identifierValue = Mage::helper('M2ePro')->escapeHtml($value);
-
-            $htmlAdditional .= <<<HTML
-<div>
-    <span style="display: inline-block; float: left;">
-        <strong>{$identifierCode}:</strong>&nbsp;&nbsp;&nbsp;&nbsp;
-    </span>
-    <span style="display: inline-block; float: right;">
-        {$identifierValue}
-    </span>
-    <div style="clear: both;"></div>
-</div>
-HTML;
-        }
-
-        if ($htmlAdditional != '') {
-            $html .= <<<HTML
-<span style="float:right;">
-    <img class="tool-tip-image"
-         style="vertical-align: middle;"
-         src="{$this->getSkinUrl('M2ePro/images/i_icon.png')}">
-    <span class="tool-tip-message tool-tip-message tip-left" style="display:none;">
-        <img src="{$this->getSkinUrl('M2ePro/images/i_logo.png')}">
-        <div class="walmart-identifiers">
-            {$htmlAdditional}
-        </div>
-    </span>
-</span>
-HTML;
-        }
-
-        return $html;
-    }
-
     // ---------------------------------------
 
     public function callbackColumnTemplateCategory($value, $row, $column, $isExport)
@@ -487,8 +373,9 @@ HTML;
 
         if ($row->getData('template_category_id')) {
             $url = $this->getUrl(
-                '*/adminhtml_walmart_template_category/edit', array(
-                'id' => $row->getData('template_category_id')
+                '*/adminhtml_walmart_template_category/edit',
+                array(
+                    'id' => $row->getData('template_category_id')
                 )
             );
 
@@ -508,8 +395,9 @@ HTML;
 
         if ($row->getData('template_product_tax_code_id')) {
             $url = $this->getUrl(
-                '*/adminhtml_walmart_template_productTaxCode/edit', array(
-                'id' => $row->getData('template_product_tax_code_id')
+                '*/adminhtml_walmart_template_productTaxCode/edit',
+                array(
+                    'id' => $row->getData('template_product_tax_code_id')
                 )
             );
 
@@ -535,8 +423,8 @@ HTML;
 
         $collection->addFieldToFilter(
             array(
-                array('attribute'=>'sku','like'=>'%'.$value.'%'),
-                array('attribute'=>'name', 'like'=>'%'.$value.'%')
+                array('attribute' => 'sku', 'like' => '%' . $value . '%'),
+                array('attribute' => 'name', 'like' => '%' . $value . '%')
             )
         );
     }
@@ -565,7 +453,7 @@ SQL;
 
     public function getGridUrl()
     {
-        return $this->getUrl('*/adminhtml_walmart_listing/viewGrid', array('_current'=>true));
+        return $this->getUrl('*/adminhtml_walmart_listing/viewGrid', array('_current' => true));
     }
 
     public function getRowUrl($row)
@@ -580,20 +468,20 @@ SQL;
         $javascriptsMain = <<<HTML
 <script type="text/javascript">
 
-    if (typeof ListingGridHandlerObj != 'undefined') {
-        ListingGridHandlerObj.afterInitPage();
+    if (typeof ListingGridObj != 'undefined') {
+        ListingGridObj.afterInitPage();
     }
 
     Event.observe(window, 'load', function() {
         setTimeout(function() {
-            ListingGridHandlerObj.afterInitPage();
+            ListingGridObj.afterInitPage();
         }, 350);
     });
 
 </script>
 HTML;
 
-        return parent::_toHtml().$javascriptsMain;
+        return parent::_toHtml() . $javascriptsMain;
     }
 
     //########################################

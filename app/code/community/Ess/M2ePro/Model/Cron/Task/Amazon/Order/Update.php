@@ -10,6 +10,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Update
     extends Ess_M2ePro_Model_Cron_Task_Abstract
 {
     const NICK = 'amazon/order/update';
+    const ORDER_CHANGES_PER_ACCOUNT = 300;
 
     //####################################
 
@@ -49,19 +50,14 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Update
         }
 
         foreach ($permittedAccounts as $account) {
-
             /** @var Ess_M2ePro_Model_Account $account */
 
-            // ---------------------------------------
             $this->getOperationHistory()->addText('Starting Account "'.$account->getTitle().'"');
-            // ---------------------------------------
 
-            // ---------------------------------------
             $this->getOperationHistory()->addTimePoint(
                 __METHOD__.'process'.$account->getId(),
                 'Process Account '.$account->getTitle()
             );
-            // ---------------------------------------
 
             try {
                 $this->processAccount($account);
@@ -75,13 +71,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Update
                 $this->processTaskException($exception);
             }
 
-            // ---------------------------------------
             $this->getOperationHistory()->saveTimePoint(__METHOD__.'process'.$account->getId());
-            // ---------------------------------------
-
-            // ---------------------------------------
-            $this->getLockItemManager()->activate();
-            // ---------------------------------------
         }
     }
 
@@ -146,6 +136,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Update
             array()
         );
         $changesCollection->addFieldToFilter('pl.id', array('null' => true));
+        $changesCollection->getSelect()->limit(self::ORDER_CHANGES_PER_ACCOUNT);
         $changesCollection->getSelect()->group(array('order_id'));
 
         return $changesCollection->getItems();

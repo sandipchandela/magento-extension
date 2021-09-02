@@ -95,7 +95,7 @@ class Ess_M2ePro_Model_Upgrade_Migration_ToVersion630_General
 
     protected function processAttributeSet()
     {
-        $this->getInstaller()->run("DROP TABLE IF EXISTS m2epro_attribute_set;");
+        $this->getInstaller()->run("DROP TABLE IF EXISTS {$this->_installer->getTable('m2epro_attribute_set')};");
     }
 
     protected function processRegistry()
@@ -103,8 +103,8 @@ class Ess_M2ePro_Model_Upgrade_Migration_ToVersion630_General
         $this->getInstaller()->run(
             <<<SQL
 
-    DROP TABLE IF EXISTS m2epro_registry;
-    CREATE TABLE m2epro_registry (
+    DROP TABLE IF EXISTS `{$this->_installer->getTable('m2epro_registry')}`;
+    CREATE TABLE `{$this->_installer->getTable('m2epro_registry')}` (
       id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
       `key` VARCHAR(255) NOT NULL,
       value TEXT DEFAULT NULL,
@@ -133,11 +133,14 @@ SQL
             return;
         }
 
+        $this->_installer->getTablesObject()->renameTable(
+            'm2epro_listing_log',
+            'm2epro_backup_v630_listing_log'
+        );
+
         $this->getInstaller()->run(
             <<<SQL
-RENAME TABLE m2epro_listing_log TO {$tempBackupTable};
-
-CREATE TABLE m2epro_listing_log (
+CREATE TABLE {$tempNewTable} (
     id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
     listing_id INT(11) UNSIGNED DEFAULT NULL,
     product_id INT(11) UNSIGNED DEFAULT NULL,
@@ -175,7 +178,7 @@ ENGINE = MYISAM
 CHARACTER SET utf8
 COLLATE utf8_general_ci;
 
-INSERT INTO `m2epro_listing_log`
+INSERT INTO `{$tempNewTable}`
 SELECT
     `id`,
     `listing_id`,
@@ -242,7 +245,7 @@ SQL
         $this->getInstaller()->run(
             <<<SQL
 
-    UPDATE `m2epro_amazon_template_selling_format`
+    UPDATE `{$this->_installer->getTable('m2epro_amazon_template_selling_format')}`
     SET `sale_price_mode` = 0
     WHERE `sale_price_mode` = 4;
 
@@ -266,7 +269,7 @@ SQL
         $this->getInstaller()->run(
             <<<SQL
 
-    INSERT INTO `m2epro_wizard` (`nick`, `view`, `status`, `step`, `type`, `priority`)
+    INSERT INTO `{$this->_installer->getTable('m2epro_wizard')}` (`nick`, `view`, `status`, `step`, `type`, `priority`)
     VALUES ('migrationNewAmazon', 'common', 0, NULL, 0, 6);
 
 SQL

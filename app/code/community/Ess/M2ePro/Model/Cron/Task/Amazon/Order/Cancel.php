@@ -10,6 +10,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Cancel
     extends Ess_M2ePro_Model_Cron_Task_Abstract
 {
     const NICK = 'amazon/order/cancel';
+    const ORDER_CHANGES_PER_ACCOUNT = 300;
 
     //####################################
 
@@ -77,10 +78,6 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Cancel
 
             // ---------------------------------------
             $this->getOperationHistory()->saveTimePoint(__METHOD__.'process'.$account->getId());
-            // ---------------------------------------
-
-            // ---------------------------------------
-            $this->getLockItemManager()->activate();
             // ---------------------------------------
         }
     }
@@ -153,7 +150,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Cancel
         /** @var Ess_M2ePro_Model_Resource_Order_Change_Collection $changesCollection */
         $changesCollection = Mage::getModel('M2ePro/Order_Change')->getCollection();
         $changesCollection->addAccountFilter($account->getId());
-        $changesCollection->addProcessingAttemptDateFilter(10);
+        $changesCollection->addProcessingAttemptDateFilter();
         $changesCollection->addFieldToFilter('component', Ess_M2ePro_Helper_Component_Amazon::NICK);
         $changesCollection->addFieldToFilter('action', Ess_M2ePro_Model_Order_Change::ACTION_CANCEL);
         $changesCollection->getSelect()->joinLeft(
@@ -162,6 +159,7 @@ class Ess_M2ePro_Model_Cron_Task_Amazon_Order_Cancel
             array()
         );
         $changesCollection->addFieldToFilter('pl.id', array('null' => true));
+        $changesCollection->getSelect()->limit(self::ORDER_CHANGES_PER_ACCOUNT);
         $changesCollection->getSelect()->group(array('order_id'));
 
         return $changesCollection->getItems();

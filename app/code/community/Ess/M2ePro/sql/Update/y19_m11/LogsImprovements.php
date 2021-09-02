@@ -13,15 +13,6 @@ class Ess_M2ePro_Sql_Update_y19_m11_LogsImprovements extends Ess_M2ePro_Model_Up
 
     //########################################
 
-    public function getBackupTables()
-    {
-        return array(
-            'config',
-        );
-    }
-
-    //----------------------------------------
-
     public function execute()
     {
         foreach ($this->getProcessSubjects() as $subject) {
@@ -101,6 +92,10 @@ class Ess_M2ePro_Sql_Update_y19_m11_LogsImprovements extends Ess_M2ePro_Model_Up
     protected function processDelete($tableName)
     {
         $table = $this->_installer->getFullTableName($tableName);
+        $tempTable = $this->_installer->getFullTableName($tableName . '_temp');
+        if (!$this->_installer->tableExists($table) && $this->_installer->tableExists($tempTable)) {
+            return $this->_installer->getTablesObject()->renameTable($tableName . '_temp', $tableName);
+        }
 
         $select = $this->_installer->getConnection()->select()->from(
             $table,
@@ -115,12 +110,13 @@ class Ess_M2ePro_Sql_Update_y19_m11_LogsImprovements extends Ess_M2ePro_Model_Up
 
         $limit = self::LOGS_LIMIT_COUNT;
 
-        $this->_installer->getConnection()->exec("CREATE TABLE `{$table}_temp` LIKE `{$table}`");
-        $this->_installer->getConnection()->exec("INSERT INTO `{$table}_temp` (
+        $this->_installer->getConnection()->exec("CREATE TABLE IF NOT EXISTS `{$tempTable}` LIKE `{$table}`");
+        $this->_installer->getConnection()->exec("INSERT INTO `{$tempTable}` (
                                         SELECT * FROM `{$table}` ORDER BY `id` DESC LIMIT {$limit}
                                      )");
         $this->_installer->getConnection()->exec("DROP TABLE `{$table}`");
-        $this->_installer->getConnection()->exec("RENAME TABLE `{$table}_temp` TO `{$table}`");
+
+        $this->_installer->getTablesObject()->renameTable($tableName . '_temp', $tableName);
     }
 
     protected function processActionId($tableName, $configName)
@@ -217,7 +213,7 @@ SQL
 
     protected function removeListingOtherLog()
     {
-        $this->_installer->run("DROP TABLE IF EXISTS `m2epro_listing_other_log`");
+        $this->_installer->run("DROP TABLE IF EXISTS `{$this->_installer->getTable('m2epro_listing_other_log')}`");
 
         $this->_installer->getMainConfigModifier()->delete('/logs/clearing/other_listings/');
         $this->_installer->getMainConfigModifier()->delete('/logs/other_listings/');

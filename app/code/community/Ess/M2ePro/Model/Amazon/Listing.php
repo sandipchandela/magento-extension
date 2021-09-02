@@ -48,37 +48,39 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     const CONDITION_REFURBISHED            = 'Refurbished';
     const CONDITION_CLUB                   = 'Club';
 
-    const CONDITION_NOTE_MODE_NONE             = 3;
-    const CONDITION_NOTE_MODE_CUSTOM_VALUE     = 1;
+    const CONDITION_NOTE_MODE_NONE         = 3;
+    const CONDITION_NOTE_MODE_CUSTOM_VALUE = 1;
 
-    const IMAGE_MAIN_MODE_NONE           = 0;
-    const IMAGE_MAIN_MODE_PRODUCT        = 1;
-    const IMAGE_MAIN_MODE_ATTRIBUTE      = 2;
+    const IMAGE_MAIN_MODE_NONE      = 0;
+    const IMAGE_MAIN_MODE_PRODUCT   = 1;
+    const IMAGE_MAIN_MODE_ATTRIBUTE = 2;
 
-    const GALLERY_IMAGES_MODE_NONE       = 0;
-    const GALLERY_IMAGES_MODE_PRODUCT    = 1;
-    const GALLERY_IMAGES_MODE_ATTRIBUTE  = 2;
+    const GALLERY_IMAGES_MODE_NONE      = 0;
+    const GALLERY_IMAGES_MODE_PRODUCT   = 1;
+    const GALLERY_IMAGES_MODE_ATTRIBUTE = 2;
 
-    const GALLERY_IMAGES_COUNT_MAX       = 5;
+    const GALLERY_IMAGES_COUNT_MAX = 5;
 
     const HANDLING_TIME_MODE_NONE             = 3;
     const HANDLING_TIME_MODE_RECOMMENDED      = 1;
     const HANDLING_TIME_MODE_CUSTOM_ATTRIBUTE = 2;
 
-    const RESTOCK_DATE_MODE_NONE              = 1;
-    const RESTOCK_DATE_MODE_CUSTOM_VALUE      = 2;
-    const RESTOCK_DATE_MODE_CUSTOM_ATTRIBUTE  = 3;
+    const RESTOCK_DATE_MODE_NONE             = 1;
+    const RESTOCK_DATE_MODE_CUSTOM_VALUE     = 2;
+    const RESTOCK_DATE_MODE_CUSTOM_ATTRIBUTE = 3;
 
-    const GIFT_WRAP_MODE_NO = 0;
-    const GIFT_WRAP_MODE_YES = 1;
+    const GIFT_WRAP_MODE_NO        = 0;
+    const GIFT_WRAP_MODE_YES       = 1;
     const GIFT_WRAP_MODE_ATTRIBUTE = 2;
 
-    const GIFT_MESSAGE_MODE_NO = 0;
-    const GIFT_MESSAGE_MODE_YES = 1;
+    const GIFT_MESSAGE_MODE_NO        = 0;
+    const GIFT_MESSAGE_MODE_YES       = 1;
     const GIFT_MESSAGE_MODE_ATTRIBUTE = 2;
 
     const ADDING_MODE_ADD_AND_CREATE_NEW_ASIN_NO  = 0;
     const ADDING_MODE_ADD_AND_CREATE_NEW_ASIN_YES = 1;
+
+    const CREATE_LISTING_SESSION_DATA = 'amazon_listing_create';
 
     /**
      * @var Ess_M2ePro_Model_Template_SellingFormat
@@ -108,6 +110,7 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
         $temp = parent::deleteInstance();
         $temp && $this->_sellingFormatTemplateModel = null;
         $temp && $this->_synchronizationTemplateModel = null;
+
         return $temp;
     }
 
@@ -177,7 +180,10 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     {
         if ($this->_sellingFormatTemplateModel === null) {
             $this->_sellingFormatTemplateModel = Mage::helper('M2ePro/Component_Amazon')->getCachedObject(
-                'Template_SellingFormat', $this->getData('template_selling_format_id'), null, array('template')
+                'Template_SellingFormat',
+                $this->getData('template_selling_format_id'),
+                null,
+                array('template')
             );
         }
 
@@ -189,7 +195,7 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
      */
     public function setSellingFormatTemplate(Ess_M2ePro_Model_Template_SellingFormat $instance)
     {
-         $this->_sellingFormatTemplateModel = $instance;
+        $this->_sellingFormatTemplateModel = $instance;
     }
 
     // ---------------------------------------
@@ -201,7 +207,10 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     {
         if ($this->_synchronizationTemplateModel === null) {
             $this->_synchronizationTemplateModel = Mage::helper('M2ePro/Component_Amazon')->getCachedObject(
-                'Template_Synchronization', $this->getData('template_synchronization_id'), null, array('template')
+                'Template_Synchronization',
+                $this->getData('template_synchronization_id'),
+                null,
+                array('template')
             );
         }
 
@@ -213,7 +222,7 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
      */
     public function setSynchronizationTemplate(Ess_M2ePro_Model_Template_Synchronization $instance)
     {
-         $this->_synchronizationTemplateModel = $instance;
+        $this->_synchronizationTemplateModel = $instance;
     }
 
     // ---------------------------------------
@@ -234,6 +243,56 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
         return $this->getSynchronizationTemplate()->getChildObject();
     }
 
+    // ---------------------------------------
+
+    /**
+     * @return int
+     */
+    public function getTemplateShippingId()
+    {
+        return (int)($this->getData('template_shipping_id'));
+    }
+
+    /**
+     * @return bool
+     */
+    public function isExistShippingTemplate()
+    {
+        return $this->getTemplateShippingId() > 0;
+    }
+
+    /**
+     * @return Ess_M2ePro_Model_Amazon_Template_Shipping | null
+     */
+    public function getShippingTemplate()
+    {
+        if (!$this->isExistShippingTemplate()) {
+            return null;
+        }
+
+        return Mage::helper('M2ePro')->getCachedObject(
+            'Amazon_Template_Shipping',
+            $this->getTemplateShippingId(),
+            null,
+            array('template')
+        );
+    }
+
+    // ---------------------------------------
+
+    /**
+     * @param Ess_M2ePro_Model_Magento_Product $magentoProduct
+     * @return Ess_M2ePro_Model_Amazon_Template_Shipping_Source
+     */
+    public function getShippingTemplateSource(Ess_M2ePro_Model_Magento_Product $magentoProduct)
+    {
+        if (!$this->isExistShippingTemplate()) {
+            return null;
+        }
+
+        return $this->getShippingTemplate()->getSource($magentoProduct);
+    }
+
     //########################################
 
     /**
@@ -244,16 +303,6 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     public function getProducts($asObjects = false, array $filters = array())
     {
         return $this->getParentObject()->getProducts($asObjects, $filters);
-    }
-
-    /**
-     * @param bool $asObjects
-     * @param array $filters
-     * @return mixed
-     */
-    public function getCategories($asObjects = false, array $filters = array())
-    {
-        return $this->getParentObject()->getCategories($asObjects, $filters);
     }
 
     //########################################
@@ -375,11 +424,19 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     // ---------------------------------------
 
     /**
+     * @return int
+     */
+    public function getGenerateSkuMode()
+    {
+        return (int)$this->getData('generate_sku_mode');
+    }
+
+    /**
      * @return bool
      */
     public function isGenerateSkuModeNo()
     {
-        return (int)$this->getData('generate_sku_mode') == self::GENERATE_SKU_MODE_NO;
+        return $this->getGenerateSkuMode() == self::GENERATE_SKU_MODE_NO;
     }
 
     /**
@@ -387,7 +444,7 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
      */
     public function isGenerateSkuModeYes()
     {
-        return (int)$this->getData('generate_sku_mode') == self::GENERATE_SKU_MODE_YES;
+        return $this->getGenerateSkuMode() == self::GENERATE_SKU_MODE_YES;
     }
 
     // ---------------------------------------
@@ -535,7 +592,7 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
         foreach ($tempConstants as $key => $value) {
             $prefixKey = strtolower(substr($key, 0, 14));
             if (substr($prefixKey, 0, 10) != 'condition_' ||
-                in_array($prefixKey, array('condition_mode','condition_note'))) {
+                in_array($prefixKey, array('condition_mode', 'condition_note'))) {
                 continue;
             }
 
@@ -579,8 +636,8 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     public function getConditionNoteSource()
     {
         return array(
-            'mode'      => $this->getConditionNoteMode(),
-            'value'     => $this->getData('condition_note_value')
+            'mode'  => $this->getConditionNoteMode(),
+            'value' => $this->getData('condition_note_value')
         );
     }
 
@@ -641,7 +698,7 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     public function getImageMainSource()
     {
         return array(
-            'mode'     => $this->getImageMainMode(),
+            'mode'      => $this->getImageMainMode(),
             'attribute' => $this->getData('image_main_attribute')
         );
     }
@@ -656,8 +713,10 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
 
         if ($src['mode'] == self::IMAGE_MAIN_MODE_PRODUCT) {
             $attributes[] = 'image';
-        } else if ($src['mode'] == self::IMAGE_MAIN_MODE_ATTRIBUTE) {
-            $attributes[] = $src['attribute'];
+        } else {
+            if ($src['mode'] == self::IMAGE_MAIN_MODE_ATTRIBUTE) {
+                $attributes[] = $src['attribute'];
+            }
         }
 
         return $attributes;
@@ -719,8 +778,10 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
 
         if ($src['mode'] == self::GALLERY_IMAGES_MODE_PRODUCT) {
             $attributes[] = 'media_gallery';
-        } else if ($src['mode'] == self::GALLERY_IMAGES_MODE_ATTRIBUTE) {
-            $attributes[] = $src['attribute'];
+        } else {
+            if ($src['mode'] == self::GALLERY_IMAGES_MODE_ATTRIBUTE) {
+                $attributes[] = $src['attribute'];
+            }
         }
 
         return $attributes;
@@ -885,7 +946,7 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     public function getGiftWrapSource()
     {
         return array(
-            'mode' => $this->getGiftWrapMode(),
+            'mode'      => $this->getGiftWrapMode(),
             'attribute' => $this->getData('gift_wrap_attribute')
         );
     }
@@ -942,7 +1003,7 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     public function getGiftMessageSource()
     {
         return array(
-            'mode' => $this->getGiftMessageMode(),
+            'mode'      => $this->getGiftMessageMode(),
             'attribute' => $this->getData('gift_message_attribute')
         );
     }
@@ -962,32 +1023,36 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
         return $attributes;
     }
 
+    /**
+     * @return array
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function getAddedListingProductsIds()
+    {
+        $ids = $this->getData('product_add_ids');
+        $ids = array_filter((array)Mage::helper('M2ePro')->jsonDecode($ids));
+
+        return array_values(array_unique($ids));
+    }
+
     //########################################
 
     /**
      * @param Ess_M2ePro_Model_Listing_Other $listingOtherProduct
      * @param int $initiator
-     * @param bool $checkingMode
-     * @param bool $checkHasProduct
      * @return bool|Ess_M2ePro_Model_Listing_Product
      * @throws Ess_M2ePro_Model_Exception_Logic
      */
     public function addProductFromOther(
         Ess_M2ePro_Model_Listing_Other $listingOtherProduct,
-        $initiator = Ess_M2ePro_Helper_Data::INITIATOR_UNKNOWN,
-        $checkingMode = false,
-        $checkHasProduct = true
+        $initiator = Ess_M2ePro_Helper_Data::INITIATOR_UNKNOWN
     ) {
         if (!$listingOtherProduct->getProductId()) {
             return false;
         }
 
         $productId = $listingOtherProduct->getProductId();
-        $result = $this->getParentObject()->addProduct($productId, $initiator, $checkingMode, $checkHasProduct);
-
-        if ($checkingMode) {
-            return $result;
-        }
+        $result = $this->getParentObject()->addProduct($productId, $initiator, false, true);
 
         if (!($result instanceof Ess_M2ePro_Model_Listing_Product)) {
             return false;
@@ -1024,12 +1089,16 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
 
         $listingProduct->addData($dataForUpdate);
         $listingProduct->setSetting(
-            'additional_data', $listingProduct::MOVING_LISTING_OTHER_SOURCE_KEY, $listingOtherProduct->getId()
+            'additional_data',
+            $listingProduct::MOVING_LISTING_OTHER_SOURCE_KEY,
+            $listingOtherProduct->getId()
         );
         $listingProduct->save();
 
         $listingOtherProduct->setSetting(
-            'additional_data', $listingOtherProduct::MOVING_LISTING_PRODUCT_DESTINATION_KEY, $listingProduct->getId()
+            'additional_data',
+            $listingOtherProduct::MOVING_LISTING_PRODUCT_DESTINATION_KEY,
+            $listingProduct->getId()
         );
         $listingOtherProduct->save();
 
@@ -1037,11 +1106,11 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
             $listingProductRepricing = Mage::getModel('M2ePro/Amazon_Listing_Product_Repricing');
             $listingProductRepricing->setData(
                 array(
-                'listing_product_id'   => $listingProduct->getId(),
-                'is_online_disabled'   => $amazonListingOther->isRepricingDisabled(),
-                'is_online_inactive'   => $amazonListingOther->isRepricingInactive(),
-                'update_date'          => Mage::helper('M2ePro')->getCurrentGmtDate(),
-                'create_date'          => Mage::helper('M2ePro')->getCurrentGmtDate(),
+                    'listing_product_id' => $listingProduct->getId(),
+                    'is_online_disabled' => $amazonListingOther->isRepricingDisabled(),
+                    'is_online_inactive' => $amazonListingOther->isRepricingInactive(),
+                    'update_date'        => Mage::helper('M2ePro')->getCurrentGmtDate(),
+                    'create_date'        => Mage::helper('M2ePro')->getCurrentGmtDate(),
                 )
             );
             $listingProductRepricing->save();
@@ -1050,11 +1119,11 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
         $instruction = Mage::getModel('M2ePro/Listing_Product_Instruction');
         $instruction->setData(
             array(
-            'listing_product_id' => $listingProduct->getId(),
-            'component'          => Ess_M2ePro_Helper_Component_Amazon::NICK,
-            'type'               => Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_OTHER,
-            'initiator'          => Ess_M2ePro_Model_Listing::INSTRUCTION_INITIATOR_MOVING_PRODUCT_FROM_OTHER,
-            'priority'           => 20,
+                'listing_product_id' => $listingProduct->getId(),
+                'component'          => Ess_M2ePro_Helper_Component_Amazon::NICK,
+                'type'               => Ess_M2ePro_Model_Listing::INSTRUCTION_TYPE_PRODUCT_MOVED_FROM_OTHER,
+                'initiator'          => Ess_M2ePro_Model_Listing::INSTRUCTION_INITIATOR_MOVING_PRODUCT_FROM_OTHER,
+                'priority'           => 20,
             )
         );
         $instruction->save();
@@ -1062,10 +1131,118 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
         return $listingProduct;
     }
 
+    public function addProductFromAnotherAmazonSite(
+        Ess_M2ePro_Model_Listing_Product $sourceListingProduct,
+        Ess_M2ePro_Model_Listing $sourceListing
+    ) {
+        /** @var Ess_M2ePro_Model_Listing_Product $listingProduct */
+        $listingProduct = $this->getParentObject()->addProduct(
+            $sourceListingProduct->getProductId(),
+            Ess_M2ePro_Helper_Data::INITIATOR_USER,
+            false,
+            false
+        );
+
+        $logModel = Mage::getModel('M2ePro/Listing_Log');
+        $logModel->setComponentMode($this->getComponentMode());
+
+        $logMessage = Mage::helper('M2ePro')->__(
+            'Product was copied from %previous_listing_name% (%previous_marketplace%) 
+            Listing to %current_listing_name% (%current_marketplace%) Listing.',
+            $sourceListing->getTitle(),
+            $sourceListing->getMarketplace()->getCode(),
+            $this->getParentObject()->getTitle(),
+            $this->getMarketplace()->getCode()
+        );
+
+        if ($listingProduct instanceof Ess_M2ePro_Model_Listing_Product) {
+            $logModel->addProductMessage(
+                $sourceListing->getId(),
+                $sourceListingProduct->getProductId(),
+                $sourceListingProduct->getId(),
+                Ess_M2ePro_Helper_Data::INITIATOR_USER,
+                $logModel->getResource()->getNextActionId(),
+                Ess_M2ePro_Model_Listing_Log::ACTION_SELL_ON_ANOTHER_SITE,
+                $logMessage,
+                Ess_M2ePro_Model_Log_Abstract::TYPE_NOTICE
+            );
+
+            $listingProduct->getChildObject()->setData(
+                'general_id',
+                $sourceListingProduct->getChildObject()->getGeneralId()
+            );
+
+            $listingProduct->getChildObject()->setData(
+                'is_general_id_owner',
+                $sourceListingProduct->getChildObject()->isGeneralIdOwner()
+            );
+
+            $sourceAdditionalData = $sourceListingProduct->getSettings('additional_data');
+            $additionalData = $listingProduct->getSettings('additional_data');
+            $keys = array(
+                'variation_product_attributes',
+                'variation_virtual_channel_attributes',
+                'variation_channel_variations',
+                'variation_channel_attributes_sets',
+                'variation_virtual_product_attributes',
+                'variation_matched_attributes'
+            );
+
+            foreach ($keys as $key) {
+                if (!isset($sourceAdditionalData[$key])) {
+                    continue;
+                }
+
+                $additionalData[$key] = $sourceAdditionalData[$key];
+            }
+
+            $listingProduct->setSettings('additional_data', $additionalData);
+
+            if ($sourceListing->getMarketplaceId() == $this->getParentObject()->getMarketplaceId()) {
+                $listingProduct->getChildObject()->setData(
+                    'template_description_id',
+                    $sourceListingProduct->getChildObject()->getTemplateDescriptionId()
+                );
+                $listingProduct->getChildObject()->setData(
+                    'template_shipping_id',
+                    $sourceListingProduct->getChildObject()->getTemplateShippingId()
+                );
+                $listingProduct->getChildObject()->setData(
+                    'template_product_tax_code_id',
+                    $sourceListingProduct->getChildObject()->getTemplateProductTaxCodeId()
+                );
+            }
+
+            // @codingStandardsIgnoreLine
+            $listingProduct->getChildObject()->save();
+            $listingProduct->save();
+
+            return $listingProduct;
+        }
+
+        $logMessage = Mage::helper('M2ePro')->__(
+            'Product already exists in the %listing_name% Listing.',
+            $this->getParentObject()->getTitle()
+        );
+
+        $logModel->addProductMessage(
+            $sourceListing->getId(),
+            $sourceListingProduct->getProductId(),
+            $sourceListingProduct->getId(),
+            Ess_M2ePro_Helper_Data::INITIATOR_USER,
+            $logModel->getResource()->getNextActionId(),
+            Ess_M2ePro_Model_Listing_Log::ACTION_SELL_ON_ANOTHER_SITE,
+            $logMessage,
+            Ess_M2ePro_Model_Log_Abstract::TYPE_ERROR
+        );
+
+        return false;
+    }
+
     public function addProductFromListing(
         Ess_M2ePro_Model_Listing_Product $listingProduct,
         Ess_M2ePro_Model_Listing $sourceListing
-    ){
+    ) {
         if (!$this->getParentObject()->addProductFromListing($listingProduct, $sourceListing, false)) {
             return false;
         }
@@ -1095,12 +1272,14 @@ class Ess_M2ePro_Model_Amazon_Listing extends Ess_M2ePro_Model_Component_Child_A
     public function save()
     {
         Mage::helper('M2ePro/Data_Cache_Permanent')->removeTagValues('listing');
+
         return parent::save();
     }
 
     public function delete()
     {
         Mage::helper('M2ePro/Data_Cache_Permanent')->removeTagValues('listing');
+
         return parent::delete();
     }
 

@@ -26,8 +26,9 @@ final class Ess_M2ePro_Model_Cron_Runner_Developer extends Ess_M2ePro_Model_Cron
 
     public function process()
     {
+        // @codingStandardsIgnoreLine
         session_write_close();
-        return parent::process();
+        parent::process();
     }
 
     //########################################
@@ -37,12 +38,11 @@ final class Ess_M2ePro_Model_Cron_Runner_Developer extends Ess_M2ePro_Model_Cron
      */
     protected function getStrategyObject()
     {
-        /** @var Ess_M2ePro_Model_Cron_Strategy_Abstract $strategyObject */
-        $strategyObject = Mage::getModel('M2ePro/Cron_Strategy_Serial');
+        $tasks = $this->_allowedTasks;
+        empty($tasks) && $tasks = Mage::getSingleton('M2ePro/Cron_Task_Repository')->getRegisteredTasks();
 
-        if (!empty($this->_allowedTasks)) {
-            $strategyObject->setAllowedTasks($this->_allowedTasks);
-        }
+        $strategyObject = Mage::getModel('M2ePro/Cron_Strategy_Serial');
+        $strategyObject->setAllowedTasks($tasks);
 
         return $strategyObject;
     }
@@ -59,9 +59,28 @@ final class Ess_M2ePro_Model_Cron_Runner_Developer extends Ess_M2ePro_Model_Cron
         return $this;
     }
 
+    //########################################
+
     protected function isPossibleToRun()
     {
         return true;
+    }
+
+    protected function canProcessRunner()
+    {
+        return true;
+    }
+
+    //########################################
+
+    protected function updateLastRun()
+    {
+        return null;
+    }
+
+    protected function updateLastAccess()
+    {
+        return null;
     }
 
     //########################################

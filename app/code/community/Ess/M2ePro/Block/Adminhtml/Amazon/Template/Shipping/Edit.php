@@ -15,16 +15,11 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Template_Shipping_Edit
     {
         parent::__construct();
 
-        // Initialization block
-        // ---------------------------------------
         $this->setId('amazonTemplateShippingEdit');
         $this->_blockGroup = 'M2ePro';
         $this->_controller = 'adminhtml_amazon_template_shipping';
         $this->_mode = 'edit';
-        // ---------------------------------------
 
-        // Set header text
-        // ---------------------------------------
         if (!Mage::helper('M2ePro/Component')->isSingleActiveComponent()) {
             $componentName = Mage::helper('M2ePro/Component_Amazon')->getTitle();
 
@@ -64,20 +59,22 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Template_Shipping_Edit
         $this->_addButton(
             'back', array(
             'label'     => Mage::helper('M2ePro')->__('Back'),
-            'onclick'   => 'AmazonTemplateShippingHandlerObj.back_click(\'' . $url . '\')',
+            'onclick'   => 'AmazonTemplateShippingObj.back_click(\'' . $url . '\')',
             'class'     => 'back'
             )
         );
         // ---------------------------------------
 
-        if (Mage::helper('M2ePro/Data_Global')->getValue('temp_data')
+        $isSaveAndClose = (bool)$this->getRequest()->getParam('close_on_save', false);
+
+        if (!$isSaveAndClose && Mage::helper('M2ePro/Data_Global')->getValue('temp_data')
             && Mage::helper('M2ePro/Data_Global')->getValue('temp_data')->getId()
         ) {
             // ---------------------------------------
             $this->_addButton(
                 'duplicate', array(
                 'label'   => Mage::helper('M2ePro')->__('Duplicate'),
-                'onclick' => 'AmazonTemplateShippingHandlerObj.duplicate_click'
+                'onclick' => 'AmazonTemplateShippingObj.duplicate_click'
                     .'(\'amazon-template-shipping\')',
                 'class'   => 'add M2ePro_duplicate_button'
                 )
@@ -88,7 +85,7 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Template_Shipping_Edit
             $this->_addButton(
                 'delete', array(
                 'label'     => Mage::helper('M2ePro')->__('Delete'),
-                'onclick'   => 'AmazonTemplateShippingHandlerObj.delete_click()',
+                'onclick'   => 'AmazonTemplateShippingObj.delete_click()',
                 'class'     => 'delete M2ePro_delete_button'
                 )
             );
@@ -96,33 +93,47 @@ class Ess_M2ePro_Block_Adminhtml_Amazon_Template_Shipping_Edit
         }
 
         // ---------------------------------------
-        $this->_addButton(
-            'save', array(
-            'label'     => Mage::helper('M2ePro')->__('Save'),
-            'onclick'   => 'AmazonTemplateShippingHandlerObj.save_click('
-                . '\'\','
-                . '\'' . $this->getSaveConfirmationText() . '\','
-                . '\'' . Ess_M2ePro_Block_Adminhtml_Amazon_Template_Grid::TEMPLATE_SHIPPING . '\''
-            . ')',
-            'class'     => 'save'
-            )
-        );
-        // ---------------------------------------
 
-        // ---------------------------------------
-        $this->_addButton(
-            'save_and_continue', array(
-            'label'     => Mage::helper('M2ePro')->__('Save And Continue Edit'),
-            'onclick'   => 'AmazonTemplateShippingHandlerObj.save_and_edit_click('
-                . '\'\','
-                . 'undefined,'
-                . '\'' . $this->getSaveConfirmationText() . '\','
-                . '\'' . Ess_M2ePro_Block_Adminhtml_Amazon_Template_Grid::TEMPLATE_SHIPPING . '\''
-                . ')',
-            'class'     => 'save'
-            )
-        );
-        // ---------------------------------------
+        if ($isSaveAndClose) {
+            $this->removeButton('back');
+
+            $this->_addButton(
+                'save',
+                array(
+                    'id' => 'save_and_close',
+                    'label'   => Mage::helper('M2ePro')->__('Save And Close'),
+                    'onclick' => 'AmazonTemplateShippingObj.saveAndClose('
+                        . '\'' . $this->getUrl('*/*/save', array('_current' => true)) . '\','
+                        . ')',
+                    'class'   => 'save'
+                )
+            );
+        } else {
+            $this->_addButton(
+                'save', array(
+                    'label'     => Mage::helper('M2ePro')->__('Save'),
+                    'onclick'   => 'AmazonTemplateShippingObj.save_click('
+                        . '\'\','
+                        . '\'' . $this->getSaveConfirmationText() . '\','
+                        . '\'' . Ess_M2ePro_Block_Adminhtml_Amazon_Template_Grid::TEMPLATE_SHIPPING . '\''
+                        . ')',
+                    'class'     => 'save'
+                )
+            );
+
+            $this->_addButton(
+                'save_and_continue', array(
+                    'label'     => Mage::helper('M2ePro')->__('Save And Continue Edit'),
+                    'onclick'   => 'AmazonTemplateShippingObj.save_and_edit_click('
+                        . '\'\','
+                        . 'undefined,'
+                        . '\'' . $this->getSaveConfirmationText() . '\','
+                        . '\'' . Ess_M2ePro_Block_Adminhtml_Amazon_Template_Grid::TEMPLATE_SHIPPING . '\''
+                        . ')',
+                    'class'     => 'save'
+                )
+            );
+        }
     }
 
     //########################################

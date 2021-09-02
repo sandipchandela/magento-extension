@@ -12,110 +12,101 @@ class Ess_M2ePro_Helper_Client extends Mage_Core_Helper_Abstract
 
     //########################################
 
-    public function getHost()
-    {
-        $domain = $this->getDomain();
-        return $domain == '' ? $this->getIp() : $domain;
-    }
-
-    // ---------------------------------------
-
     public function getDomain()
     {
-        $server = Mage::app()->getRequest()->getServer();
-
-        $domain = Mage::helper('M2ePro/Module')->getCacheConfig()->getGroupValue('/location_info/', 'domain');
-        if ($domain === null && isset($server['HTTP_HOST'])) {
-            $domain = rtrim($server['HTTP_HOST'], '/');
+        $domain = Mage::helper('M2ePro/Module')->getConfig()->getGroupValue('/location/', 'domain');
+        if (empty($domain)) {
+            $domain = $this->getServerDomain();
         }
 
-        if ($domain !== null) {
-            strpos($domain, 'www.') === 0 && $domain = substr($domain, 4);
-            return strtolower(trim($domain));
+        if (empty($domain)) {
+            throw new Ess_M2ePro_Model_Exception('Server domain is not defined');
         }
 
-        throw new Ess_M2ePro_Model_Exception('Server domain is not defined');
+        return $domain;
     }
 
     public function getIp()
     {
-        $server = Mage::app()->getRequest()->getServer();
-
-        $backupIp = Mage::helper('M2ePro/Module')->getCacheConfig()->getGroupValue('/location_info/', 'ip');
-
-        if ($backupIp !== null) {
-            return strtolower(trim($backupIp));
+        $ip = Mage::helper('M2ePro/Module')->getConfig()->getGroupValue('/location/', 'ip');
+        if (empty($ip)) {
+            $ip = $this->getServerIp();
         }
 
-        $serverIp = isset($server['SERVER_ADDR']) ? $server['SERVER_ADDR'] : null;
-        $serverIp === null && $serverIp = isset($server['LOCAL_ADDR']) ? $server['LOCAL_ADDR'] : null;
-
-        if ($serverIp !== null) {
-            return strtolower(trim($serverIp));
+        if (empty($ip)) {
+            throw new Ess_M2ePro_Model_Exception('Server IP is not defined');
         }
 
-        throw new Ess_M2ePro_Model_Exception('Server IP is not defined');
+        return $ip;
     }
 
     public function getBaseDirectory()
     {
-        $backupDirectory = Mage::helper('M2ePro/Module')->getCacheConfig()
-                                    ->getGroupValue('/location_info/', 'directory');
-
-        if ($backupDirectory !== null) {
-            return $backupDirectory;
-        }
-
         return Mage::getBaseDir();
-    }
-
-    public function isBrowserIE()
-    {
-        $server = Mage::app()->getRequest()->getServer();
-
-        if (isset($server['HTTP_USER_AGENT']) && strpos($server['HTTP_USER_AGENT'], 'MSIE') !== false) {
-            return true;
-        }
-
-        return false;
     }
 
     // ---------------------------------------
 
-    public function updateBackupConnectionData($forceUpdate = false)
+    public function updateLocationData($forceUpdate = false)
+    {
+        $dateLastCheck = Mage::helper('M2ePro/Module')->getRegistry()->getValue('/location/date_last_check/');
+        if ($dateLastCheck !== null) {
+            $dateLastCheck = strtotime($dateLastCheck);
+
+            if (!$forceUpdate && Mage::helper('M2ePro')->getCurrentGmtDate(true) < $dateLastCheck + 60*60*24) {
+                return;
+            }
+        }
+
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue(
+            '/location/date_last_check/',
+            Mage::helper('M2ePro')->getCurrentGmtDate()
+        );
+
+        $domain = $this->getServerDomain();
+        if (null === $domain) {
+            $domain = '127.0.0.1';
+        }
+
+        $ip = $this->getServerIp();
+        if (null === $ip) {
+            $ip = '127.0.0.1';
+        }
+
+        Mage::helper('M2ePro/Module')->getConfig()->setGroupValue('/location/', 'domain', $domain);
+        Mage::helper('M2ePro/Module')->getConfig()->setGroupValue('/location/', 'ip', $ip);
+    }
+
+    protected function getServerDomain()
     {
         $server = Mage::app()->getRequest()->getServer();
 
-        $dateLastCheck = Mage::helper('M2ePro/Module')->getCacheConfig()
-                                ->getGroupValue('/location_info/', 'date_last_check');
-
-        if ($dateLastCheck === null) {
-            $dateLastCheck = Mage::helper('M2ePro')->getCurrentGmtDate(true)-60*60*365;
-        } else {
-            $dateLastCheck = strtotime($dateLastCheck);
+        if (!isset($server['HTTP_HOST'])) {
+            return null;
         }
 
-        if (!$forceUpdate && Mage::helper('M2ePro')->getCurrentGmtDate(true) < $dateLastCheck + 60*60*24) {
-            return;
+        $domain = rtrim($server['HTTP_HOST'], '/');
+        if (strpos($domain, 'www.') === 0) {
+            $domain = substr($domain, 4);
         }
 
-        $domainBackup = isset($server['HTTP_HOST']) ? $server['HTTP_HOST'] : '127.0.0.1';
-        strpos($domainBackup, 'www.') === 0 && $domainBackup = substr($domainBackup, 4);
-        Mage::helper('M2ePro/Module')->getCacheConfig()
-            ->setGroupValue('/location_info/', 'domain', $domainBackup);
+        return strtolower(trim($domain));
+    }
 
-        $ipBackup = isset($server['SERVER_ADDR']) ? $server['SERVER_ADDR'] : null;
-        $ipBackup === null && $ipBackup = isset($server['LOCAL_ADDR']) ? $server['LOCAL_ADDR'] : '127.0.0.1';
-        Mage::helper('M2ePro/Module')->getCacheConfig()
-            ->setGroupValue('/location_info/', 'ip', $ipBackup);
+    protected function getServerIp()
+    {
+        $server = Mage::app()->getRequest()->getServer();
 
-        $directoryBackup = Mage::getBaseDir();
-        Mage::helper('M2ePro/Module')->getCacheConfig()
-            ->setGroupValue('/location_info/', 'directory', $directoryBackup);
+        $ip = null;
+        if (isset($server['SERVER_ADDR'])) {
+            $ip = $server['SERVER_ADDR'];
+        } elseif (isset($server['LOCAL_ADDR'])) {
+            $ip = $server['LOCAL_ADDR'];
+        }
 
-        Mage::helper('M2ePro/Module')->getCacheConfig()->setGroupValue(
-            '/location_info/', 'date_last_check', Mage::helper('M2ePro')->getCurrentGmtDate()
-        );
+        empty($ip) && $ip = gethostbyname(gethostname());
+
+        return null !== $ip ? strtolower(trim($ip)) : $ip;
     }
 
     //########################################
@@ -321,6 +312,7 @@ class Ess_M2ePro_Helper_Client extends Mage_Core_Helper_Abstract
             return false;
         }
 
+        // @codingStandardsIgnoreStart
         for ($i=$minSize; $i<=$maxSize; $i*=2) {
             if (@ini_set('memory_limit', "{$i}M") === false) {
                 if ($i == $minSize) {
@@ -330,19 +322,70 @@ class Ess_M2ePro_Helper_Client extends Mage_Core_Helper_Abstract
                 }
             }
         }
+        // @codingStandardsIgnoreEnd
 
         return true;
+    }
+
+    public function testMemoryLimit($bytes = null)
+    {
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue('/tools/memory-limit/test/', null);
+
+        $i = 0;
+        $array = array();
+
+        // @codingStandardsIgnoreStart
+        while (($usage = memory_get_usage(true)) < $bytes || $bytes === null) {
+            $array[] = $array;
+            if (++$i % 100 === 0) {
+                Mage::helper('M2ePro/Module')->getRegistry()->setValue('/tools/memory-limit/test/', $usage);
+            }
+        }
+        // @codingStandardsIgnoreEnd
+
+        return $usage;
+    }
+
+    public function getTestedMemoryLimit()
+    {
+        return Mage::helper('M2ePro/Module')->getRegistry()->getValue('/tools/memory-limit/test/');
     }
 
     // ---------------------------------------
 
     public function getExecutionTime()
     {
-        if (!$this->isPhpApiApacheHandler()) {
+        if ($this->isPhpApiFastCgi()) {
             return null;
         }
 
+        // @codingStandardsIgnoreLine
         return @ini_get('max_execution_time');
+    }
+
+    public function testExecutionTime($seconds)
+    {
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue('/tools/execution-time/test/', null);
+
+        $i = 0;
+
+        // @codingStandardsIgnoreStart
+        while ($i < $seconds) {
+            sleep(1);
+            if (++$i % 10 === 0) {
+                Mage::helper('M2ePro/Module')->getRegistry()->setValue('/tools/execution-time/test/', $i);
+            }
+        }
+        // @codingStandardsIgnoreEnd
+
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue('/tools/execution-time/test/', $seconds);
+
+        return $i;
+    }
+
+    public function getTestedExecutionTime()
+    {
+        return Mage::helper('M2ePro/Module')->getRegistry()->getValue('/tools/execution-time/test/');
     }
 
     // ---------------------------------------
@@ -353,6 +396,7 @@ class Ess_M2ePro_Helper_Client extends Mage_Core_Helper_Abstract
         $connRead = Mage::getSingleton('core/resource')->getConnection('core_read');
 
         try {
+            // @codingStandardsIgnoreLine
             $connRead->query('SELECT 1');
         } catch (Exception $exception) {
             $connRead->closeConnection();

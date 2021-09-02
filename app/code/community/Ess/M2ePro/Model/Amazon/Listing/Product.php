@@ -119,18 +119,45 @@ class Ess_M2ePro_Model_Amazon_Listing_Product extends Ess_M2ePro_Model_Component
 
     //########################################
 
+    /**
+     * @return bool
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function isVariationMode()
+    {
+        if ($this->hasData(__METHOD__)) {
+            return $this->getData(__METHOD__);
+        }
+
+        $result = $this->getMagentoProduct()->isProductWithVariations();
+
+        if ($this->getParentObject()->isGroupedProductModeSet()) {
+            $result = false;
+        }
+
+        $this->setData(__METHOD__, $result);
+
+        return $result;
+    }
+
+    /**
+     * @throws Ess_M2ePro_Model_Exception
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
     public function afterSaveNewEntity()
     {
         /** @var Ess_M2ePro_Model_Amazon_Listing_Product_Variation_Manager $variationManager */
         $variationManager = $this->getVariationManager();
-        $magentoProduct = $this->getMagentoProduct();
-
-        if ($magentoProduct->isProductWithVariations() && !$variationManager->isVariationProduct()) {
-            $this->getParentObject()->setData('is_variation_product', 1);
-            $variationManager->setRelationParentType();
-            $variationManager->getTypeModel()->resetProductAttributes(false);
-            $variationManager->getTypeModel()->getProcessor()->process();
+        if ($variationManager->isVariationProduct() || !$this->isVariationMode()) {
+            return null;
         }
+
+        // need to be added to parent
+        $this->getParentObject()->setData('is_variation_product', 1);
+
+        $variationManager->setRelationParentType();
+        $variationManager->getTypeModel()->resetProductAttributes(false);
+        $variationManager->getTypeModel()->getProcessor()->process();
     }
 
     //########################################
@@ -381,7 +408,8 @@ class Ess_M2ePro_Model_Amazon_Listing_Product extends Ess_M2ePro_Model_Component
         }
 
         if ($this->getMagentoProduct()->isConfigurableType() ||
-            $this->getMagentoProduct()->isGroupedType()) {
+            $this->getMagentoProduct()->isGroupedType() &&
+                !$this->getParentObject()->isGroupedProductModeSet()) {
             $variations = $this->getVariations(true);
             if (empty($variations)) {
                 throw new Ess_M2ePro_Model_Exception_Logic(
@@ -456,12 +484,11 @@ class Ess_M2ePro_Model_Amazon_Listing_Product extends Ess_M2ePro_Model_Component
     /**
      * @param bool $asObjects
      * @param array $filters
-     * @param bool $tryToGetFromStorage
-     * @return array
+     * @return Ess_M2ePro_Model_Listing_Product_Variation[]|array
      */
-    public function getVariations($asObjects = false, array $filters = array(), $tryToGetFromStorage = true)
+    public function getVariations($asObjects = false, array $filters = array())
     {
-        return $this->getParentObject()->getVariations($asObjects, $filters, $tryToGetFromStorage);
+        return $this->getParentObject()->getVariations($asObjects, $filters);
     }
 
     //########################################
@@ -625,7 +652,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product extends Ess_M2ePro_Model_Component
      */
     public function getOnlineDetailsData()
     {
-        return $this->getSettings('online_details_data');
+        return $this->getData('online_details_data');
     }
 
     /**
@@ -633,23 +660,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product extends Ess_M2ePro_Model_Component
      */
     public function getOnlineImagesData()
     {
-        return $this->getSettings('online_images_data');
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDetailsDataChanged()
-    {
-        return (bool)$this->getData('is_details_data_changed');
-    }
-
-    /**
-     * @return bool
-     */
-    public function isImagesDataChanged()
-    {
-        return (bool)$this->getData('is_images_data_changed');
+        return $this->getData('online_images_data');
     }
 
     // ---------------------------------------
@@ -777,7 +788,7 @@ class Ess_M2ePro_Model_Amazon_Listing_Product extends Ess_M2ePro_Model_Component
 
     public function isAllowedForBusinessCustomers()
     {
-        if (!Mage::helper('M2ePro/Component_Amazon_Business')->isEnabled()) {
+        if (!Mage::helper('M2ePro/Component_Amazon_Configuration')->isEnabledBusinessMode()) {
             return false;
         }
 
@@ -1193,37 +1204,9 @@ class Ess_M2ePro_Model_Amazon_Listing_Product extends Ess_M2ePro_Model_Component
 
     //########################################
 
-    public function listAction(array $params = array())
+    public function mapChannelItemProduct()
     {
-        return $this->processDispatcher(Ess_M2ePro_Model_Listing_Product::ACTION_LIST, $params);
-    }
-
-    public function relistAction(array $params = array())
-    {
-        return $this->processDispatcher(Ess_M2ePro_Model_Listing_Product::ACTION_RELIST, $params);
-    }
-
-    public function reviseAction(array $params = array())
-    {
-        return $this->processDispatcher(Ess_M2ePro_Model_Listing_Product::ACTION_REVISE, $params);
-    }
-
-    public function stopAction(array $params = array())
-    {
-        return $this->processDispatcher(Ess_M2ePro_Model_Listing_Product::ACTION_STOP, $params);
-    }
-
-    public function deleteAction(array $params = array())
-    {
-        return $this->processDispatcher(Ess_M2ePro_Model_Listing_Product::ACTION_DELETE, $params);
-    }
-
-    // ---------------------------------------
-
-    protected function processDispatcher($action, array $params = array())
-    {
-        $dispatcherObject = Mage::getModel('M2ePro/Amazon_Connector_Product_Dispatcher');
-        return $dispatcherObject->process($action, $this->getId(), $params);
+        $this->getResource()->mapChannelItemProduct($this);
     }
 
     //########################################

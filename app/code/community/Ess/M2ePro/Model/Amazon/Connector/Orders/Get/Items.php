@@ -29,10 +29,18 @@ class Ess_M2ePro_Model_Amazon_Connector_Orders_Get_Items extends Ess_M2ePro_Mode
         }
 
         $data = array(
-            'accounts'         => $accountsAccessTokens,
-            'from_update_date' => $this->_params['from_update_date'],
-            'to_update_date'   => $this->_params['to_update_date']
+            'accounts' => $accountsAccessTokens,
         );
+
+        if (!empty($this->_params['from_update_date']) && !empty($this->_params['to_update_date'])) {
+            $data['from_update_date'] = $this->_params['from_update_date'];
+            $data['to_update_date']   = $this->_params['to_update_date'];
+        }
+
+        if (!empty($this->_params['from_create_date']) && !empty($this->_params['to_create_date'])) {
+            $data['from_create_date'] = $this->_params['from_create_date'];
+            $data['to_create_date']   = $this->_params['to_create_date'];
+        }
 
         if (!empty($this->_params['job_token'])) {
             $data['job_token'] = $this->_params['job_token'];
@@ -45,32 +53,39 @@ class Ess_M2ePro_Model_Amazon_Connector_Orders_Get_Items extends Ess_M2ePro_Mode
 
     public function process()
     {
-        $cacheConfig = Mage::helper('M2ePro/Module')->getCacheConfig();
-        $cacheConfigGroup = '/amazon/synchronization/orders/receive/timeout';
-
         try {
             parent::process();
         } catch (Ess_M2ePro_Model_Exception_Connection $exception) {
             $data = $exception->getAdditionalData();
             if (!empty($data['curl_error_number']) && $data['curl_error_number'] == CURLE_OPERATION_TIMEOUTED) {
-                $fails = (int)$cacheConfig->getGroupValue($cacheConfigGroup, 'fails');
+                $fails = (int)Mage::helper('M2ePro/Module')->getRegistry()->getValue(
+                    '/amazon/orders/receive/timeout_fails/'
+                );
                 $fails++;
 
-                $rise = (int)$cacheConfig->getGroupValue($cacheConfigGroup, 'rise');
+                $rise = (int)Mage::helper('M2ePro/Module')->getRegistry()->getValue(
+                    '/amazon/orders/receive/timeout_rise/'
+                );
                 $rise += self::TIMEOUT_RISE_ON_ERROR;
 
                 if ($fails >= self::TIMEOUT_ERRORS_COUNT_TO_RISE && $rise <= self::TIMEOUT_RISE_MAX_VALUE) {
                     $fails = 0;
-                    $cacheConfig->setGroupValue($cacheConfigGroup, 'rise', $rise);
+                    Mage::helper('M2ePro/Module')->getRegistry()->setValue(
+                        '/amazon/orders/receive/timeout_rise/',
+                        $rise
+                    );
                 }
 
-                $cacheConfig->setGroupValue($cacheConfigGroup, 'fails', $fails);
+                Mage::helper('M2ePro/Module')->getRegistry()->setValue(
+                    '/amazon/orders/receive/timeout_fails/',
+                    $fails
+                );
             }
 
             throw $exception;
         }
 
-        $cacheConfig->setGroupValue($cacheConfigGroup, 'fails', 0);
+        Mage::helper('M2ePro/Module')->getRegistry()->setValue('/amazon/orders/receive/timeout_fails/', 0);
     }
 
     protected function buildConnectionInstance()
@@ -85,10 +100,9 @@ class Ess_M2ePro_Model_Amazon_Connector_Orders_Get_Items extends Ess_M2ePro_Mode
 
     protected function getRequestTimeOut()
     {
-        $cacheConfig = Mage::helper('M2ePro/Module')->getCacheConfig();
-        $cacheConfigGroup = '/amazon/synchronization/orders/receive/timeout';
-
-        $rise = (int)$cacheConfig->getGroupValue($cacheConfigGroup, 'rise');
+        $rise = (int)Mage::helper('M2ePro/Module')->getRegistry()->getValue(
+            '/amazon/orders/receive/timeout_rise/'
+        );
         $rise > self::TIMEOUT_RISE_MAX_VALUE && $rise = self::TIMEOUT_RISE_MAX_VALUE;
 
         return 300 + $rise;
@@ -152,16 +166,8 @@ class Ess_M2ePro_Model_Amazon_Connector_Orders_Get_Items extends Ess_M2ePro_Mode
 
                 $order['shipping_address'] = $this->parseShippingAddress($shipping, $marketplace);
 
-                $order['shipping_dates'] = array(
-                    'ship' => array(
-                        'from' => $shipping['ship_date']['from'],
-                        'to'   => $shipping['ship_date']['to'],
-                    ),
-                    'delivery' => array(
-                        'from' => $shipping['delivery_date']['from'],
-                        'to'   => $shipping['delivery_date']['to'],
-                    ),
-                );
+                $order['shipping_date_to'] = $shipping['ship_date']['to'];
+                $order['delivery_date_to'] = $shipping['delivery_date']['to'];
 
                 $order['currency']    = isset($orderData['currency']) ? trim($orderData['currency']) : '';
                 $order['paid_amount'] = isset($orderData['amount_paid']) ? (float)$orderData['amount_paid'] : 0;
@@ -180,11 +186,13 @@ class Ess_M2ePro_Model_Amazon_Connector_Orders_Get_Items extends Ess_M2ePro_Mode
                         'is_isbn_general_id'   => (int)$item['identifiers']['is_isbn'],
                         'title'                => trim($item['title']),
                         'price'                => (float)$item['prices']['product']['value'],
+                        'shipping_price'       => (float)$item['prices']['shipping']['value'],
                         'gift_price'           => (float)$item['prices']['gift']['value'],
                         'gift_type'            => trim($item['gift_type']),
                         'gift_message'         => trim($item['gift_message']),
                         'currency'             => trim($item['prices']['product']['currency']),
                         'tax_details'          => $item['taxes'],
+                        'ioss_number'          => $item['ioss_number'],
                         'discount_details'     => $item['discounts'],
                         'qty_purchased'        => (int)$item['qty']['ordered'],
                         'qty_shipped'          => (int)$item['qty']['shipped']
@@ -196,9 +204,16 @@ class Ess_M2ePro_Model_Amazon_Connector_Orders_Get_Items extends Ess_M2ePro_Mode
         }
 
         $this->_responseData = array(
-            'items'          => $preparedOrders,
-            'to_update_date' => $responseData['to_update_date']
+            'items' => $preparedOrders,
         );
+
+        if (!empty($responseData['to_update_date'])) {
+            $this->_responseData['to_update_date'] = $responseData['to_update_date'];
+        }
+
+        if (!empty($responseData['to_create_date'])) {
+            $this->_responseData['to_create_date'] = $responseData['to_create_date'];
+        }
 
         if (!empty($responseData['job_token'])) {
             $this->_responseData['job_token'] = $responseData['job_token'];

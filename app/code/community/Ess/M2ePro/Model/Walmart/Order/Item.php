@@ -124,17 +124,9 @@ class Ess_M2ePro_Model_Walmart_Order_Item extends Ess_M2ePro_Model_Component_Chi
     /**
      * @return int
      */
-    public function getQty()
-    {
-        return (int)$this->getData('qty');
-    }
-
-    /*
-   * Compatibility with Amazon | Ebay
-   */
     public function getQtyPurchased()
     {
-        return $this->getQty();
+        return (int)$this->getData('qty_purchased');
     }
 
     // ---------------------------------------
@@ -232,7 +224,7 @@ class Ess_M2ePro_Model_Walmart_Order_Item extends Ess_M2ePro_Model_Component_Chi
 
         // ---------------------------------------
 
-        // 3rd party Item
+        // Unmanaged Item
         // ---------------------------------------
         $sku = $this->getSku();
         if ($sku != '' && strlen($sku) <= Ess_M2ePro_Helper_Magento_Product::SKU_MAX_LENGTH) {
@@ -276,7 +268,9 @@ class Ess_M2ePro_Model_Walmart_Order_Item extends Ess_M2ePro_Model_Component_Chi
     protected function createProduct()
     {
         if (!$this->getWalmartAccount()->isMagentoOrdersListingsOtherProductImportEnabled()) {
-            throw new Ess_M2ePro_Model_Exception('Product Import is disabled in Walmart Account Settings.');
+            throw new Ess_M2ePro_Model_Exception(Mage::helper('M2ePro')->__(
+                'Product creation is disabled in "Account > Orders > Product Not Found".'
+            ));
         }
 
         $storeId = $this->getWalmartAccount()->getMagentoOrdersListingsOtherStoreId();
@@ -334,11 +328,11 @@ class Ess_M2ePro_Model_Walmart_Order_Item extends Ess_M2ePro_Model_Component_Chi
             ->addFieldToFilter('sku', $this->getSku())
             ->getFirstItem();
 
-        if ((int)$otherListing->getOnlineQty() > $this->getQty()) {
+        if ((int)$otherListing->getOnlineQty() > $this->getQtyPurchased()) {
             return $otherListing->getOnlineQty();
         }
 
-        return $this->getQty();
+        return $this->getQtyPurchased();
     }
 
     //########################################

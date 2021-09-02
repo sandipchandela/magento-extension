@@ -86,7 +86,7 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Order_View_Form extends Ess_M2ePro_Block_A
             ->setData(
                 array(
                 'label'   => Mage::helper('M2ePro')->__('Add Note'),
-                'onclick' => "OrderNoteHandlerObj.openAddNotePopup({$this->order->getId()})",
+                'onclick' => "OrderNoteObj.openAddNotePopup({$this->order->getId()})",
                 'class'   => 'order_note_btn',
                 )
             );
@@ -184,6 +184,37 @@ class Ess_M2ePro_Block_Adminhtml_Ebay_Order_View_Form extends Ess_M2ePro_Block_A
         );
 
         return $taxAmount + $shippingTaxAmount;
+    }
+
+    /**
+     * @return array
+     * @throws Ess_M2ePro_Model_Exception_Logic
+     */
+    public function getStatus()
+    {
+        if ($this->order->getChildObject()->isCanceled()) {
+            $status = array(
+                'value' => Mage::helper('M2ePro')->__('Canceled'),
+                'color' => 'red'
+            );
+        } elseif ($this->order->getChildObject()->isShippingCompleted()) {
+            $status = array(
+                'value' => Mage::helper('M2ePro')->__('Shipped'),
+                'color' => 'green'
+            );
+        } elseif ($this->order->getChildObject()->isPaymentCompleted()) {
+            $status = array(
+                'value' => Mage::helper('M2ePro')->__('Unshipped'),
+                'color' => 'black'
+            );
+        } else {
+            $status = array(
+                'value' => Mage::helper('M2ePro')->__('Pending'),
+                'color' => 'gray'
+            );
+        }
+
+        return $status;
     }
 
     //########################################

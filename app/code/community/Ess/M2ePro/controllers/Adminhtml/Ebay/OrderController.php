@@ -20,12 +20,12 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
              ->addJs('M2ePro/Plugin/ProgressBar.js')
              ->addCss('M2ePro/css/Plugin/ProgressBar.css')
              ->addJs('M2ePro/Order/Debug.js')
-             ->addJs('M2ePro/Order/Handler.js')
-             ->addJs('M2ePro/Order/Edit/ItemHandler.js')
-             ->addJs('M2ePro/Order/Edit/ShippingAddressHandler.js')
-             ->addJs('M2ePro/Ebay/Order/MigrationToV611Handler.js')
-             ->addJs('M2ePro/GridHandler.js')
-             ->addJs('M2ePro/Order/NoteHandler.js')
+             ->addJs('M2ePro/Order.js')
+             ->addJs('M2ePro/Order/Edit/Item.js')
+             ->addJs('M2ePro/Order/Edit/ShippingAddress.js')
+             ->addJs('M2ePro/Ebay/Order/MigrationToV611.js')
+             ->addJs('M2ePro/Grid.js')
+             ->addJs('M2ePro/Order/Note.js')
              ->addJs('M2ePro/Plugin/ActionColumn.js');
 
         $this->setPageHelpLink(null, null, "x/RQAJAQ");
@@ -130,6 +130,7 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
 
         $data = array();
         $keys = array(
+            'recipient_name',
             'street',
             'city',
             'country_code',
@@ -174,6 +175,8 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
         /** @var Ess_M2ePro_Model_Resource_Order_Collection $ordersCollection */
         $ordersCollection = Mage::helper('M2ePro/Component_Ebay')->getCollection('Order')
             ->addFieldToFilter('id', array('in' => $ids));
+        /** @var Ess_M2ePro_Model_Order_Shipment_Handler $handler */
+        $handler = Mage::getModel("M2ePro/Ebay_Order_Shipment_Handler");
 
         $hasFailed = false;
         $hasSucceeded = false;
@@ -198,8 +201,6 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
                     continue;
                 }
 
-                /** @var Ess_M2ePro_Model_Order_Shipment_Handler $handler */
-                $handler = Ess_M2ePro_Model_Order_Shipment_Handler::factory($order->getComponentMode());
                 $result  = $handler->handle($order, $shipment);
 
                 $result == Ess_M2ePro_Model_Order_Shipment_Handler::HANDLE_RESULT_SUCCEEDED ? $hasSucceeded = true
@@ -243,6 +244,8 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
         foreach ($ordersCollection->getItems() as $order) {
             /** @var Ess_M2ePro_Model_Order $order */
 
+            $order->getLog()->setInitiator(Ess_M2ePro_Helper_Data::INITIATOR_USER);
+
             $order->getChildObject()->updatePaymentStatus() ? $hasSucceeded = true
                                                             : $hasFailed = true;
         }
@@ -270,7 +273,7 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
     {
         if ($this->sendInStorePickupNotifications('ready_for_pickup')) {
             $this->_getSession()->addSuccess(
-                Mage::helper('M2ePro')->__('Orders were successfully marked as Ready For Pickup.')
+                Mage::helper('M2ePro')->__('Orders were marked as Ready For Pickup.')
             );
         } else {
             $this->_getSession()->addError(
@@ -285,7 +288,7 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
     {
         if ($this->sendInStorePickupNotifications('picked_up')) {
             $this->_getSession()->addSuccess(
-                Mage::helper('M2ePro')->__('Orders were successfully marked as Picked Up.')
+                Mage::helper('M2ePro')->__('Orders were marked as Picked Up.')
             );
         } else {
             $this->_getSession()->addError(
@@ -300,7 +303,7 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
     {
         if ($this->sendInStorePickupNotifications('cancelled')) {
             $this->_getSession()->addSuccess(
-                Mage::helper('M2ePro')->__('Orders were successfully marked as Cancelled.')
+                Mage::helper('M2ePro')->__('Orders were marked as Cancelled.')
             );
         } else {
             $this->_getSession()->addError(
@@ -325,15 +328,15 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
         $successMessage = '';
         switch ($type) {
             case 'ready_for_pickup':
-                $successMessage = Mage::helper('M2ePro')->__('Order was successfully marked as Ready For Pickup');
+                $successMessage = Mage::helper('M2ePro')->__('Order was marked as Ready For Pickup');
                 break;
 
             case 'picked_up':
-                $successMessage = Mage::helper('M2ePro')->__('Order was successfully marked as Picked Up');
+                $successMessage = Mage::helper('M2ePro')->__('Order was marked as Picked Up');
                 break;
 
             case 'cancelled':
-                $successMessage = Mage::helper('M2ePro')->__('Order was successfully marked as Cancelled');
+                $successMessage = Mage::helper('M2ePro')->__('Order was marked as Cancelled');
                 break;
         }
 
@@ -398,9 +401,7 @@ class Ess_M2ePro_Adminhtml_Ebay_OrderController extends Ess_M2ePro_Controller_Ad
                 $order->createInvoice();
             }
 
-            if ($order->getChildObject()->canCreateShipment()) {
-                $order->createShipment();
-            }
+            $order->createShipment();
 
             if ($order->getChildObject()->canCreateTracks()) {
                 $order->getChildObject()->createTracks();

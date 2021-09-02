@@ -17,6 +17,25 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Type_List_Request
 
     //########################################
 
+    protected function beforeBuildDataEvent()
+    {
+        $additionalData = $this->getListingProduct()->getAdditionalData();
+
+        if ($this->getListingProduct()->getMagentoProduct()->isGroupedType()) {
+            $additionalData['grouped_product_mode'] = Mage::helper('M2ePro/Module_Configuration')
+                ->getGroupedProductMode();
+        }
+
+        unset($additionalData['synch_template_list_rules_note']);
+
+        $this->getListingProduct()->setSettings('additional_data', $additionalData);
+        $this->getListingProduct()->save();
+
+        parent::beforeBuildDataEvent();
+    }
+
+    //########################################
+
     protected function getActionData()
     {
         $data = array(
@@ -24,13 +43,15 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Type_List_Request
             'type_mode' => $this->_cachedData['list_type'],
         );
 
-        if ($this->_cachedData['list_type'] == self::LIST_TYPE_NEW &&
-            $this->getVariationManager()->isRelationMode()) {
+        if ($this->_cachedData['list_type'] == self::LIST_TYPE_NEW && $this->getVariationManager()->isRelationMode()) {
             $data = array_merge($data, $this->getRelationData());
         }
 
         $data = array_merge(
             $data,
+            $this->getQtyData(),
+            $this->getRegularPriceData(),
+            $this->getBusinessPriceData(),
             $this->getDetailsData(),
             $this->getImagesData()
         );
@@ -44,13 +65,6 @@ class Ess_M2ePro_Model_Amazon_Listing_Product_Action_Type_List_Request
         } else {
             $data = array_merge($data, $this->getExistProductIdentifierData());
         }
-
-        $data = array_merge(
-            $data,
-            $this->getQtyData(),
-            $this->getRegularPriceData(),
-            $this->getBusinessPriceData()
-        );
 
         return $data;
     }
